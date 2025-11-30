@@ -1,0 +1,3 @@
+1.0.0 - Initial Release
+1.1.0 - Added structures. Updated to include damage multipliers per unit, and for global melee damage. Added unit and structure costs.
+1.1.1 - Bugfix for structure cost.
