@@ -497,15 +497,15 @@ namespace CrusaderDETweaker.Systems
 
             // MONK: Mace unit, needs special handling vs Unarmored/Light
             // vs ARAB_SLAVE (2.0): Game=80, Calc=100 → needs 0.8x modifier (80/100 = 0.8)
-            // vs ARAB_SLINGER (1.5): Game=80, Calc=50 → needs 1.6x modifier (80/50 = 1.6)
-            // vs BEDOUIN_EUNUCH (1.5): Game=70, Calc=62 → needs 1.13x modifier (70/62 = 1.13)
+            // vs ARAB_SLINGER (1.5): Game=80, Calc=75 → needs 1.067x modifier (80/75 = 1.067)
+            // vs BEDOUIN_EUNUCH (1.5): Game=70, Calc=75 → needs 0.933x modifier (70/75 = 0.933)
             // vs BEDOUIN_HEALER (2.0): Game=100, Calc=100 → needs 1.0x modifier (100/100 = 1.0)
             var monk = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_MONK);
             if (monk != null)
             {
                 monk.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 0.8f); // 80/100 = 0.8
-                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1.6f); // 80/50 = 1.6
-                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 1.13f); // 70/62 = 1.13
+                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1.067f); // 80/75 = 1.067
+                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 0.933f); // 70/75 = 0.933
                 monk.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.0f); // 100/100 = 1.0
             }
 
@@ -513,7 +513,7 @@ namespace CrusaderDETweaker.Systems
             // vs ARAB_SLAVE (2.0): Game=10, Calc=20 → needs 0.5x modifier (10/20 = 0.5)
             // vs ARAB_SLINGER (1.5): Game=10, Calc=15 → needs 0.667x modifier
             // vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → needs 0.667x modifier (10/15 = 0.667)
-            // vs BEDOUIN_HEALER (2.0): Game=20, Calc=15 → needs 1.33x modifier (20/15 = 1.33) to override cap
+            // vs BEDOUIN_HEALER (2.0): Game=20, Calc=20 → needs 1.0x modifier (20/20 = 1.0, excluded from cap)
             // vs Heavy: Game=10, Calc=5 → needs 2.0x modifier
             var bedouinEunuch = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH);
             if (bedouinEunuch != null)
@@ -521,7 +521,7 @@ namespace CrusaderDETweaker.Systems
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 0.5f); // 10/20 = 0.5
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 0.667f); // 10/15 = 0.667
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 0.667f); // 10/15 = 0.667
-                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.33f); // 20/15 = 1.33
+                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.0f); // 20/20 = 1.0
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_KNIGHT, 2.0f);
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 2.0f);
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 0.5f); // 2/4 = 0.5
@@ -637,13 +637,13 @@ namespace CrusaderDETweaker.Systems
             // DOG: Small Beast unit, needs special modifiers
             // vs ARAB_SLAVE (2.0): Game=20, Calc=10 → needs 2.0x modifier (deal base * armorValue)
             // vs ARAB_SLINGER (1.5): Game=15, Calc=10 → needs 1.5x modifier (deal base * armorValue)
-            // vs TREBUCHET (0.4): Game=10, Calc=25 → needs 0.4x modifier (10/25 = 0.4)
+            // vs TREBUCHET (0.4): Game=10, Calc=10 → needs 1.0x modifier (effectiveArmorValue is set to 1.0, so base calc is 10)
             var dog = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_DOG);
             if (dog != null)
             {
                 dog.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 2.0f); // 20/10 = 2.0
                 dog.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1.5f); // 15/10 = 1.5
-                dog.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 0.4f); // 10/25 = 0.4
+                dog.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 1.0f); // 10/10 = 1.0 (effectiveArmorValue is 1.0)
             }
 
             // LORD: Armor_Piercing Sword unit, needs modifiers vs Light armor

@@ -206,9 +206,20 @@ namespace CrusaderDETweaker.Systems
                     // These deal normal calculated damage (will be calculated below)
                 }
                 // All other units (Assassin, Ranged, Unarmed) deal minimum damage (2)
+                // Exception: HUNTER has a modifier 5.0x for TREBUCHET, so bypass SiegeDefense
                 else
                 {
-                    return MinimumDamage; // 2
+                    // Check if attacker has a modifier for this defender - if so, bypass SiegeDefense
+                    float siegeModifier = attackerData.GetModifierAgainst(defender);
+                    if (siegeModifier != 1.0f)
+                    {
+                        // Modifier exists, so bypass SiegeDefense and calculate normally
+                        // This will be handled in the damage calculation below
+                    }
+                    else
+                    {
+                        return MinimumDamage; // 2
+                    }
                 }
             }
 
@@ -603,8 +614,13 @@ namespace CrusaderDETweaker.Systems
             }
 
             // Apply tag vs tag modifiers (Polearm vs Ladderman, etc.)
-            float tagModifier = GetTagVsTagModifier(attackerData, defenderData);
-            damage *= tagModifier;
+            // Note: For Ranged units, tag modifiers are applied in CalculateRangedMeleeDamage
+            // For other units, apply here
+            if (weaponCategory != WeaponCategory.Ranged)
+            {
+                float tagModifier = GetTagVsTagModifier(attackerData, defenderData);
+                damage *= tagModifier;
+            }
 
             // Unit-specific modifiers are now applied earlier (before caps for normal weapons, after base calculation for special weapons)
             // Only apply here if not already applied above
@@ -817,6 +833,11 @@ namespace CrusaderDETweaker.Systems
             }
             
             float damage = baseDamage * armorValue * multiplier;
+            
+            // Apply tag vs tag modifiers (Hunter vs Beast, etc.) BEFORE caps
+            // This allows caps to account for tag modifiers
+            float tagModifier = GetTagVsTagModifier(attacker, defender);
+            damage *= tagModifier;
             
             // Apply damage cap based on armor value and unit type
             // ARCHER (10) vs ARAB_SLAVE (2.0): 20 = 10 * 2.0 (cap = base * 2.0)
