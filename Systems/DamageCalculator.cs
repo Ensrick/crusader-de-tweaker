@@ -408,10 +408,14 @@ namespace CrusaderDETweaker.Systems
                     {
                         // Mace vs Unarmored: cap at base * 1.0 for medium-strength units (40-50)
                         // BEDOUIN_DEMOLISHER (40) vs ARAB_SLAVE (2.0): Game=40, Calc=80 → Cap at base * 1.0
+                        // BEDOUIN_DEMOLISHER (40) vs BEDOUIN_HEALER (2.0): Game=60, Calc=80 → No cap (modifier will handle it)
                         // MACEMAN (75) vs ARAB_SLAVE (2.0): Game=150, Calc=150 → No cap for strong units
                         // MONK (50) vs Unarmored: handled by unit-specific modifiers
-                        if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage < 50)
+                        // Check if modifier exists - if so, skip cap (modifier already applied)
+                        float maceModifier = attackerData.GetModifierAgainst(defender);
+                        if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage < 50 && maceModifier == 1.0f)
                         {
+                            // Only cap if no special modifier exists
                             damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
                         }
                         // MONK (50) and strong Mace units (75+): handled by unit-specific modifiers or no cap
@@ -451,6 +455,7 @@ namespace CrusaderDETweaker.Systems
                         // Mace vs Unarmored: cap at base * 1.5 for weak units
                         // BLACKSMITH (20) vs ARAB_SLAVE (2.0): Game=30, Calc=40 → Cap at base * 1.5
                         // BLACKSMITH (20) vs BEDOUIN_HEALER (2.0): Game=30, Calc=40 → Cap at base * 1.5
+                        // Apply cap before unit-specific modifiers
                         if (attackerData.BaseMeleeDamage <= 20)
                         {
                             damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap at base * 1.5
@@ -462,8 +467,12 @@ namespace CrusaderDETweaker.Systems
                     // Lance Cavalry vs Unarmored
                     // BEDOUIN_CAMEL_LANCER (80) vs ARAB_SLAVE (2.0): Game=160, Calc=80 → Should be base * 2.0 (no cap)
                     // BEDOUIN_HEAVY_CAMEL (40) vs ARAB_SLAVE (2.0): Game=40, Calc=80 → Cap at base * 1.0
-                    if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 50)
+                    // BEDOUIN_HEAVY_CAMEL (40) vs BEDOUIN_HEALER (2.0): Game=60, Calc=80 → No cap (modifier will handle it)
+                    // Check if modifier exists - if so, skip cap (modifier already applied)
+                    float lanceModifier = attackerData.GetModifierAgainst(defender);
+                    if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 50 && lanceModifier == 1.0f)
                     {
+                        // Only cap if no special modifier exists
                         damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
                     }
                     // Strong Lance units (80+): no cap, deal full damage (base * 2.0)
