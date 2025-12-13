@@ -86,8 +86,6 @@
     <Compile Include="Config\Toml\Core\PropertyHandler.cs" />
     <Compile Include="Config\Toml\Core\PropertyRegistry.cs" />
     <Compile Include="Config\Toml\ProjectileDamage\ProjectileDamageConfig.cs" />
-    <Compile Include="Config\Toml\ProjectileDamage\ProjectileDamageConfigGenerator.cs" />
-    <Compile Include="Config\Toml\ProjectileDamage\ProjectileDamageConfigLoader.cs" />
     <Compile Include="Config\Toml\Structures\Properties\StructureCostProperties.cs" />
     <Compile Include="Config\Toml\Structures\Properties\StructureHealthProperty.cs" />
     <Compile Include="Config\Toml\Structures\Properties\StructureHousingPopulationSpaceProperty.cs" />
