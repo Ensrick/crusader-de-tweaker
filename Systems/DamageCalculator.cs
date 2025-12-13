@@ -175,6 +175,22 @@ namespace CrusaderDETweaker.Systems
             var weaponCategory = GetWeaponCategory(attackerData);
             var armorCategory = GetArmorCategory(defenderData);
 
+            // RULE 2: SiegeDefense - Ranged/Unarmed/Assassin units deal minimum damage (2)
+            // Most ranged, unarmed, and assassin units deal only 2 damage vs Trebuchet
+            // Strong melee units (Sword, Mace, Lance, Axe, Polearm) bypass this and deal higher damage
+            if (defenderData.HasTag("SiegeDefense") || defenderData.HasTag("Armor_Siege"))
+            {
+                // Ranged, Unarmed, and Assassin units deal minimum damage vs SiegeDefense
+                if (weaponCategory == WeaponCategory.Ranged || 
+                    weaponCategory == WeaponCategory.Unarmed || 
+                    weaponCategory == WeaponCategory.Dagger)
+                {
+                    return MinimumDamage; // 2
+                }
+                // Strong melee units (Sword, Mace, Lance, Axe, Polearm, Beast) bypass SiegeDefense
+                // and deal normal calculated damage (they have their own issues, but not this one)
+            }
+
             // Core formula varies by weapon type:
             // - Most weapons: BaseDamage × WeaponVsArmorMultiplier × ArmorValue
             // - Assassin: Special formula (ignores lookup table)
