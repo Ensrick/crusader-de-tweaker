@@ -330,7 +330,7 @@ namespace CrusaderDETweaker.Systems
                         // BEDOUIN_DEMOLISHER (40) vs KNIGHT: Game=40, Calc=7 → Should be 40 * 1.0 * 1.0 = 40 (ignore multiplier and armor)
                         // MONK (50) vs KNIGHT: Game=50, Calc=8 → Should be 50 * 1.0 * 1.0 = 50 (ignore multiplier and armor)
                         // BLACKSMITH (20) vs KNIGHT: Game=20, Calc=3 → Should be 20 * 1.0 * 1.0 = 20 (ignore multiplier and armor)
-                        if (attackerData.BaseMeleeDamage >= 40 && attackerData.BaseMeleeDamage < 75)
+                        if (attackerData.BaseMeleeDamage >= 20 && attackerData.BaseMeleeDamage < 75)
                         {
                             // Medium-strength Mace units (40-74): deal flat base damage vs Heavy
                             weaponVsArmorMultiplier = 1.0f; // Override 0.33x multiplier
@@ -444,6 +444,16 @@ namespace CrusaderDETweaker.Systems
                             {
                                 damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f); // Cap at base * 1.25
                             }
+                        }
+                    }
+                    else if (defenderData.ArmorValue >= 2.0f)
+                    {
+                        // Mace vs Unarmored: cap at base * 1.5 for weak units
+                        // BLACKSMITH (20) vs ARAB_SLAVE (2.0): Game=30, Calc=40 → Cap at base * 1.5
+                        // BLACKSMITH (20) vs BEDOUIN_HEALER (2.0): Game=30, Calc=40 → Cap at base * 1.5
+                        if (attackerData.BaseMeleeDamage <= 20)
+                        {
+                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap at base * 1.5
                         }
                     }
                 }
@@ -749,17 +759,15 @@ namespace CrusaderDETweaker.Systems
             }
             else if (armorValue >= 1.5f)
             {
-                // Light armor: varies by attacker base damage
-                // ARCHER (10) vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → Cap at base * 1.0
-                // HUNTER (10) vs ARAB_SLINGER (1.5): Game=15, Calc=20 → Cap at base * 1.5
-                // HUNTER (10) vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → Cap at base * 1.0
-                // BEDOUIN_AMBUSHER (10) vs ARAB_SLAVE (2.0): Game=10, Calc=20 → Cap at base * 1.0
-                // BEDOUIN_AMBUSHER (10) vs ARAB_SLINGER (1.5): Game=10, Calc=20 → Cap at base * 1.0
-                // BEDOUIN_AMBUSHER (10) vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → Cap at base * 1.0
+                // Light armor: varies by attacker base damage and defender type
+                // ARCHER (10) vs ARAB_SLINGER (1.5, Ranged): Game=20, Calc=15 → Need 1.33x multiplier
+                // ARCHER (10) vs BEDOUIN_EUNUCH (1.5, not Ranged): Game=10, Calc=15 → Need 1.0x multiplier, cap at base
+                // XBOWMAN (10) vs ARAB_SLINGER (1.5, Ranged): Game=20, Calc=15 → Need 1.33x multiplier
+                // XBOWMAN (10) vs BEDOUIN_EUNUCH (1.5, not Ranged): Game=10, Calc=15 → Need 1.0x multiplier, cap at base
                 if (baseDamage <= 10)
                 {
-                    // Small ranged units: 1.0x multiplier vs Light armor
-                    multiplier = 1.0f;
+                    // Small ranged units: 1.33x if defender is ranged, 1.0x if not
+                    multiplier = defenderIsRanged ? 1.33f : 1.0f;
                 }
                 else
                 {
@@ -803,11 +811,12 @@ namespace CrusaderDETweaker.Systems
                 // Unarmored: cap varies by unit
                 if (isHunter)
                 {
-                    cap = baseDamage * 1.5f; // HUNTER: cap at base * 1.5
+                    cap = baseDamage * 2.0f; // HUNTER: cap at base * 2.0 (Game=20, Calc=15 → Need higher cap)
                 }
                 else if (isBedouinAmbusher)
                 {
-                    cap = baseDamage * 1.0f; // BEDOUIN_AMBUSHER: cap at base
+                    // BEDOUIN_AMBUSHER vs BEDOUIN_HEALER: Game=20, Calc=10 → Need 2.0x modifier (handled by modifier)
+                    cap = baseDamage * 2.0f; // Allow up to 2.0x
                 }
                 else
                 {
@@ -835,6 +844,13 @@ namespace CrusaderDETweaker.Systems
                 else if (isBedouinAmbusher)
                 {
                     cap = baseDamage * 1.0f; // BEDOUIN_AMBUSHER: cap at base
+                }
+                else if (baseDamage <= 10 && !defenderIsRanged)
+                {
+                    // Small ranged units vs non-ranged Light armor: cap at base
+                    // ARCHER (10) vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → Cap at base * 1.0
+                    // XBOWMAN (10) vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → Cap at base * 1.0
+                    cap = baseDamage * 1.0f;
                 }
                 else
                 {

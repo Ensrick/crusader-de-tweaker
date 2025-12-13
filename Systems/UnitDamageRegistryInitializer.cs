@@ -467,14 +467,14 @@ namespace CrusaderDETweaker.Systems
 
             // BEDOUIN_CAMEL_LANCER: Lance unit with Ranged_Javelin, needs unit-specific modifiers
             // vs ARAB_SWORDSMAN (1.0): Game=30, Calc=80 → needs 0.375x modifier
-            // vs KNIGHT (0.5): Game=25, Calc=50 → needs 0.625x modifier
+            // vs KNIGHT (0.5): Game=25, Calc=50 → needs 0.3125x modifier (25/80 = 0.3125)
             // vs PIKEMAN (1.0): Game=40, Calc=80 → needs 0.5x modifier
             var camelLancer = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_BEDOUIN_CAMEL_LANCER);
             if (camelLancer != null)
             {
                 camelLancer.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SWORDSMAN, 0.375f);
-                camelLancer.AddSpecialModifier(eChimps.CHIMP_TYPE_KNIGHT, 0.625f);
-                camelLancer.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 0.625f);
+                camelLancer.AddSpecialModifier(eChimps.CHIMP_TYPE_KNIGHT, 0.3125f); // 25/80 = 0.3125
+                camelLancer.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 0.3125f); // 25/80 = 0.3125
                 camelLancer.AddSpecialModifier(eChimps.CHIMP_TYPE_PIKEMAN, 0.5f);
                 camelLancer.AddSpecialModifier(eChimps.CHIMP_TYPE_MACEMAN, 0.875f); // 70/80 = 0.875
                 camelLancer.AddSpecialModifier(eChimps.CHIMP_TYPE_XBOWMAN, 0.875f); // 70/80 = 0.875
@@ -495,29 +495,33 @@ namespace CrusaderDETweaker.Systems
                 heavyCamel.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 0.667f); // 10/15 = 0.667
             }
 
-            // MONK: Mace unit, needs special handling vs Unarmored
-            // vs ARAB_SLAVE (2.0): Game=80, Calc=50 → needs 1.6x modifier
-            // vs BEDOUIN_HEALER (2.0): Game=100, Calc=50 → needs 2.0x modifier
+            // MONK: Mace unit, needs special handling vs Unarmored/Light
+            // vs ARAB_SLAVE (2.0): Game=80, Calc=100 → needs 0.8x modifier (80/100 = 0.8)
+            // vs ARAB_SLINGER (1.5): Game=80, Calc=50 → needs 1.6x modifier (80/50 = 1.6)
+            // vs BEDOUIN_EUNUCH (1.5): Game=70, Calc=62 → needs 1.13x modifier (70/62 = 1.13)
+            // vs BEDOUIN_HEALER (2.0): Game=100, Calc=100 → needs 1.0x modifier (100/100 = 1.0)
             var monk = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_MONK);
             if (monk != null)
             {
-                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 1.6f); // 80/50 = 1.6
-                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 2.0f); // 100/50 = 2.0
+                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 0.8f); // 80/100 = 0.8
+                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1.6f); // 80/50 = 1.6
+                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 1.13f); // 70/62 = 1.13
+                monk.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.0f); // 100/100 = 1.0
             }
 
             // BEDOUIN_EUNUCH: Weak Sword unit, needs caps vs Unarmored/Light
-            // vs ARAB_SLAVE (2.0): Game=10, Calc=15 → needs 0.667x modifier
+            // vs ARAB_SLAVE (2.0): Game=10, Calc=20 → needs 0.5x modifier (10/20 = 0.5)
             // vs ARAB_SLINGER (1.5): Game=10, Calc=15 → needs 0.667x modifier
-            // vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=12 → needs 0.833x modifier
-            // vs BEDOUIN_HEALER (2.0): Game=20, Calc=15 → needs 1.333x modifier
+            // vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → needs 0.667x modifier (10/15 = 0.667)
+            // vs BEDOUIN_HEALER (2.0): Game=20, Calc=20 → needs 1.0x modifier (20/20 = 1.0, but calc is 27?)
             // vs Heavy: Game=10, Calc=5 → needs 2.0x modifier
             var bedouinEunuch = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH);
             if (bedouinEunuch != null)
             {
-                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 0.667f); // 10/15 = 0.667
+                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 0.5f); // 10/20 = 0.5
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 0.667f); // 10/15 = 0.667
-                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 0.833f); // 10/12 = 0.833
-                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.333f); // 20/15 = 1.333
+                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 0.667f); // 10/15 = 0.667
+                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 0.741f); // 20/27 = 0.741
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_KNIGHT, 2.0f);
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 2.0f);
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 0.5f); // 2/4 = 0.5
@@ -572,19 +576,29 @@ namespace CrusaderDETweaker.Systems
                 arabSlinger.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 0.667f); // 20/30 = 0.667
             }
 
-            // BEDOUIN_SKIRMISHER: Ranged unit in melee, needs caps
-            // vs ARAB_SLAVE (2.0): Game=15, Calc=19 → needs cap at base * 1.0
-            // vs ARAB_SLINGER (1.5): Game=15, Calc=19 → needs cap at base * 1.0
+            // BEDOUIN_SKIRMISHER: Ranged unit in melee, needs modifiers
+            // vs ARAB_SLAVE (2.0): Game=15, Calc=19 → needs 0.789x modifier (15/19 = 0.789)
+            // vs ARAB_SLINGER (1.5): Game=15, Calc=19 → needs 0.789x modifier (15/19 = 0.789)
             // vs BEDOUIN_EUNUCH (1.5): Game=20, Calc=19 → needs 1.05x modifier
             // vs BEDOUIN_HEALER (2.0): Game=30, Calc=19 → needs 1.58x modifier
-            // vs Heavy: Game=15, Calc=22 → needs cap at base * 1.0
+            // vs Heavy: Game=15, Calc=22 → needs 0.682x modifier
             var bedouinSkirmisher = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER);
             if (bedouinSkirmisher != null)
             {
+                bedouinSkirmisher.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 0.789f); // 15/19 = 0.789
+                bedouinSkirmisher.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 0.789f); // 15/19 = 0.789
                 bedouinSkirmisher.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 1.05f); // 20/19 = 1.05
                 bedouinSkirmisher.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.58f); // 30/19 = 1.58
                 bedouinSkirmisher.AddSpecialModifier(eChimps.CHIMP_TYPE_KNIGHT, 0.682f); // 15/22 = 0.682
                 bedouinSkirmisher.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 0.682f); // 15/22 = 0.682
+            }
+
+            // BEDOUIN_AMBUSHER: Ranged unit in melee, needs special modifier
+            // vs BEDOUIN_HEALER (2.0): Game=20, Calc=10 → needs 2.0x modifier
+            var bedouinAmbusher = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER);
+            if (bedouinAmbusher != null)
+            {
+                bedouinAmbusher.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 2.0f); // 20/10 = 2.0
             }
 
             // BEDOUIN_HEALER: Unarmed unit, needs special modifiers
@@ -619,14 +633,55 @@ namespace CrusaderDETweaker.Systems
             }
 
             // DOG: Small Beast unit, needs special modifiers
-            // vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → needs cap at base * 1.0
-            // vs BEDOUIN_HEALER (2.0): Game=10, Calc=20 → needs cap at base * 1.0
-            // vs Heavy: Game=10, Calc=5 → needs cap at base * 1.0 (already handled)
-            // vs TREBUCHET: Game=10, Calc=4 → needs 2.5x modifier
+            // vs ARAB_SLAVE (2.0): Game=20, Calc=10 → needs 2.0x modifier (deal base * armorValue)
+            // vs ARAB_SLINGER (1.5): Game=15, Calc=10 → needs 1.5x modifier (deal base * armorValue)
+            // vs TREBUCHET (0.4): Game=10, Calc=25 → needs 0.4x modifier (10/25 = 0.4)
             var dog = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_DOG);
             if (dog != null)
             {
-                dog.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 2.5f); // 10/4 = 2.5
+                dog.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 2.0f); // 20/10 = 2.0
+                dog.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1.5f); // 15/10 = 1.5
+                dog.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 0.4f); // 10/25 = 0.4
+            }
+
+            // LORD: Armor_Piercing Sword unit, needs modifiers vs Light armor
+            // vs ARAB_SLINGER (1.5): Game=200, Calc=150 → needs 1.33x modifier (200/150 = 1.33)
+            // vs BEDOUIN_EUNUCH (1.5): Game=175, Calc=150 → needs 1.17x modifier (175/150 = 1.17)
+            var lord = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_LORD);
+            if (lord != null)
+            {
+                lord.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1.33f); // 200/150 = 1.33
+                lord.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 1.17f); // 175/150 = 1.17
+            }
+
+            // MACEMAN: Strong Mace unit, needs modifiers vs Light armor and TREBUCHET
+            // vs ARAB_SLINGER (1.5): Game=120, Calc=112 → needs 1.07x modifier (120/112 = 1.07)
+            // vs BEDOUIN_EUNUCH (1.5): Game=100, Calc=112 → needs 0.89x modifier (100/112 = 0.89)
+            // vs TREBUCHET (0.4): Game=20, Calc=75 → needs 0.267x modifier (20/75 = 0.267)
+            var maceman = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_MACEMAN);
+            if (maceman != null)
+            {
+                maceman.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1.07f); // 120/112 = 1.07
+                maceman.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 0.89f); // 100/112 = 0.89
+                maceman.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 0.267f); // 20/75 = 0.267
+            }
+
+            // QUARRY_GRUNT, QUARRY_MASON, WOODCUTTER: Axe units, need cap vs BEDOUIN_HEALER
+            // vs BEDOUIN_HEALER (2.0): Game=30, Calc=40 → needs 0.75x modifier (30/40 = 0.75)
+            var quarryGrunt = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_QUARRY_GRUNT);
+            if (quarryGrunt != null)
+            {
+                quarryGrunt.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 0.75f); // 30/40 = 0.75
+            }
+            var quarryMason = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_QUARRY_MASON);
+            if (quarryMason != null)
+            {
+                quarryMason.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 0.75f); // 30/40 = 0.75
+            }
+            var woodcutter = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_WOODCUTTER);
+            if (woodcutter != null)
+            {
+                woodcutter.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 0.75f); // 30/40 = 0.75
             }
         }
 
