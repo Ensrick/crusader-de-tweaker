@@ -194,15 +194,42 @@ namespace CrusaderDETweaker.Systems
             // Special handling for Unarmed units
             else if (weaponCategory == WeaponCategory.Unarmed)
             {
-                damage = attackerData.BaseMeleeDamage * defenderData.ArmorValue;
+                // Unarmed units: flat base damage to most, double to unarmored
+                // ARAB_BALLISTA (10) vs ARAB_SLINGER (1.5): 10 (flat)
+                // ARAB_BALLISTA (10) vs ARAB_SLAVE (2.0): 20 (double)
+                // ARAB_BALLISTA (10) vs KNIGHT (0.5): 10 (flat, not reduced)
+                
+                if (defenderData.ArmorValue >= 2.0f)
+                {
+                    // Unarmored: double damage
+                    damage = attackerData.BaseMeleeDamage * 2.0f;
+                }
+                else
+                {
+                    // Everyone else: flat base damage
+                    damage = attackerData.BaseMeleeDamage;
+                }
             }
             // Normal weapons: BaseDamage × WeaponVsArmorMultiplier × ArmorValue
             else
             {
                 float weaponVsArmorMultiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
                 
-                // Armor_Piercing ignores armor reduction (treats armor as 1.0)
-                float effectiveArmorValue = attackerData.IsArmorPiercing ? 1.0f : defenderData.ArmorValue;
+                // Armor_Piercing ignores armor reduction vs Heavy/Medium, but has cap vs Unarmored
+                float effectiveArmorValue;
+                if (attackerData.IsArmorPiercing)
+                {
+                    // Lord vs Heavy/Medium: ignores armor (treats as 1.0)
+                    // Lord vs Unarmored: capped at 1.33x (200/150 = 1.33)
+                    if (defenderData.ArmorValue >= 2.0f)
+                        effectiveArmorValue = 1.33f;  // Cap vs unarmored
+                    else
+                        effectiveArmorValue = 1.0f;  // Ignore armor reduction
+                }
+                else
+                {
+                    effectiveArmorValue = defenderData.ArmorValue;
+                }
                 
                 damage = attackerData.BaseMeleeDamage * weaponVsArmorMultiplier * effectiveArmorValue;
             }
@@ -222,6 +249,8 @@ namespace CrusaderDETweaker.Systems
 
         /// <summary>
         /// Get the weapon category for an attacker based on their tags.
+        /// Priority: Beast > Weapon tags > Ranged tags > Unarmed
+        /// Units with both Weapon and Ranged tags use Weapon category for melee.
         /// </summary>
         private static WeaponCategory GetWeaponCategory(UnitDamageData attacker)
         {
@@ -229,12 +258,9 @@ namespace CrusaderDETweaker.Systems
             if (attacker.HasTag("Beast"))
                 return WeaponCategory.Beast;
 
+            // Weapon tags take priority over Ranged tags (for melee damage)
             if (attacker.HasTag("Weapon_Dagger") || attacker.HasTag("Assassin"))
                 return WeaponCategory.Dagger;
-
-            if (attacker.HasTag("Ranged_Bow") || attacker.HasTag("Ranged_Crossbow") ||
-                attacker.HasTag("Ranged_Sling") || attacker.HasTag("Ranged_Javelin"))
-                return WeaponCategory.Ranged;
 
             if (attacker.HasTag("Weapon_Lance"))
                 return WeaponCategory.Lance;
@@ -250,6 +276,12 @@ namespace CrusaderDETweaker.Systems
 
             if (attacker.HasTag("Weapon_Sword"))
                 return WeaponCategory.Sword;
+
+            // Only check Ranged tags if no Weapon tag was found
+            // (Ranged units without melee weapons use Ranged category in melee)
+            if (attacker.HasTag("Ranged_Bow") || attacker.HasTag("Ranged_Crossbow") ||
+                attacker.HasTag("Ranged_Sling") || attacker.HasTag("Ranged_Javelin"))
+                return WeaponCategory.Ranged;
 
             // Default to unarmed
             return WeaponCategory.Unarmed;
@@ -321,10 +353,16 @@ namespace CrusaderDETweaker.Systems
             // vs Heavy (0.5): flat base damage (80) - ignores armor reduction
             // vs Light (1.5): varies by unit (250 for Slinger, 150 for Eunuch)
             // vs Unarmored (2.0): 250 = base * 3.125
+            // vs Siege (0.4): 2 (minimum damage)
             
-            if (armorValue <= 1.0f)
+            if (armorValue <= 0.5f)
             {
-                // Medium or Heavy: flat base damage
+                // Heavy or Siege: flat base damage (but minimum damage applies)
+                return baseDamage;
+            }
+            else if (armorValue <= 1.0f)
+            {
+                // Medium: flat base damage
                 return baseDamage;
             }
             else if (armorValue >= 2.0f)
@@ -334,38 +372,52 @@ namespace CrusaderDETweaker.Systems
             }
             else
             {
-                // Light armor (1.5): varies, use average of observed values
-                // Slinger: 250 = 80 * 3.125, Eunuch: 150 = 80 * 1.875
-                // Use formula: base * (1.0 + (armor - 1.0) * 4.25)
-                float multiplier = 1.0f + (armorValue - 1.0f) * 4.25f;
-                return baseDamage * multiplier;
+                // Light armor (1.5): varies by defender type
+                // ARAB_SLINGER: 250 = 80 * 3.125
+                // BEDOUIN_EUNUCH: 150 = 80 * 1.875
+                // Use average: base * 2.5
+                return baseDamage * 2.5f;
             }
         }
 
         /// <summary>
         /// Special damage calculation for Ranged units in melee combat.
         /// Ranged units use a different formula when fighting in melee.
+        /// Pattern from CSV: damage varies by defender type, not just armor value.
         /// </summary>
         private static float CalculateRangedMeleeDamage(UnitDamageData attacker, UnitDamageData defender)
         {
             float baseDamage = attacker.BaseMeleeDamage;
             float armorValue = defender.ArmorValue;
 
-            // Ranged units in melee: base * armorValue * 2.0
-            // ARAB_BOW (10) vs ARAB_ASSASIN (1.0): 10 * 1.0 * 2.0 = 20 ✓
-            // ARAB_BOW (10) vs ARAB_SLAVE (2.0): 10 * 2.0 * 1.5 = 30 ✓
-            // ARAB_BOW (10) vs ARAB_SLINGER (1.5): 10 * 1.5 * 2.0 = 30 ✓
-            // ARAB_BOW (10) vs KNIGHT (0.5): 10 * 0.5 * 3.0 = 15 ✓
+            // Ranged units in melee formula from game data:
+            // Pattern: base * multiplier * armorValue
+            // Multiplier depends on armor value AND whether defender is ranged
+            
+            // vs ARCHER (1.0, Ranged): 15 = 10 * 1.5 * 1.0
+            // vs ARAB_ASSASIN (1.0, Non-ranged): 20 = 10 * 2.0 * 1.0
+            // vs ARAB_SLAVE (2.0, Unarmored): 30 = 10 * 1.5 * 2.0
+            // vs ARAB_SLINGER (1.5, Ranged): 30 = 10 * 2.0 * 1.5
+            // vs BEDOUIN_EUNUCH (1.5, Non-ranged): 25 = 10 * 1.67 * 1.5
+            // vs KNIGHT (0.5, Heavy): 15 = 10 * 3.0 * 0.5
             
             float multiplier;
+            bool defenderIsRanged = defender.IsRangedUnit;
+            
             if (armorValue >= 2.0f)
-                multiplier = 1.5f;  // Unarmored
+                multiplier = 1.5f;  // Unarmored: always 1.5x
             else if (armorValue >= 1.5f)
-                multiplier = 2.0f;   // Light
+            {
+                // Light armor: 2.0x if defender is ranged, 1.67x if not
+                multiplier = defenderIsRanged ? 2.0f : 1.67f;
+            }
             else if (armorValue >= 1.0f)
-                multiplier = 2.0f;   // Medium
+            {
+                // Medium armor: 1.5x if defender is ranged, 2.0x if not
+                multiplier = defenderIsRanged ? 1.5f : 2.0f;
+            }
             else
-                multiplier = 3.0f;    // Heavy (0.5)
+                multiplier = 3.0f;    // Heavy (0.5): always 3.0x
             
             return baseDamage * armorValue * multiplier;
         }
