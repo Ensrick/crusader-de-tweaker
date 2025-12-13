@@ -385,43 +385,71 @@ namespace CrusaderDETweaker.Systems
         /// <summary>
         /// Special damage calculation for Ranged units in melee combat.
         /// Ranged units use a different formula when fighting in melee.
-        /// Pattern from CSV: damage varies by defender type, not just armor value.
+        /// Formula: base * multiplier * armorValue, with damage caps.
         /// </summary>
         private static float CalculateRangedMeleeDamage(UnitDamageData attacker, UnitDamageData defender)
         {
             float baseDamage = attacker.BaseMeleeDamage;
             float armorValue = defender.ArmorValue;
 
-            // Ranged units in melee formula from game data:
-            // Pattern: base * multiplier * armorValue
-            // Multiplier depends on armor value AND whether defender is ranged
-            
-            // vs ARCHER (1.0, Ranged): 15 = 10 * 1.5 * 1.0
-            // vs ARAB_ASSASIN (1.0, Non-ranged): 20 = 10 * 2.0 * 1.0
-            // vs ARAB_SLAVE (2.0, Unarmored): 30 = 10 * 1.5 * 2.0
-            // vs ARAB_SLINGER (1.5, Ranged): 30 = 10 * 2.0 * 1.5
-            // vs BEDOUIN_EUNUCH (1.5, Non-ranged): 25 = 10 * 1.67 * 1.5
-            // vs KNIGHT (0.5, Heavy): 15 = 10 * 3.0 * 0.5
+            // Ranged melee formula from CSV data:
+            // ARCHER (10) vs ARAB_ASSASIN (1.0): 10 = 10 * 1.0 * 1.0
+            // ARCHER (10) vs ARAB_BOW (1.0, Ranged): 15 = 10 * 1.5 * 1.0
+            // ARCHER (10) vs ARAB_SLAVE (2.0): 20 = 10 * 1.0 * 2.0
+            // ARCHER (10) vs ARAB_SLINGER (1.5, Ranged): 20 = 10 * 1.33 * 1.5
+            // ARAB_SLINGER (20) vs ARAB_SLAVE (2.0): 25 = 20 * 1.0 * 2.0 = 40, but capped at 25
+            // ARAB_SLINGER (20) vs ARAB_SLINGER (1.5): 25 = 20 * 1.0 * 1.5 = 30, but capped at 25
             
             float multiplier;
             bool defenderIsRanged = defender.IsRangedUnit;
             
             if (armorValue >= 2.0f)
-                multiplier = 1.5f;  // Unarmored: always 1.5x
+            {
+                // Unarmored: 1.0x multiplier, but capped at base * 1.5 for some units
+                multiplier = 1.0f;
+            }
             else if (armorValue >= 1.5f)
             {
-                // Light armor: 2.0x if defender is ranged, 1.67x if not
-                multiplier = defenderIsRanged ? 2.0f : 1.67f;
+                // Light armor: 1.33x if defender is ranged, 1.0x if not
+                multiplier = defenderIsRanged ? 1.33f : 1.0f;
             }
             else if (armorValue >= 1.0f)
             {
-                // Medium armor: 1.5x if defender is ranged, 2.0x if not
-                multiplier = defenderIsRanged ? 1.5f : 2.0f;
+                // Medium armor: 1.5x if defender is ranged, 1.0x if not
+                multiplier = defenderIsRanged ? 1.5f : 1.0f;
             }
             else
-                multiplier = 3.0f;    // Heavy (0.5): always 3.0x
+            {
+                // Heavy (0.5): 3.0x
+                multiplier = 3.0f;
+            }
             
-            return baseDamage * armorValue * multiplier;
+            float damage = baseDamage * armorValue * multiplier;
+            
+            // Apply damage cap based on armor value
+            // ARCHER (10) vs ARAB_SLAVE (2.0): 20 = 10 * 2.0 (cap = base * 2.0)
+            // ARAB_SLINGER (20) vs ARAB_SLAVE (2.0): 25 = 20 * 1.25 (cap = base * 1.25)
+            // ARAB_SLINGER (20) vs ARAB_SLINGER (1.5): 25 = 20 * 1.25 (cap = base * 1.25)
+            // ARCHER (10) vs ARAB_SLINGER (1.5): 20 = 10 * 2.0 (cap = base * 2.0)
+            
+            float cap;
+            if (armorValue >= 2.0f)
+            {
+                // Unarmored: cap at base * 2.0 for small units, base * 1.25 for larger
+                cap = baseDamage <= 10 ? baseDamage * 2.0f : baseDamage * 1.25f;
+            }
+            else if (armorValue >= 1.5f)
+            {
+                // Light armor: cap at base * 1.25 for larger units
+                cap = baseDamage <= 10 ? baseDamage * 2.0f : baseDamage * 1.25f;
+            }
+            else
+            {
+                // Medium/Heavy: no cap
+                cap = float.MaxValue;
+            }
+            
+            return Math.Min(damage, cap);
         }
 
         /// <summary>
