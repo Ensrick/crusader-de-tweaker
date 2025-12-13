@@ -40,6 +40,9 @@ namespace CrusaderDETweaker.Systems
             InitializeBeastUnits();
             InitializeEliteUnits();
 
+            // Unit-specific modifiers for unique behaviors
+            InitializeUnitSpecificModifiers();
+
             Plugin.Logger.LogInfo($"Unit Damage Registry initialized with {UnitDamageRegistry.GetRegisteredCount()} units");
         }
 
@@ -332,6 +335,102 @@ namespace CrusaderDETweaker.Systems
             // Arab Assassin - Dagger, high damage vs unarmored
             RegisterUnit(eChimps.CHIMP_TYPE_ARAB_ASSASIN, 80, 1.0f, 
                 "Armor_Light", "Weapon_Dagger", "Assassin");
+        }
+
+        // ============================================
+        // UNIT-SPECIFIC MODIFIERS
+        // Units with unique behaviors that don't fit the standard formula
+        // ============================================
+        private static void InitializeUnitSpecificModifiers()
+        {
+            // ARAB_BOW: Uses a different melee weapon (possibly a scimitar or curved blade)
+            // Has unique damage patterns that don't match standard Sword behavior
+            // vs Medium armor (1.0): Most defenders take 0.5x damage, some take 0.75x
+            // vs Light armor (1.5): Takes 1.5x damage (no cap)
+            // vs Unarmored (2.0): Capped at 1.5x base
+            var arabBow = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_ARAB_BOW);
+            if (arabBow != null)
+            {
+                // Most Medium armor defenders: 0.5x multiplier
+                // This makes 20 * 1.0 * 1.0 * 0.5 = 10
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_ARCHER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_ARMOURER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_BAKER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_BALLISTA, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_BATTERING_RAM, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_BLACKSMITH, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_BREWER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_CAMEL, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_CATAPULT, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_CHICKEN, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_COW, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_CROCODILE, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_CROW, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_DEER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_DOG, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_DRUNKARD, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_ENGINEER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_FARMER_APPLE, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_FARMER_CATTLE, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_FARMER_HOPS, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_FARMER_WHEAT, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_FIREEATER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_FIREMAN, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_FLETCHER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_GOAT, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_HEALER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_HUNTER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_HYENA, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_INNKEEPER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_JESTER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_JUGGLER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_LADDERMAN, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_LADY, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_LION, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_LORD, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_MANGONEL, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_MILLER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_MINER1, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_MINER2, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_MONK, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_PEASANT, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_PITCHMAN, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_POLETURNER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_PORTABLE_SHIELD, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_PRIEST, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_QUARRY_GRUNT, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_QUARRY_MASON, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_QUARRY_OX, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_RABBIT, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_SEAGULL, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_SIEGE_TOWER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_TANNER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_TRADER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_TRADER_HORSE, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_TUNNELER, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_WAR_DOG, 0.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_WOODCUTTER, 0.5f);
+
+                // Some Medium armor defenders: 0.75x multiplier (MACEMAN, PIKEMAN, SPEARMAN, XBOWMAN)
+                // This makes 20 * 1.0 * 1.0 * 0.75 = 15
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_MACEMAN, 0.75f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_PIKEMAN, 0.75f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_SPEARMAN, 0.75f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_XBOWMAN, 0.75f);
+            }
+
+            // ARAB_SLAVE: Uses a torch - fire damage might have special properties
+            // vs Light armor (1.5): Torch deals base * armorValue (not flat base)
+            // ARAB_SLAVE vs ARAB_SLINGER (1.5): Game=20, Calc=10 → Should be 10 * 2.0 = 20
+            // ARAB_SLAVE vs BEDOUIN_EUNUCH (1.5): Game=15, Calc=10 → Should be 10 * 1.5 = 15
+            var arabSlave = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_ARAB_SLAVE);
+            if (arabSlave != null)
+            {
+                // Torch vs ARAB_SLINGER: deals base * 2.0 (fire is very effective)
+                arabSlave.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 2.0f);
+                // Torch vs BEDOUIN_EUNUCH: deals base * 1.5 (normal armor multiplier)
+                arabSlave.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 1.5f);
+            }
         }
 
         // ============================================

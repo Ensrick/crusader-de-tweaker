@@ -177,10 +177,25 @@ namespace CrusaderDETweaker.Systems
 
             // RULE 2: SiegeDefense - Specific units deal minimum damage (2) vs Trebuchet
             // Most weak/ranged/unarmed units deal 2, but strong melee (Sword, Mace, Lance, Axe, Polearm) deal normal damage
+            // Exception: Weak Sword units (Base <= 20) with Ranged_Bow or Cavalry tags also deal 2
             if (defenderData.HasTag("SiegeDefense") || defenderData.HasTag("Armor_Siege"))
             {
+                // Exception: Weak Sword units with Ranged_Bow or Cavalry deal 2 damage
+                if (weaponCategory == WeaponCategory.Sword && attackerData.BaseMeleeDamage <= 20)
+                {
+                    if (attackerData.HasTag("Ranged_Bow") || (attackerData.HasTag("Cavalry") && attackerData.BaseMeleeDamage <= 20))
+                    {
+                        return MinimumDamage; // 2
+                    }
+                }
+                
+                // Beast units bypass SiegeDefense and deal normal damage
+                if (weaponCategory == WeaponCategory.Beast)
+                {
+                    // These deal normal calculated damage (will be calculated below)
+                }
                 // Strong melee weapons (Sword, Mace, Lance, Axe, Polearm) bypass SiegeDefense and deal normal damage
-                if (weaponCategory == WeaponCategory.Sword || 
+                else if (weaponCategory == WeaponCategory.Sword || 
                     weaponCategory == WeaponCategory.Mace || 
                     weaponCategory == WeaponCategory.Lance || 
                     weaponCategory == WeaponCategory.Axe || 
@@ -188,7 +203,7 @@ namespace CrusaderDETweaker.Systems
                 {
                     // These deal normal calculated damage (will be calculated below)
                 }
-                // All other units (Assassin, Ranged, Unarmed, Beast) deal minimum damage (2)
+                // All other units (Assassin, Ranged, Unarmed) deal minimum damage (2)
                 else
                 {
                     return MinimumDamage; // 2
@@ -216,19 +231,31 @@ namespace CrusaderDETweaker.Systems
             // Special handling for Unarmed units
             else if (weaponCategory == WeaponCategory.Unarmed)
             {
-                // Unarmed units: flat base damage to most, double to unarmored
+                // Unarmed units: flat base damage to most, double to unarmored (but cap at base for some units)
                 // ARAB_BALLISTA (10) vs ARAB_SLINGER (1.5): 10 (flat)
                 // ARAB_BALLISTA (10) vs ARAB_SLAVE (2.0): 20 (double)
+                // ARAB_BALLISTA (10) vs BEDOUIN_HEALER (2.0): 10 (flat, not double!)
                 // ARAB_BALLISTA (10) vs KNIGHT (0.5): 10 (flat, not reduced)
+                // ARAB_SLAVE (10) vs ARAB_SLINGER (1.5): 20 (handled by unit-specific modifier)
+                // ARAB_SLAVE (10) vs BEDOUIN_EUNUCH (1.5): 15 (handled by unit-specific modifier)
                 
                 if (defenderData.ArmorValue >= 2.0f)
                 {
-                    // Unarmored: double damage
-                    damage = attackerData.BaseMeleeDamage * 2.0f;
+                    // Unarmored: double damage for most, but cap at base for some defenders
+                    // BEDOUIN_HEALER seems to be an exception - cap at base
+                    if (defender == eChimps.CHIMP_TYPE_BEDOUIN_HEALER)
+                    {
+                        damage = attackerData.BaseMeleeDamage; // Cap at base
+                    }
+                    else
+                    {
+                        damage = attackerData.BaseMeleeDamage * 2.0f; // Double damage
+                    }
                 }
                 else
                 {
                     // Everyone else: flat base damage
+                    // Unit-specific modifiers will be applied later for special cases (e.g., ARAB_SLAVE vs Light)
                     damage = attackerData.BaseMeleeDamage;
                 }
             }
@@ -294,46 +321,57 @@ namespace CrusaderDETweaker.Systems
                 }
                 
                 // Apply damage caps for specific weapon types vs unarmored/weak targets
-                if (weaponCategory == WeaponCategory.Sword)
+                if (weaponCategory == WeaponCategory.Sword && attackerData.BaseMeleeDamage <= 20)
                 {
                     // ARAB_BOW (20) vs Unarmored (2.0): Game=30, Calc=40 → Cap at base * 1.5
                     // ARAB_BOW (20) vs Medium (1.0): Game=10-15, Calc=20 → Cap at base * 0.5-0.75
-                    // ARAB_BOW (20) vs Light (1.5): Game=25, Calc=30 → Cap at base * 1.25
+                    // ARAB_BOW (20) vs Light (1.5): Game=30, Calc=30 → No cap needed (20 * 1.0 * 1.5 = 30)
                     if (defenderData.ArmorValue >= 2.0f)
                     {
                         damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap vs unarmored
                     }
-                    else if (defenderData.ArmorValue >= 1.5f)
+                    else if (defenderData.ArmorValue >= 1.0f && defenderData.ArmorValue < 1.5f)
                     {
-                        damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f); // Cap vs light
+                        // Medium armor: cap varies by defender (0.5-0.75), use 0.75 as default
+                        damage = Math.Min(damage, attackerData.BaseMeleeDamage * 0.75f);
                     }
-                    else if (defenderData.ArmorValue >= 1.0f)
-                    {
-                        // Medium armor: cap varies, but generally base * 0.75 for weak units
-                        if (attackerData.BaseMeleeDamage <= 20)
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 0.75f);
-                        }
-                    }
+                    // Light armor (1.5): no cap needed - calculation is already correct
                 }
-                else if (weaponCategory == WeaponCategory.Mace || weaponCategory == WeaponCategory.Axe || 
-                         (weaponCategory == WeaponCategory.Lance && attackerData.HasTag("Cavalry")))
+                else if (weaponCategory == WeaponCategory.Mace && defenderData.ArmorValue >= 2.0f)
                 {
-                    // Cavalry/Mace/Axe vs Unarmored: cap at base * 1.25-2.0 depending on unit
-                    // ARAB_HORSEMAN (20) vs ARAB_SLAVE (2.0): Game=25, Calc=40 → Cap at base * 1.25
+                    // Mace vs Unarmored: cap at base * 1.0 for medium-strength units (40-50)
                     // BEDOUIN_DEMOLISHER (40) vs ARAB_SLAVE (2.0): Game=40, Calc=80 → Cap at base * 1.0
-                    // BEDOUIN_HEAVY_CAMEL (40) vs ARAB_SLAVE (2.0): Game=40, Calc=80 → Cap at base * 1.0
-                    if (defenderData.ArmorValue >= 2.0f)
+                    // MACEMAN (75) vs ARAB_SLAVE (2.0): Game=150, Calc=150 → No cap for strong units
+                    if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 50)
                     {
-                        if (attackerData.BaseMeleeDamage <= 20)
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f); // Small units: 1.25x
-                        }
-                        else
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Larger units: 1.0x (cap at base)
-                        }
+                        damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
                     }
+                    // Strong Mace units (75+): no cap, deal full damage (base * 2.0)
+                }
+                else if (weaponCategory == WeaponCategory.Lance && attackerData.HasTag("Cavalry") && defenderData.ArmorValue >= 2.0f)
+                {
+                    // Lance Cavalry vs Unarmored
+                    // BEDOUIN_CAMEL_LANCER (80) vs ARAB_SLAVE (2.0): Game=160, Calc=80 → Should be base * 2.0 (no cap)
+                    // BEDOUIN_HEAVY_CAMEL (40) vs ARAB_SLAVE (2.0): Game=40, Calc=80 → Cap at base * 1.0
+                    if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 50)
+                    {
+                        damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
+                    }
+                    // Strong Lance units (80+): no cap, deal full damage (base * 2.0)
+                }
+                else if (weaponCategory == WeaponCategory.Axe && defenderData.ArmorValue >= 2.0f && attackerData.BaseMeleeDamage <= 20)
+                {
+                    // Small Axe units vs Unarmored: deal full damage (base * 2.0), no cap
+                    // QUARRY_GRUNT (20) vs ARAB_SLAVE: Game=40, Calc=40 → No cap needed
+                    // The calculation 20 * 1.0 * 2.0 = 40 is correct, so no cap
+                }
+                else if ((weaponCategory == WeaponCategory.Mace || 
+                         (weaponCategory == WeaponCategory.Lance && attackerData.HasTag("Cavalry"))) &&
+                         defenderData.ArmorValue >= 2.0f && attackerData.BaseMeleeDamage <= 20)
+                {
+                    // Small Mace/Lance units vs Unarmored: cap at base * 1.25
+                    // ARAB_HORSEMAN (20) vs ARAB_SLAVE (2.0): Game=25, Calc=40 → Cap at base * 1.25
+                    damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f);
                 }
                 else if (weaponCategory == WeaponCategory.Beast)
                 {
