@@ -72,13 +72,15 @@ namespace CrusaderDETweaker.Systems
             { (WeaponCategory.Unarmed, ArmorCategory.Heavy), 1.0f },
             { (WeaponCategory.Unarmed, ArmorCategory.Siege), 1.0f },
 
-            // SWORD - good all-around, reduced vs heavy
+            // SWORD - good all-around
             // Formula: base * multiplier * armorValue
-            // SWORDSMAN (100) vs KNIGHT (0.5): 50 = 100 * 1.0 * 0.5
+            // ARAB_BOW (20) vs ARAB_ASSASIN (1.0 armor, Light): 20 = 20 * 1.0 * 1.0
+            // ARAB_BOW (20) vs ARAB_SLINGER (1.5 armor, Light): 30 = 20 * 1.0 * 1.5
+            // SWORDSMAN (100) vs KNIGHT (0.5 armor, Heavy): 50 = 100 * 1.0 * 0.5
             { (WeaponCategory.Sword, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Sword, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Sword, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
             { (WeaponCategory.Sword, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Sword, ArmorCategory.Heavy), 1.0f },  // Fixed: was 0.5, should be 1.0
+            { (WeaponCategory.Sword, ArmorCategory.Heavy), 1.0f },
             { (WeaponCategory.Sword, ArmorCategory.Siege), 0.4f },
 
             // MACE - terrible vs heavy armor
