@@ -169,11 +169,18 @@ namespace CrusaderDETweaker.Systems
             var weaponCategory = GetWeaponCategory(attackerData);
             var armorCategory = GetArmorCategory(defenderData);
 
-            // Look up the base multiplier from weapon vs armor table
-            float multiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
-
-            // Calculate base damage
-            float damage = attackerData.BaseMeleeDamage * multiplier;
+            // Core formula: BaseDamage × ArmorValue × WeaponVsArmorMultiplier × TagModifiers
+            // ArmorValue is the damage taken multiplier (0.5 = takes half, 2.0 = takes double)
+            
+            // Start with base damage
+            float damage = attackerData.BaseMeleeDamage;
+            
+            // Apply defender's ArmorValue (damage taken multiplier)
+            damage *= defenderData.ArmorValue;
+            
+            // Apply weapon vs armor category multiplier from lookup table
+            float weaponVsArmorMultiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
+            damage *= weaponVsArmorMultiplier;
 
             // Apply tag vs tag modifiers (Polearm vs Ladderman, etc.)
             float tagModifier = GetTagVsTagModifier(attackerData, defenderData);
