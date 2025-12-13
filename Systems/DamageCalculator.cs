@@ -919,19 +919,21 @@ namespace CrusaderDETweaker.Systems
             else if (armorValue >= 1.0f)
             {
                 // Medium armor: no cap (except for HUNTER vs Beast)
-                // HUNTER vs small beasts (CAMEL, CROCODILE, DOG): cap at base * 1.0 (Game=10)
-                // HUNTER vs large beasts (HYENA, LION, WAR_DOG): no cap (Game=20)
+                // HUNTER vs CAMEL/CROCODILE/DOG: cap at base * 1.0 (Game=10)
+                // HUNTER vs HYENA/LION/WAR_DOG: no cap (Game=20)
                 if (isHunter && defender.HasTag("Beast"))
                 {
-                    // Large beasts (base >= 50): no cap, deal full damage with tag modifier
-                    // Small beasts (base < 50): cap at base
-                    if (defender.BaseMeleeDamage >= 50)
+                    // CAMEL and CROCODILE should be capped even though they're large beasts
+                    // HYENA, LION, and WAR_DOG should not be capped
+                    if (defender.Unit == eChimps.CHIMP_TYPE_CAMEL || 
+                        defender.Unit == eChimps.CHIMP_TYPE_CROCODILE ||
+                        defender.BaseMeleeDamage < 50)
                     {
-                        cap = float.MaxValue; // No cap for large beasts
+                        cap = baseDamage * 1.0f; // Cap at base for CAMEL, CROCODILE, and small beasts
                     }
                     else
                     {
-                        cap = baseDamage * 1.0f; // Cap at base for small beasts
+                        cap = float.MaxValue; // No cap for HYENA, LION, WAR_DOG
                     }
                 }
                 else
