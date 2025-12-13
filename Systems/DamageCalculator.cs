@@ -15,8 +15,7 @@ namespace CrusaderDETweaker.Systems
     /// 1. Weak attackers (Base ≤ 2): Deal flat base damage, ignore all modifiers
     /// 2. Beast attackers: Deal flat base damage, ignore armor
     /// 3. SiegeDefense defenders: Most attackers deal minimum damage (2)
-    /// 4. Weapon_Unarmed attackers: Use modified formula base * (1 + armor)
-    /// 5. All others: Apply armor and modifiers
+    /// 4. All others: Apply armor and modifiers
     /// 
     /// Armor Interaction Rules:
     /// - Armor_Piercing (Lord): Ignores armor reduction (Heavy), gets capped bonus vs unarmored
@@ -81,12 +80,8 @@ namespace CrusaderDETweaker.Systems
                 // Attackers that bypass SiegeDefense continue with normal calculation
             }
 
-            // RULE 4: Weapon_Unarmed attackers use modified formula
-            // Evidence: ARAB_BOW (10) vs ARAB_SLAVE (2.0) = 30 = 10 * (1 + 2.0)
-            if (attackerData.HasTag("Weapon_Unarmed"))
-            {
-                return CalculateUnarmedDamage(attackerData, defenderData, tagModifier);
-            }
+            // NOTE: Weapon_Unarmed attackers use the same formula as normal units
+            // They just apply base * armor like everyone else
 
             // RULE 5: Normal calculation
             float damage = attackerData.BaseMeleeDamage;
@@ -107,29 +102,6 @@ namespace CrusaderDETweaker.Systems
             damage *= specialModifier;
 
             // Round and apply minimum damage floor
-            int finalDamage = (int)Math.Round(damage);
-            return Math.Max(MinimumDamage, finalDamage);
-        }
-
-        /// <summary>
-        /// Calculate damage for Weapon_Unarmed attackers (ranged units in melee).
-        /// These units use a different formula: base * (1 + armor)
-        /// This gives them a bonus that scales with defender vulnerability.
-        /// </summary>
-        private static int CalculateUnarmedDamage(UnitDamageData attacker, UnitDamageData defender, float tagModifier)
-        {
-            float armorValue = defender.ArmorValue;
-
-            // Weapon_Unarmed formula: base * (1 + armor)
-            // This matches observed game data:
-            // - ARAB_BOW (10) vs armor 1.0: 10 * 2 = 20 ✓
-            // - ARAB_BOW (10) vs armor 2.0: 10 * 3 = 30 ✓
-            // - ARAB_BOW (10) vs armor 0.5: 10 * 1.5 = 15 ✓
-            float damage = attacker.BaseMeleeDamage * (1.0f + armorValue);
-
-            // Apply tag modifiers (Hunter vs Beast, etc.)
-            damage *= tagModifier;
-
             int finalDamage = (int)Math.Round(damage);
             return Math.Max(MinimumDamage, finalDamage);
         }
@@ -359,12 +331,6 @@ namespace CrusaderDETweaker.Systems
 
             if (defenderData.HasTag("SiegeDefense") && !BypassesSiegeDefense(attackerData))
                 return $"{attacker} -> {defender}: SiegeDefense blocks, deals minimum {MinimumDamage}";
-
-            if (attackerData.HasTag("Weapon_Unarmed"))
-            {
-                float unarmedDamage = attackerData.BaseMeleeDamage * (1.0f + defenderData.ArmorValue);
-                return $"{attacker} -> {defender}: Weapon_Unarmed formula, {attackerData.BaseMeleeDamage} * (1 + {defenderData.ArmorValue}) = {unarmedDamage:F1}";
-            }
 
             float baseDamage = attackerData.BaseMeleeDamage;
             float effectiveArmor = GetEffectiveArmorValue(attackerData, defenderData);
