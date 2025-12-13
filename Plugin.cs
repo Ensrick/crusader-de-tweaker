@@ -1,17 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using BepInEx;
-using BepInEx.Configuration;
 using BepInEx.Logging;
-using R3;
 using SHCDESE.API;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Units;
-using SHCDESE.Extensions;
-using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
-using UnityEngine;
-using static UnityEngine.GraphicsBuffer;
+using CrusaderDETweaker.Config.DamageMatrix;
 
 namespace CrusaderDETweaker
 {
@@ -53,10 +44,15 @@ namespace CrusaderDETweaker
                     return;
                 }
 
-                ConfigManager.Initialize(Config);
-                ConfigManager.ApplyAllUnitConfigs();
-                ConfigManager.ApplyAllBuildingConfigs();
-                ConfigManager.ApplyAllMultiplierConfigs(); // REAL TIME HOOKS - LOAD LAST
+                // Initialize TOML config system (unit stats, building costs, etc.)
+                ConfigManagerToml.Initialize();
+
+                // Initialize damage matrix system (CSV files for melee/ranged damage)
+                DamageMatrixManager.Initialize();
+
+                // Initialize BepInEx config and apply runtime multipliers (LOAD LAST)
+                ConfigManagerBepinex.Initialize(Config);
+                ConfigManagerBepinex.ApplyAllMultiplierConfigs(); // REAL TIME HOOKS
 
                 Logger.LogInfo("Crusader DE Tweaker initialized successfully.");
                 _isInitialized = true;

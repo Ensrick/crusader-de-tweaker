@@ -1,13 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using CrusaderDETweaker.Config.Toml.Armor;
-using SHCDESE.Interop;
-using Tomlyn;
-using Tomlyn.Model;
+﻿using CrusaderDETweaker.Config.Toml.Armor;
 
 namespace CrusaderDETweaker
 {
