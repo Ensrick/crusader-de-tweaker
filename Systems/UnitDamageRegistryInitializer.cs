@@ -127,8 +127,8 @@ namespace CrusaderDETweaker.Systems
             RegisterUnit(eChimps.CHIMP_TYPE_ARCHER, 10, 1.0f, 
                 "Armor_Light", "Ranged_Bow", "Weapon_Unarmed");
             
-            RegisterUnit(eChimps.CHIMP_TYPE_ARAB_BOW, 10, 1.0f, 
-                "Armor_Light", "Ranged_Bow", "Weapon_Unarmed");
+            RegisterUnit(eChimps.CHIMP_TYPE_ARAB_BOW, 20, 1.0f, 
+                "Armor_Light", "Ranged_Bow", "Weapon_Sword");
             
             RegisterUnit(eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER, 10, 1.0f, 
                 "Armor_Light", "Ranged_Bow", "Weapon_Unarmed");
