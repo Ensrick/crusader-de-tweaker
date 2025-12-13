@@ -1,4 +1,5 @@
-﻿using CrusaderDETweaker.Config.Toml.Armor;
+﻿using System.Collections.Generic;
+using CrusaderDETweaker.Config.Toml.Armor;
 
 namespace CrusaderDETweaker
 {
