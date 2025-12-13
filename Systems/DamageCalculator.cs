@@ -415,8 +415,10 @@ namespace CrusaderDETweaker.Systems
             }
             else if (armorValue >= 1.0f)
             {
-                // Medium armor: 1.5x if defender is ranged, 1.0x if not
-                multiplier = defenderIsRanged ? 1.5f : 1.0f;
+                // Medium armor (1.0): Always 1.0x multiplier
+                // ARCHER (10) vs ARAB_BOW (1.0): 10 = 10 * 1.0 * 1.0
+                // ARCHER (10) vs ARCHER (1.0): 10 = 10 * 1.0 * 1.0
+                multiplier = 1.0f;
             }
             else
             {
