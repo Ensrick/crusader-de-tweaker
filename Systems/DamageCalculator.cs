@@ -85,30 +85,30 @@ namespace CrusaderDETweaker.Systems
 
             // MACE - terrible vs heavy armor
             { (WeaponCategory.Mace, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Mace, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Mace, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
             { (WeaponCategory.Mace, ArmorCategory.Medium), 1.0f },
             { (WeaponCategory.Mace, ArmorCategory.Heavy), 0.33f },
             { (WeaponCategory.Mace, ArmorCategory.Siege), 0.5f },
 
-            // POLEARM - ignores heavy armor, bonus vs light
+            // POLEARM - ignores heavy armor
             { (WeaponCategory.Polearm, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Polearm, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Polearm, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
             { (WeaponCategory.Polearm, ArmorCategory.Medium), 1.0f },
             { (WeaponCategory.Polearm, ArmorCategory.Heavy), 1.0f },
             { (WeaponCategory.Polearm, ArmorCategory.Siege), 0.4f },
 
-            // LANCE (Cavalry) - bonus vs heavy, extra bonus vs light
+            // LANCE (Cavalry) - bonus vs heavy
             // Formula: base * multiplier * armorValue
             // KNIGHT (80) vs KNIGHT (0.5): 50 = 80 * 1.25 * 0.5
             { (WeaponCategory.Lance, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Lance, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Lance, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
             { (WeaponCategory.Lance, ArmorCategory.Medium), 1.0f },
             { (WeaponCategory.Lance, ArmorCategory.Heavy), 1.25f },  // Fixed: was 0.625, should be 1.25
             { (WeaponCategory.Lance, ArmorCategory.Siege), 0.4f },
 
-            // AXE - good vs siege, bonus vs light
+            // AXE - good vs siege
             { (WeaponCategory.Axe, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Axe, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Axe, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
             { (WeaponCategory.Axe, ArmorCategory.Medium), 1.0f },
             { (WeaponCategory.Axe, ArmorCategory.Heavy), 1.0f },
             { (WeaponCategory.Axe, ArmorCategory.Siege), 1.0f },  // Bypasses siege defense
