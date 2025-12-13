@@ -169,40 +169,19 @@ namespace CrusaderDETweaker.Systems
             var weaponCategory = GetWeaponCategory(attackerData);
             var armorCategory = GetArmorCategory(defenderData);
 
-            float damage;
+            // Look up the base multiplier from weapon vs armor table
+            float multiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
 
-            // Special handling for Assassin - uses armor value directly
-            if (weaponCategory == WeaponCategory.Dagger)
-            {
-                damage = CalculateAssassinDamage(attackerData, defenderData);
-            }
-            // Special handling for Ranged units in melee - uses defender armor value
-            else if (weaponCategory == WeaponCategory.Ranged)
-            {
-                damage = CalculateRangedMeleeDamage(attackerData, defenderData);
-            }
-            // Special handling for Unarmed units - uses defender armor value
-            else if (weaponCategory == WeaponCategory.Unarmed)
-            {
-                damage = CalculateUnarmedDamage(attackerData, defenderData);
-            }
-            // Normal calculation using lookup table
-            else
-            {
-                // Look up the base multiplier
-                float multiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
+            // Calculate base damage
+            float damage = attackerData.BaseMeleeDamage * multiplier;
 
-                // Calculate base damage
-                damage = attackerData.BaseMeleeDamage * multiplier;
+            // Apply tag vs tag modifiers (Polearm vs Ladderman, etc.)
+            float tagModifier = GetTagVsTagModifier(attackerData, defenderData);
+            damage *= tagModifier;
 
-                // Apply tag vs tag modifiers (Polearm vs Ladderman, etc.)
-                float tagModifier = GetTagVsTagModifier(attackerData, defenderData);
-                damage *= tagModifier;
-
-                // Apply unit-specific modifier if exists
-                float specialModifier = attackerData.GetModifierAgainst(defender);
-                damage *= specialModifier;
-            }
+            // Apply unit-specific modifier if exists
+            float specialModifier = attackerData.GetModifierAgainst(defender);
+            damage *= specialModifier;
 
             // Round and apply minimum damage floor
             int finalDamage = (int)Math.Round(damage);
@@ -296,92 +275,6 @@ namespace CrusaderDETweaker.Systems
             return modifier;
         }
 
-        /// <summary>
-        /// Special damage calculation for Assassin.
-        /// The Assassin uses defender armor value directly with special scaling.
-        /// </summary>
-        private static float CalculateAssassinDamage(UnitDamageData attacker, UnitDamageData defender)
-        {
-            float armorValue = defender.ArmorValue;
-            float baseDamage = attacker.BaseMeleeDamage;
-
-            // Assassin formula from game data:
-            // vs Heavy (0.5): 80 → 80 (1.0x)
-            // vs Medium (1.0): 80 → 80 (1.0x)
-            // vs Light (1.5): 80 → 150-250 (varies by unit)
-            // vs Unarmored (2.0): 80 → 250 (3.125x)
-            
-            if (armorValue <= 1.0f)
-            {
-                return baseDamage; // 1.0x vs Heavy/Medium
-            }
-            else if (armorValue >= 2.0f)
-            {
-                // Unarmored: 3.125x multiplier
-                return baseDamage * 3.125f;
-            }
-            else
-            {
-                // Light armor (1.5): varies, but generally high
-                // For Arab Slinger (1.5): 250 = 80 * 3.125
-                // For Bedouin Eunuch (1.5): 150 = 80 * 1.875
-                // Use a formula that gives ~2.5x average for 1.5 armor
-                // Formula: base * (1.0 + (armor - 1.0) * 3.0)
-                float multiplier = 1.0f + (armorValue - 1.0f) * 3.0f;
-                return baseDamage * multiplier;
-            }
-        }
-
-        /// <summary>
-        /// Special damage calculation for Ranged units in melee combat.
-        /// Uses defender armor value directly.
-        /// </summary>
-        private static float CalculateRangedMeleeDamage(UnitDamageData attacker, UnitDamageData defender)
-        {
-            float armorValue = defender.ArmorValue;
-            float baseDamage = attacker.BaseMeleeDamage;
-
-            // Ranged units in melee formula from game data:
-            // ARAB_BOW (10) vs ARAB_SLAVE (2.0): Game=30
-            // ARAB_BOW (10) vs ARAB_SLINGER (1.5): Game=30
-            // ARAB_BOW (10) vs ARAB_ASSASIN (1.0): Game=20
-            // ARAB_BOW (10) vs MACEMAN (1.0): Game=15
-            // ARAB_BOW (10) vs KNIGHT (0.5): Game=15
-            
-            // Pattern analysis:
-            // vs 2.0: 10 * 2.0 * 1.5 = 30 ✓
-            // vs 1.5: 10 * 1.5 * 2.0 = 30 ✓
-            // vs 1.0: 10 * 1.0 * 2.0 = 20 ✓ (but some show 15)
-            // vs 0.5: 10 * 0.5 * 3.0 = 15 ✓
-            
-            // Formula: base * armorValue * multiplier
-            // Multiplier varies: 1.5 for high armor (>=1.5), 2.0 for medium (1.0), 3.0 for low (<=0.5)
-            float multiplier;
-            if (armorValue >= 1.5f)
-                multiplier = 1.5f;
-            else if (armorValue >= 1.0f)
-                multiplier = 2.0f;
-            else
-                multiplier = 3.0f;
-            
-            return baseDamage * armorValue * multiplier;
-        }
-
-        /// <summary>
-        /// Special damage calculation for Unarmed units.
-        /// Uses defender armor value directly.
-        /// </summary>
-        private static float CalculateUnarmedDamage(UnitDamageData attacker, UnitDamageData defender)
-        {
-            float armorValue = defender.ArmorValue;
-            float baseDamage = attacker.BaseMeleeDamage;
-
-            // Unarmed units: base * defenderArmorValue
-            // ARAB_BALLISTA (10) vs ARAB_SLAVE (2.0): 10 * 2.0 = 20 ✓
-            // ARAB_BALLISTA (10) vs TREBUCHET (0.4): 10 * 0.4 = 4, but min is 2 ✓
-            
-            return baseDamage * armorValue;
-        }
 
         /// <summary>
         /// Verify a melee damage calculation against expected value.
