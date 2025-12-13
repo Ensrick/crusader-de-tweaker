@@ -171,25 +171,35 @@ namespace CrusaderDETweaker.Systems
                 return attackerData.BaseMeleeDamage;
             }
 
-            // Get weapon and armor categories
-            var weaponCategory = GetWeaponCategory(attackerData);
-            var armorCategory = GetArmorCategory(defenderData);
-
-            // RULE 2: SiegeDefense - Ranged/Unarmed/Assassin units deal minimum damage (2)
-            // Most ranged, unarmed, and assassin units deal only 2 damage vs Trebuchet
-            // Strong melee units (Sword, Mace, Lance, Axe, Polearm) bypass this and deal higher damage
+            // RULE 2: SiegeDefense - Specific units deal minimum damage (2) vs Trebuchet
+            // Units with Ranged_Bow + Weapon_Sword, or weak Cavalry with Weapon_Sword, deal 2
+            // Other units (like HUNTER with Ranged_Bow + Weapon_Unarmed) deal normal damage
             if (defenderData.HasTag("SiegeDefense") || defenderData.HasTag("Armor_Siege"))
             {
-                // Ranged, Unarmed, and Assassin units deal minimum damage vs SiegeDefense
-                if (weaponCategory == WeaponCategory.Ranged || 
-                    weaponCategory == WeaponCategory.Unarmed || 
-                    weaponCategory == WeaponCategory.Dagger)
+                // Check for specific tag combinations that deal 2 damage
+                bool dealsMinimumDamage = false;
+                
+                // ARAB_BOW pattern: Ranged_Bow + Weapon_Sword
+                if (attackerData.HasTag("Ranged_Bow") && attackerData.HasTag("Weapon_Sword"))
+                {
+                    dealsMinimumDamage = true;
+                }
+                // ARAB_HORSEMAN pattern: Weapon_Sword + Cavalry with low base damage
+                else if (attackerData.HasTag("Weapon_Sword") && attackerData.HasTag("Cavalry") && attackerData.BaseMeleeDamage <= 20)
+                {
+                    dealsMinimumDamage = true;
+                }
+                
+                if (dealsMinimumDamage)
                 {
                     return MinimumDamage; // 2
                 }
-                // Strong melee units (Sword, Mace, Lance, Axe, Polearm, Beast) bypass SiegeDefense
-                // and deal normal calculated damage (they have their own issues, but not this one)
+                // Other units (HUNTER, strong melee, etc.) deal normal calculated damage
             }
+
+            // Get weapon and armor categories
+            var weaponCategory = GetWeaponCategory(attackerData);
+            var armorCategory = GetArmorCategory(defenderData);
 
             // Core formula varies by weapon type:
             // - Most weapons: BaseDamage × WeaponVsArmorMultiplier × ArmorValue
