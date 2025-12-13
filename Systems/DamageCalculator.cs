@@ -189,10 +189,12 @@ namespace CrusaderDETweaker.Systems
                     }
                 }
                 
-                // Beast units bypass SiegeDefense and deal normal damage
+                // Beast units bypass SiegeDefense and deal base damage (ignore armor)
                 if (weaponCategory == WeaponCategory.Beast)
                 {
-                    // These deal normal calculated damage (will be calculated below)
+                    // Beast units deal flat base damage vs SiegeDefense, ignoring armor value
+                    // CAMEL (100) vs TREBUCHET (0.4): Game=100, Calc=40 → Should be base * 1.0 = 100
+                    // This will be handled in the damage calculation below by setting effectiveArmorValue = 1.0
                 }
                 // Strong melee weapons (Sword, Mace, Lance, Axe, Polearm) bypass SiegeDefense and deal normal damage
                 else if (weaponCategory == WeaponCategory.Sword || 
@@ -301,9 +303,27 @@ namespace CrusaderDETweaker.Systems
                 {
                     float weaponVsArmorMultiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
                     
-                    // Armor_Piercing ignores armor reduction vs Heavy/Medium, but has cap vs Unarmored
+                    // Beast units: large beasts (base >= 50) deal flat base damage, small beasts (base <= 10) use armor
+                    // CAMEL (100) vs TREBUCHET: Game=100, Calc=40 → Should be base * 1.0 = 100
+                    // CAMEL (100) vs ARAB_SLINGER: Game=100, Calc=150 → Should be base * 1.0 = 100
+                    // DOG (10) vs ARAB_SLAVE: Game=20, Calc=10 → Should be base * 2.0 = 20
+                    // DOG (10) vs KNIGHT: Game=10, Calc=5 → Should be base * 1.0 = 10 (cap at base vs heavy)
                     float effectiveArmorValue;
-                    if (attackerData.IsArmorPiercing)
+                    if (weaponCategory == WeaponCategory.Beast)
+                    {
+                        // Large beasts (base >= 50): always deal flat base damage, ignoring armor
+                        // Small beasts (base <= 10): use armor, but cap at base vs heavy armor
+                        if (attackerData.BaseMeleeDamage >= 50)
+                        {
+                            effectiveArmorValue = 1.0f; // Large beasts ignore armor
+                        }
+                        else
+                        {
+                            // Small beasts use armor, but cap at base vs heavy armor (handled in caps section)
+                            effectiveArmorValue = defenderData.ArmorValue;
+                        }
+                    }
+                    else if (attackerData.IsArmorPiercing)
                     {
                         // Lord vs Heavy/Medium: ignores armor (treats as 1.0)
                         // Lord vs Unarmored: capped at 1.33x (200/150 = 1.33)
@@ -320,22 +340,31 @@ namespace CrusaderDETweaker.Systems
                     damage = attackerData.BaseMeleeDamage * weaponVsArmorMultiplier * effectiveArmorValue;
                 }
                 
+                // Apply unit-specific modifier BEFORE caps (if it exists)
+                // This allows modifiers to override the standard formula
+                float specialModifier = attackerData.GetModifierAgainst(defender);
+                if (specialModifier != 1.0f)
+                {
+                    damage *= specialModifier;
+                }
+                
                 // Apply damage caps for specific weapon types vs unarmored/weak targets
-                if (weaponCategory == WeaponCategory.Sword && attackerData.BaseMeleeDamage <= 20)
+                // Skip caps if unit-specific modifier was applied (modifier already handles the adjustment)
+                if (specialModifier == 1.0f && weaponCategory == WeaponCategory.Sword && attackerData.BaseMeleeDamage <= 20)
                 {
                     // ARAB_BOW (20) vs Unarmored (2.0): Game=30, Calc=40 → Cap at base * 1.5
-                    // ARAB_BOW (20) vs Medium (1.0): Game=10-15, Calc=20 → Cap at base * 0.5-0.75
-                    // ARAB_BOW (20) vs Light (1.5): Game=30, Calc=30 → No cap needed (20 * 1.0 * 1.5 = 30)
+                    // ARAB_BOW (20) vs Medium (1.0): Game=10-15, Calc=20 → Handled by unit-specific modifiers
+                    // ARAB_BOW (20) vs Light (1.5): Game=25-30, Calc=30 → Cap at base * 1.25 for BEDOUIN_EUNUCH
                     if (defenderData.ArmorValue >= 2.0f)
                     {
                         damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap vs unarmored
                     }
-                    else if (defenderData.ArmorValue >= 1.0f && defenderData.ArmorValue < 1.5f)
+                    else if (defenderData.ArmorValue >= 1.5f && defender == eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH)
                     {
-                        // Medium armor: cap varies by defender (0.5-0.75), use 0.75 as default
-                        damage = Math.Min(damage, attackerData.BaseMeleeDamage * 0.75f);
+                        // ARAB_BOW vs BEDOUIN_EUNUCH: cap at base * 1.25
+                        damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f);
                     }
-                    // Light armor (1.5): no cap needed - calculation is already correct
+                    // Medium armor: handled by unit-specific modifiers for ARAB_BOW
                 }
                 else if (weaponCategory == WeaponCategory.Mace && defenderData.ArmorValue >= 2.0f)
                 {
@@ -375,13 +404,34 @@ namespace CrusaderDETweaker.Systems
                 }
                 else if (weaponCategory == WeaponCategory.Beast)
                 {
-                    // Beast units vs Unarmored: cap at base damage (not double)
-                    // CAMEL (100) vs ARAB_SLAVE (2.0): Game=100, Calc=200 → Cap at base * 1.0
-                    // CROCODILE (100) vs ARAB_SLAVE (2.0): Game=100, Calc=200 → Cap at base * 1.0
-                    // WAR_DOG (50) vs ARAB_SLAVE (2.0): Game=50, Calc=100 → Cap at base * 1.0
-                    if (defenderData.ArmorValue >= 2.0f)
+                    // Large beasts (base >= 50): already set effectiveArmorValue = 1.0, so no caps needed
+                    // Small beasts (base <= 10): use armor, but cap at base vs heavy armor
+                    if (attackerData.BaseMeleeDamage < 50)
                     {
-                        damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base damage
+                        // Small beasts vs Heavy armor: cap at base (don't reduce below base)
+                        // DOG (10) vs KNIGHT (0.5): Game=10, Calc=5 → Cap at base * 1.0 = 10
+                        if (defenderData.ArmorValue <= 0.5f)
+                        {
+                            damage = Math.Max(damage, attackerData.BaseMeleeDamage * 1.0f); // Floor at base damage
+                        }
+                    }
+                    else
+                    {
+                        // Large beasts vs Unarmored: cap at base damage (not double)
+                        // CAMEL (100) vs ARAB_SLAVE (2.0): Game=100, Calc=200 → Cap at base * 1.0
+                        // CROCODILE (100) vs ARAB_SLAVE (2.0): Game=100, Calc=200 → Cap at base * 1.0
+                        // WAR_DOG (50) vs ARAB_SLAVE (2.0): Game=50, Calc=100 → Cap at base * 1.0
+                        if (defenderData.ArmorValue >= 2.0f)
+                        {
+                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base damage
+                        }
+                        // Large beasts vs Light armor: cap at base damage (not 1.5x)
+                        // CAMEL (100) vs ARAB_SLINGER (1.5): Game=100, Calc=150 → Cap at base * 1.0
+                        // CROCODILE (100) vs BEDOUIN_EUNUCH (1.5): Game=100, Calc=150 → Cap at base * 1.0
+                        else if (defenderData.ArmorValue >= 1.5f && defenderData.ArmorValue < 2.0f)
+                        {
+                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base damage
+                        }
                     }
                 }
             }
@@ -390,9 +440,20 @@ namespace CrusaderDETweaker.Systems
             float tagModifier = GetTagVsTagModifier(attackerData, defenderData);
             damage *= tagModifier;
 
-            // Apply unit-specific modifier if exists
-            float specialModifier = attackerData.GetModifierAgainst(defender);
-            damage *= specialModifier;
+            // Unit-specific modifiers are now applied earlier (before caps for normal weapons, after base calculation for special weapons)
+            // Only apply here if not already applied above
+            if (weaponCategory != WeaponCategory.Dagger && weaponCategory != WeaponCategory.Ranged && 
+                weaponCategory != WeaponCategory.Unarmed && weaponCategory != WeaponCategory.Beast)
+            {
+                // For normal weapons, modifier was already applied before caps
+                // This section is now empty, but kept for clarity
+            }
+            else
+            {
+                // For special weapons (Assassin, Ranged, Unarmed, Beast), apply modifiers here
+                float specialModifier = attackerData.GetModifierAgainst(defender);
+                damage *= specialModifier;
+            }
 
             // Round and apply minimum damage floor
             int finalDamage = (int)Math.Round(damage);

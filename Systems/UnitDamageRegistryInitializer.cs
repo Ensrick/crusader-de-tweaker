@@ -411,18 +411,29 @@ namespace CrusaderDETweaker.Systems
                 arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_WAR_DOG, 0.5f);
                 arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_WOODCUTTER, 0.5f);
 
-                // Some Medium armor defenders: 0.75x multiplier (MACEMAN, PIKEMAN, SPEARMAN, XBOWMAN)
+                // Some Medium armor defenders: 0.75x multiplier (MACEMAN, PIKEMAN, SPEARMAN, XBOWMAN, ARCHER)
                 // This makes 20 * 1.0 * 1.0 * 0.75 = 15
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_ARCHER, 0.75f);
                 arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_MACEMAN, 0.75f);
                 arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_PIKEMAN, 0.75f);
                 arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_SPEARMAN, 0.75f);
                 arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_XBOWMAN, 0.75f);
+
+                // Heavy armor defenders (0.5): 1.5x multiplier
+                // ARAB_BOW vs KNIGHT: Game=15, Calc=10 → 20 * 1.0 * 0.5 * 1.5 = 15
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_KNIGHT, 1.5f);
+                arabBow.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 1.5f);
+
+                // Light armor BEDOUIN_EUNUCH: cap at base * 1.25
+                // ARAB_BOW vs BEDOUIN_EUNUCH: Game=25, Calc=30 → Cap at 20 * 1.25 = 25
+                // This will be handled by a cap in DamageCalculator
             }
 
             // ARAB_SLAVE: Uses a torch - fire damage might have special properties
             // vs Light armor (1.5): Torch deals base * armorValue (not flat base)
             // ARAB_SLAVE vs ARAB_SLINGER (1.5): Game=20, Calc=10 → Should be 10 * 2.0 = 20
             // ARAB_SLAVE vs BEDOUIN_EUNUCH (1.5): Game=15, Calc=10 → Should be 10 * 1.5 = 15
+            // ARAB_SLAVE vs BEDOUIN_HEALER (2.0): Game=20, Calc=10 → Should be 10 * 2.0 = 20
             var arabSlave = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_ARAB_SLAVE);
             if (arabSlave != null)
             {
@@ -430,6 +441,8 @@ namespace CrusaderDETweaker.Systems
                 arabSlave.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 2.0f);
                 // Torch vs BEDOUIN_EUNUCH: deals base * 1.5 (normal armor multiplier)
                 arabSlave.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 1.5f);
+                // Torch vs BEDOUIN_HEALER: deals base * 2.0 (double damage, not capped)
+                arabSlave.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 2.0f);
             }
         }
 
