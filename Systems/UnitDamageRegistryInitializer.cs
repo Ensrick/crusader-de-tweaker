@@ -444,6 +444,26 @@ namespace CrusaderDETweaker.Systems
                 // Torch vs BEDOUIN_HEALER: deals base * 2.0 (double damage, not capped)
                 arabSlave.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 2.0f);
             }
+
+            // ARAB_ASSASIN: Special modifiers for Light armor defenders
+            // vs ARAB_SLINGER (1.5): Game=250, Calc=200 → needs 1.25x (250/200 = 1.25)
+            // vs BEDOUIN_EUNUCH (1.5): Game=150, Calc=200 → needs 0.75x (150/200 = 0.75)
+            var arabAssassin = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_ARAB_ASSASIN);
+            if (arabAssassin != null)
+            {
+                arabAssassin.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1.25f);
+                arabAssassin.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 0.75f);
+            }
+
+            // ARAB_HORSEMAN: Weak Sword + Cavalry, needs special handling
+            // vs Unarmored/Light: Game=25, Calc=30 → needs cap at base * 1.25
+            // vs Heavy: Game=20, Calc=10 → needs 2.0x multiplier
+            var arabHorseman = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_ARAB_HORSEMAN);
+            if (arabHorseman != null)
+            {
+                arabHorseman.AddSpecialModifier(eChimps.CHIMP_TYPE_KNIGHT, 2.0f);
+                arabHorseman.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 2.0f);
+            }
         }
 
         // ============================================

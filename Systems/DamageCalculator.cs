@@ -323,6 +323,30 @@ namespace CrusaderDETweaker.Systems
                             effectiveArmorValue = defenderData.ArmorValue;
                         }
                     }
+                    else if (weaponCategory == WeaponCategory.Mace && defenderData.ArmorValue <= 0.5f)
+                    {
+                        // Mace vs Heavy armor: varies by base damage
+                        // MACEMAN (75) vs KNIGHT: Game=25, Calc=12 → Should be 75 * 0.33 * 1.0 = 25 (ignore armor)
+                        // BEDOUIN_DEMOLISHER (40) vs KNIGHT: Game=40, Calc=7 → Should be 40 * 1.0 * 1.0 = 40 (ignore multiplier and armor)
+                        // MONK (50) vs KNIGHT: Game=50, Calc=8 → Should be 50 * 1.0 * 1.0 = 50 (ignore multiplier and armor)
+                        // BLACKSMITH (20) vs KNIGHT: Game=20, Calc=3 → Should be 20 * 1.0 * 1.0 = 20 (ignore multiplier and armor)
+                        if (attackerData.BaseMeleeDamage >= 40 && attackerData.BaseMeleeDamage < 75)
+                        {
+                            // Medium-strength Mace units (40-74): deal flat base damage vs Heavy
+                            weaponVsArmorMultiplier = 1.0f; // Override 0.33x multiplier
+                            effectiveArmorValue = 1.0f; // Ignore armor
+                        }
+                        else if (attackerData.BaseMeleeDamage >= 75)
+                        {
+                            // Strong Mace units (75+): ignore armor reduction, but keep 0.33x multiplier
+                            effectiveArmorValue = 1.0f; // Ignore armor
+                        }
+                        else
+                        {
+                            // Weak Mace units (< 40): use normal formula
+                            effectiveArmorValue = defenderData.ArmorValue;
+                        }
+                    }
                     else if (attackerData.IsArmorPiercing)
                     {
                         // Lord vs Heavy/Medium: ignores armor (treats as 1.0)
@@ -355,14 +379,18 @@ namespace CrusaderDETweaker.Systems
                     // ARAB_BOW (20) vs Unarmored (2.0): Game=30, Calc=40 → Cap at base * 1.5
                     // ARAB_BOW (20) vs Medium (1.0): Game=10-15, Calc=20 → Handled by unit-specific modifiers
                     // ARAB_BOW (20) vs Light (1.5): Game=25-30, Calc=30 → Cap at base * 1.25 for BEDOUIN_EUNUCH
+                    // ARAB_HORSEMAN (20) vs Unarmored/Light: Game=25, Calc=30 → Cap at base * 1.25
                     if (defenderData.ArmorValue >= 2.0f)
                     {
                         damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap vs unarmored
                     }
-                    else if (defenderData.ArmorValue >= 1.5f && defender == eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH)
+                    else if (defenderData.ArmorValue >= 1.5f)
                     {
-                        // ARAB_BOW vs BEDOUIN_EUNUCH: cap at base * 1.25
-                        damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f);
+                        // Light armor: cap at base * 1.25 for weak Sword units
+                        if (defender == eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH || attacker == eChimps.CHIMP_TYPE_ARAB_HORSEMAN)
+                        {
+                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f);
+                        }
                     }
                     // Medium armor: handled by unit-specific modifiers for ARAB_BOW
                 }
@@ -371,9 +399,15 @@ namespace CrusaderDETweaker.Systems
                     // Mace vs Unarmored: cap at base * 1.0 for medium-strength units (40-50)
                     // BEDOUIN_DEMOLISHER (40) vs ARAB_SLAVE (2.0): Game=40, Calc=80 → Cap at base * 1.0
                     // MACEMAN (75) vs ARAB_SLAVE (2.0): Game=150, Calc=150 → No cap for strong units
+                    // MONK (50) vs ARAB_SLAVE (2.0): Game=100, Calc=50 → Should be base * 2.0 = 100
                     if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 50)
                     {
                         damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
+                    }
+                    else if (attackerData.BaseMeleeDamage == 50)
+                    {
+                        // MONK (50) vs Unarmored: deal base * 2.0 (no cap)
+                        damage = Math.Max(damage, attackerData.BaseMeleeDamage * 2.0f); // Floor at base * 2.0
                     }
                     // Strong Mace units (75+): no cap, deal full damage (base * 2.0)
                 }
@@ -656,10 +690,17 @@ namespace CrusaderDETweaker.Systems
                 // Light armor: cap at base * 1.25 for larger units
                 cap = baseDamage <= 10 ? baseDamage * 2.0f : baseDamage * 1.25f;
             }
+            else if (armorValue >= 1.0f)
+            {
+                // Medium armor: no cap
+                cap = float.MaxValue;
+            }
             else
             {
-                // Medium/Heavy: no cap
-                cap = float.MaxValue;
+                // Heavy armor (0.5): cap at base damage for small units
+                // ARCHER (10) vs KNIGHT (0.5): Game=10, Calc=15 → Cap at base * 1.0 = 10
+                // ARCHER (10) vs SWORDSMAN (0.5): Game=10, Calc=15 → Cap at base * 1.0 = 10
+                cap = baseDamage <= 10 ? baseDamage * 1.0f : float.MaxValue;
             }
             
             return Math.Min(damage, cap);
