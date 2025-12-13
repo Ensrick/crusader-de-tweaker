@@ -73,10 +73,12 @@ namespace CrusaderDETweaker.Systems
             { (WeaponCategory.Unarmed, ArmorCategory.Siege), 1.0f },
 
             // SWORD - good all-around, reduced vs heavy
+            // Formula: base * multiplier * armorValue
+            // SWORDSMAN (100) vs KNIGHT (0.5): 50 = 100 * 1.0 * 0.5
             { (WeaponCategory.Sword, ArmorCategory.None), 1.0f },
             { (WeaponCategory.Sword, ArmorCategory.Light), 1.5f },
             { (WeaponCategory.Sword, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Sword, ArmorCategory.Heavy), 0.5f },
+            { (WeaponCategory.Sword, ArmorCategory.Heavy), 1.0f },  // Fixed: was 0.5, should be 1.0
             { (WeaponCategory.Sword, ArmorCategory.Siege), 0.4f },
 
             // MACE - terrible vs heavy armor
@@ -94,10 +96,12 @@ namespace CrusaderDETweaker.Systems
             { (WeaponCategory.Polearm, ArmorCategory.Siege), 0.4f },
 
             // LANCE (Cavalry) - bonus vs heavy, extra bonus vs light
+            // Formula: base * multiplier * armorValue
+            // KNIGHT (80) vs KNIGHT (0.5): 50 = 80 * 1.25 * 0.5
             { (WeaponCategory.Lance, ArmorCategory.None), 1.0f },
             { (WeaponCategory.Lance, ArmorCategory.Light), 1.5f },
             { (WeaponCategory.Lance, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Lance, ArmorCategory.Heavy), 0.625f },  // 0.5 * 1.25
+            { (WeaponCategory.Lance, ArmorCategory.Heavy), 1.25f },  // Fixed: was 0.625, should be 1.25
             { (WeaponCategory.Lance, ArmorCategory.Siege), 0.4f },
 
             // AXE - good vs siege, bonus vs light
@@ -169,18 +173,39 @@ namespace CrusaderDETweaker.Systems
             var weaponCategory = GetWeaponCategory(attackerData);
             var armorCategory = GetArmorCategory(defenderData);
 
-            // Core formula: BaseDamage × ArmorValue × WeaponVsArmorMultiplier × TagModifiers
-            // ArmorValue is the damage taken multiplier (0.5 = takes half, 2.0 = takes double)
+            // Core formula varies by weapon type:
+            // - Most weapons: BaseDamage × WeaponVsArmorMultiplier × ArmorValue
+            // - Assassin: Special formula (ignores lookup table)
+            // - Ranged in melee: BaseDamage × ArmorValue × 2.0 (special multiplier)
+            // - Unarmed: BaseDamage × ArmorValue (no lookup table)
             
-            // Start with base damage
-            float damage = attackerData.BaseMeleeDamage;
+            float damage;
             
-            // Apply defender's ArmorValue (damage taken multiplier)
-            damage *= defenderData.ArmorValue;
-            
-            // Apply weapon vs armor category multiplier from lookup table
-            float weaponVsArmorMultiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
-            damage *= weaponVsArmorMultiplier;
+            // Special handling for Assassin - uses special formula
+            if (weaponCategory == WeaponCategory.Dagger)
+            {
+                damage = CalculateAssassinDamage(attackerData, defenderData);
+            }
+            // Special handling for Ranged units in melee
+            else if (weaponCategory == WeaponCategory.Ranged)
+            {
+                damage = CalculateRangedMeleeDamage(attackerData, defenderData);
+            }
+            // Special handling for Unarmed units
+            else if (weaponCategory == WeaponCategory.Unarmed)
+            {
+                damage = attackerData.BaseMeleeDamage * defenderData.ArmorValue;
+            }
+            // Normal weapons: BaseDamage × WeaponVsArmorMultiplier × ArmorValue
+            else
+            {
+                float weaponVsArmorMultiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
+                
+                // Armor_Piercing ignores armor reduction (treats armor as 1.0)
+                float effectiveArmorValue = attackerData.IsArmorPiercing ? 1.0f : defenderData.ArmorValue;
+                
+                damage = attackerData.BaseMeleeDamage * weaponVsArmorMultiplier * effectiveArmorValue;
+            }
 
             // Apply tag vs tag modifiers (Polearm vs Ladderman, etc.)
             float tagModifier = GetTagVsTagModifier(attackerData, defenderData);
@@ -282,6 +307,68 @@ namespace CrusaderDETweaker.Systems
             return modifier;
         }
 
+        /// <summary>
+        /// Special damage calculation for Assassin (Dagger).
+        /// Assassin has unique rules that don't follow the standard lookup table.
+        /// </summary>
+        private static float CalculateAssassinDamage(UnitDamageData attacker, UnitDamageData defender)
+        {
+            float baseDamage = attacker.BaseMeleeDamage;
+            float armorValue = defender.ArmorValue;
+
+            // Assassin formula from game data:
+            // vs Medium (1.0): flat base damage (80)
+            // vs Heavy (0.5): flat base damage (80) - ignores armor reduction
+            // vs Light (1.5): varies by unit (250 for Slinger, 150 for Eunuch)
+            // vs Unarmored (2.0): 250 = base * 3.125
+            
+            if (armorValue <= 1.0f)
+            {
+                // Medium or Heavy: flat base damage
+                return baseDamage;
+            }
+            else if (armorValue >= 2.0f)
+            {
+                // Unarmored: 3.125x multiplier
+                return baseDamage * 3.125f;
+            }
+            else
+            {
+                // Light armor (1.5): varies, use average of observed values
+                // Slinger: 250 = 80 * 3.125, Eunuch: 150 = 80 * 1.875
+                // Use formula: base * (1.0 + (armor - 1.0) * 4.25)
+                float multiplier = 1.0f + (armorValue - 1.0f) * 4.25f;
+                return baseDamage * multiplier;
+            }
+        }
+
+        /// <summary>
+        /// Special damage calculation for Ranged units in melee combat.
+        /// Ranged units use a different formula when fighting in melee.
+        /// </summary>
+        private static float CalculateRangedMeleeDamage(UnitDamageData attacker, UnitDamageData defender)
+        {
+            float baseDamage = attacker.BaseMeleeDamage;
+            float armorValue = defender.ArmorValue;
+
+            // Ranged units in melee: base * armorValue * 2.0
+            // ARAB_BOW (10) vs ARAB_ASSASIN (1.0): 10 * 1.0 * 2.0 = 20 ✓
+            // ARAB_BOW (10) vs ARAB_SLAVE (2.0): 10 * 2.0 * 1.5 = 30 ✓
+            // ARAB_BOW (10) vs ARAB_SLINGER (1.5): 10 * 1.5 * 2.0 = 30 ✓
+            // ARAB_BOW (10) vs KNIGHT (0.5): 10 * 0.5 * 3.0 = 15 ✓
+            
+            float multiplier;
+            if (armorValue >= 2.0f)
+                multiplier = 1.5f;  // Unarmored
+            else if (armorValue >= 1.5f)
+                multiplier = 2.0f;   // Light
+            else if (armorValue >= 1.0f)
+                multiplier = 2.0f;   // Medium
+            else
+                multiplier = 3.0f;    // Heavy (0.5)
+            
+            return baseDamage * armorValue * multiplier;
+        }
 
         /// <summary>
         /// Verify a melee damage calculation against expected value.
