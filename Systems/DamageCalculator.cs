@@ -88,15 +88,11 @@ namespace CrusaderDETweaker.Systems
                 return Math.Max(MinimumDamage, flatDamage);
             }
 
-            // RULE 5: Ranged units (Ranged_* tag) in melee get bonus damage
-            // Formula: base × (1 + armor)
-            // Example: ARAB_BOW (10) vs armor 2.0 = 10 × 3 = 30
-            if (HasRangedTag(attackerData))
-            {
-                return CalculateRangedMeleeDamage(attackerData, defenderData, tagModifier);
-            }
+            // NOTE: Ranged units (Ranged_* tag) use normal formula (base * armor)
+            // The pattern is inconsistent - sometimes they get bonus, sometimes not
+            // Using normal formula gives better overall accuracy
 
-            // RULE 6: Normal calculation
+            // RULE 5: Normal calculation
             float damage = attackerData.BaseMeleeDamage;
 
             // Apply defender's armor value (with special handling for certain attackers)
@@ -129,7 +125,7 @@ namespace CrusaderDETweaker.Systems
 
         /// <summary>
         /// Check if attacker has any ranged weapon tag (Ranged_Bow, Ranged_Crossbow, etc.)
-        /// These units get a melee damage bonus.
+        /// Used to differentiate ranged units from pure Weapon_Unarmed units.
         /// </summary>
         private static bool HasRangedTag(UnitDamageData attacker)
         {
@@ -137,29 +133,6 @@ namespace CrusaderDETweaker.Systems
                    attacker.HasTag("Ranged_Crossbow") ||
                    attacker.HasTag("Ranged_Sling") ||
                    attacker.HasTag("Ranged_Javelin");
-        }
-
-        /// <summary>
-        /// Calculate melee damage for ranged units (units with Ranged_* tags).
-        /// These units get a bonus when fighting in melee: base × (1 + armor)
-        /// 
-        /// Evidence:
-        /// - ARAB_BOW (10) vs KNIGHT (0.5): 10 × 1.5 = 15 ✓
-        /// - ARAB_BOW (10) vs armor 1.0: 10 × 2 = 20 ✓
-        /// - ARAB_BOW (10) vs armor 2.0: 10 × 3 = 30 ✓
-        /// </summary>
-        private static int CalculateRangedMeleeDamage(UnitDamageData attacker, UnitDamageData defender, float tagModifier)
-        {
-            float armorValue = defender.ArmorValue;
-
-            // Ranged melee formula: base × (1 + armor)
-            float damage = attacker.BaseMeleeDamage * (1.0f + armorValue);
-
-            // Apply tag modifiers
-            damage *= tagModifier;
-
-            int finalDamage = (int)Math.Round(damage);
-            return Math.Max(MinimumDamage, finalDamage);
         }
 
         /// <summary>
@@ -269,14 +242,7 @@ namespace CrusaderDETweaker.Systems
                 return armorValue;
             }
 
-            // Normal attackers: Apply armor with cap for unarmored targets
-            // Evidence: Calc is ~30% too high for armor 2.0, suggesting a cap
-            // Cap the bonus at 1.5x (armor values above 1.5 are treated as 1.5)
-            if (armorValue > 1.5f)
-            {
-                return 1.5f;
-            }
-
+            // Normal attackers: Apply armor directly (no cap)
             return armorValue;
         }
 
@@ -389,12 +355,6 @@ namespace CrusaderDETweaker.Systems
 
             if (attackerData.HasTag("Weapon_Unarmed") && !HasRangedTag(attackerData))
                 return $"{attacker} -> {defender}: Weapon_Unarmed (non-ranged), flat base damage = {attackerData.BaseMeleeDamage}";
-
-            if (HasRangedTag(attackerData))
-            {
-                float rangedDamage = attackerData.BaseMeleeDamage * (1.0f + defenderData.ArmorValue);
-                return $"{attacker} -> {defender}: Ranged melee formula, {attackerData.BaseMeleeDamage} * (1 + {defenderData.ArmorValue}) = {rangedDamage:F1}";
-            }
 
             float baseDamage = attackerData.BaseMeleeDamage;
             float effectiveArmor = GetEffectiveArmorValue(attackerData, defenderData);
