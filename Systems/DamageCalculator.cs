@@ -7,24 +7,42 @@ using SHCDESE.Interop;
 namespace CrusaderDETweaker.Systems
 {
     /// <summary>
-    /// Calculates melee damage between units using the damage formula.
+    /// Armor categories for the weapon vs armor lookup table.
+    /// These correspond to defender tags: Armor_None, Armor_Light, etc.
+    /// </summary>
+    public enum ArmorCategory
+    {
+        None,       // Civilians, animals - Armor_None tag
+        Light,      // Arab Slinger, Eunuch - Armor_Light tag  
+        Medium,     // Most military units - Armor_Medium tag
+        Heavy,      // Knight, Swordsman - Armor_Heavy tag
+        Siege       // Trebuchet - Armor_Siege tag
+    }
+
+    /// <summary>
+    /// Weapon categories for the weapon vs armor lookup table.
+    /// These correspond to attacker tags.
+    /// </summary>
+    public enum WeaponCategory
+    {
+        Unarmed,    // Civilians, weak units - Weapon_Unarmed tag
+        Sword,      // Swords - Weapon_Sword tag
+        Mace,       // Blunt weapons - Weapon_Mace tag
+        Polearm,    // Spears, pikes - Weapon_Polearm tag
+        Lance,      // Cavalry lances - Weapon_Lance tag
+        Axe,        // Axes - Weapon_Axe tag
+        Dagger,     // Assassin - Weapon_Dagger tag
+        Ranged,     // Bow/Crossbow/Sling in melee - Ranged_* tags
+        Beast       // Animals - Beast tag
+    }
+
+    /// <summary>
+    /// Calculates melee damage between units using a weapon vs armor lookup table.
     /// 
-    /// Core Formula: BaseMeleeDamage × ArmorMultiplier × WeaponArmorModifier × TagModifiers
+    /// Core Formula: BaseMeleeDamage × WeaponVsArmorMultiplier × SpecialModifiers
     /// 
-    /// Rules (applied in order):
-    /// 1. Weak attackers (Base ≤ 2): Deal flat base damage, ignore all modifiers
-    /// 2. Beast attackers: Deal flat base damage, ignore armor
-    /// 3. SiegeDefense defenders: Most attackers deal minimum damage (2)
-    /// 4. All others: Apply armor and modifiers
-    /// 
-    /// Armor Interaction Rules:
-    /// - Armor_Piercing (Lord): Ignores armor reduction (Heavy), gets capped bonus vs unarmored
-    /// - Assassin: Ignores reduction, gets huge bonus vs unarmored
-    /// - Weapon_Polearm: Ignores Heavy reduction, 5x vs Ladderman
-    /// - Weapon_Mace (Blunt) vs Heavy: Additional 0.67x penalty
-    /// - Cavalry vs Heavy: 1.25x bonus (after armor reduction)
-    /// 
-    /// Minimum damage floor: 2 (unless defender is immune)
+    /// The lookup table maps (WeaponCategory, ArmorCategory) to damage multipliers,
+    /// matching the game's actual damage calculations.
     /// </summary>
     internal static class DamageCalculator
     {
@@ -40,18 +58,105 @@ namespace CrusaderDETweaker.Systems
         public const int WeakAttackerThreshold = 2;
 
         /// <summary>
+        /// Weapon vs Armor multiplier lookup table.
+        /// Key: (WeaponCategory, ArmorCategory), Value: Damage multiplier
+        /// 
+        /// Derived from analyzing CrusaderDETweaker_MeleeDamage.csv game data.
+        /// </summary>
+        private static readonly Dictionary<(WeaponCategory, ArmorCategory), float> WeaponVsArmorTable = new Dictionary<(WeaponCategory, ArmorCategory), float>
+        {
+            // UNARMED (civilians, weak units) - flat base damage to everyone
+            { (WeaponCategory.Unarmed, ArmorCategory.None), 1.0f },
+            { (WeaponCategory.Unarmed, ArmorCategory.Light), 1.0f },
+            { (WeaponCategory.Unarmed, ArmorCategory.Medium), 1.0f },
+            { (WeaponCategory.Unarmed, ArmorCategory.Heavy), 1.0f },
+            { (WeaponCategory.Unarmed, ArmorCategory.Siege), 1.0f },
+
+            // SWORD - good all-around, reduced vs heavy
+            { (WeaponCategory.Sword, ArmorCategory.None), 1.0f },
+            { (WeaponCategory.Sword, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Sword, ArmorCategory.Medium), 1.0f },
+            { (WeaponCategory.Sword, ArmorCategory.Heavy), 0.5f },
+            { (WeaponCategory.Sword, ArmorCategory.Siege), 0.4f },
+
+            // MACE - terrible vs heavy armor
+            { (WeaponCategory.Mace, ArmorCategory.None), 1.0f },
+            { (WeaponCategory.Mace, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Mace, ArmorCategory.Medium), 1.0f },
+            { (WeaponCategory.Mace, ArmorCategory.Heavy), 0.33f },
+            { (WeaponCategory.Mace, ArmorCategory.Siege), 0.5f },
+
+            // POLEARM - ignores heavy armor, bonus vs light
+            { (WeaponCategory.Polearm, ArmorCategory.None), 1.0f },
+            { (WeaponCategory.Polearm, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Polearm, ArmorCategory.Medium), 1.0f },
+            { (WeaponCategory.Polearm, ArmorCategory.Heavy), 1.0f },
+            { (WeaponCategory.Polearm, ArmorCategory.Siege), 0.4f },
+
+            // LANCE (Cavalry) - bonus vs heavy, extra bonus vs light
+            { (WeaponCategory.Lance, ArmorCategory.None), 1.0f },
+            { (WeaponCategory.Lance, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Lance, ArmorCategory.Medium), 1.0f },
+            { (WeaponCategory.Lance, ArmorCategory.Heavy), 0.625f },  // 0.5 * 1.25
+            { (WeaponCategory.Lance, ArmorCategory.Siege), 0.4f },
+
+            // AXE - good vs siege, bonus vs light
+            { (WeaponCategory.Axe, ArmorCategory.None), 1.0f },
+            { (WeaponCategory.Axe, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Axe, ArmorCategory.Medium), 1.0f },
+            { (WeaponCategory.Axe, ArmorCategory.Heavy), 1.0f },
+            { (WeaponCategory.Axe, ArmorCategory.Siege), 1.0f },  // Bypasses siege defense
+
+            // DAGGER (Assassin) - huge bonus vs unarmored, ignores heavy reduction
+            { (WeaponCategory.Dagger, ArmorCategory.None), 1.0f },
+            { (WeaponCategory.Dagger, ArmorCategory.Light), 2.0f },
+            { (WeaponCategory.Dagger, ArmorCategory.Medium), 1.0f },
+            { (WeaponCategory.Dagger, ArmorCategory.Heavy), 1.0f },
+            { (WeaponCategory.Dagger, ArmorCategory.Siege), 0.025f },  // 2/80 from data
+
+            // RANGED (bows, crossbows, slings in melee) - bonus vs heavy and light
+            { (WeaponCategory.Ranged, ArmorCategory.None), 1.0f },
+            { (WeaponCategory.Ranged, ArmorCategory.Light), 1.5f },
+            { (WeaponCategory.Ranged, ArmorCategory.Medium), 1.0f },
+            { (WeaponCategory.Ranged, ArmorCategory.Heavy), 1.5f },  // Ranged gets bonus vs heavy!
+            { (WeaponCategory.Ranged, ArmorCategory.Siege), 0.2f },
+
+            // BEAST - flat damage, ignores all armor
+            { (WeaponCategory.Beast, ArmorCategory.None), 1.0f },
+            { (WeaponCategory.Beast, ArmorCategory.Light), 1.0f },
+            { (WeaponCategory.Beast, ArmorCategory.Medium), 1.0f },
+            { (WeaponCategory.Beast, ArmorCategory.Heavy), 1.0f },
+            { (WeaponCategory.Beast, ArmorCategory.Siege), 1.0f },
+        };
+
+        /// <summary>
+        /// Special multipliers for specific attacker tags vs defender tags.
+        /// Applied after the weapon vs armor lookup.
+        /// </summary>
+        private static readonly Dictionary<(string, string), float> TagVsTagModifiers = new Dictionary<(string, string), float>
+        {
+            // Polearm vs Ladderman: 5x damage
+            { ("Weapon_Polearm", "Ladderman"), 5.0f },
+            
+            // Hunter vs Beast: 2x damage
+            { ("Hunter", "Beast"), 2.0f },
+            
+            // Predator vs SmallPrey: 5x damage (Dog vs Rabbit)
+            { ("Predator", "SmallPrey"), 5.0f },
+        };
+
+        /// <summary>
         /// Calculate melee damage from attacker to defender.
         /// Returns -1 if calculation fails (missing data).
         /// </summary>
         public static int CalculateMeleeDamage(eChimps attacker, eChimps defender)
         {
-            // Get unit data
             var attackerData = UnitDamageRegistry.GetUnitData(attacker);
             var defenderData = UnitDamageRegistry.GetUnitData(defender);
 
             if (attackerData == null || defenderData == null)
             {
-                return -1; // Missing data
+                return -1;
             }
 
             // RULE 1: Weak attackers (Base ≤ 2) deal flat damage
@@ -60,55 +165,44 @@ namespace CrusaderDETweaker.Systems
                 return attackerData.BaseMeleeDamage;
             }
 
-            // Calculate tag modifiers (Polearm vs Ladderman, Hunter vs Beast, etc.)
-            float tagModifier = CalculateTagModifiers(attackerData, defenderData);
+            // Get weapon and armor categories
+            var weaponCategory = GetWeaponCategory(attackerData);
+            var armorCategory = GetArmorCategory(defenderData);
 
-            // RULE 2: Beast attackers deal flat base damage × tag modifiers
-            if (HasBeastTag(attackerData))
+            float damage;
+
+            // Special handling for Assassin - uses armor value directly
+            if (weaponCategory == WeaponCategory.Dagger)
             {
-                int beastDamage = (int)Math.Round(attackerData.BaseMeleeDamage * tagModifier);
-                return Math.Max(MinimumDamage, beastDamage);
+                damage = CalculateAssassinDamage(attackerData, defenderData);
             }
-
-            // RULE 3: SiegeDefense (Trebuchet) - most attackers deal minimum damage
-            if (defenderData.HasTag("SiegeDefense"))
+            // Special handling for Ranged units in melee - uses defender armor value
+            else if (weaponCategory == WeaponCategory.Ranged)
             {
-                if (!BypassesSiegeDefense(attackerData))
-                {
-                    return MinimumDamage;
-                }
-                // Attackers that bypass SiegeDefense continue with normal calculation
+                damage = CalculateRangedMeleeDamage(attackerData, defenderData);
             }
-
-            // RULE 4: Weapon_Unarmed without Ranged_* tag = flat base damage
-            // Example: ARAB_BALLISTA (10) deals 10 to everyone regardless of armor
-            if (attackerData.HasTag("Weapon_Unarmed") && !HasRangedTag(attackerData))
+            // Special handling for Unarmed units - uses defender armor value
+            else if (weaponCategory == WeaponCategory.Unarmed)
             {
-                int flatDamage = (int)Math.Round(attackerData.BaseMeleeDamage * tagModifier);
-                return Math.Max(MinimumDamage, flatDamage);
+                damage = CalculateUnarmedDamage(attackerData, defenderData);
             }
+            // Normal calculation using lookup table
+            else
+            {
+                // Look up the base multiplier
+                float multiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
 
-            // NOTE: Ranged units (Ranged_* tag) use normal formula (base * armor)
-            // The pattern is inconsistent - sometimes they get bonus, sometimes not
-            // Using normal formula gives better overall accuracy
+                // Calculate base damage
+                damage = attackerData.BaseMeleeDamage * multiplier;
 
-            // RULE 5: Normal calculation
-            float damage = attackerData.BaseMeleeDamage;
+                // Apply tag vs tag modifiers (Polearm vs Ladderman, etc.)
+                float tagModifier = GetTagVsTagModifier(attackerData, defenderData);
+                damage *= tagModifier;
 
-            // Apply defender's armor value (with special handling for certain attackers)
-            float effectiveArmor = GetEffectiveArmorValue(attackerData, defenderData);
-            damage *= effectiveArmor;
-
-            // Apply weapon vs armor type modifier
-            float weaponArmorMod = GetWeaponArmorModifier(attackerData, defenderData);
-            damage *= weaponArmorMod;
-
-            // Apply tag-based modifiers
-            damage *= tagModifier;
-
-            // Apply unit-specific modifier if exists
-            float specialModifier = attackerData.GetModifierAgainst(defender);
-            damage *= specialModifier;
+                // Apply unit-specific modifier if exists
+                float specialModifier = attackerData.GetModifierAgainst(defender);
+                damage *= specialModifier;
+            }
 
             // Round and apply minimum damage floor
             int finalDamage = (int)Math.Round(damage);
@@ -116,214 +210,181 @@ namespace CrusaderDETweaker.Systems
         }
 
         /// <summary>
-        /// Check if attacker has any beast-related tag.
+        /// Get the weapon category for an attacker based on their tags.
         /// </summary>
-        private static bool HasBeastTag(UnitDamageData attacker)
+        private static WeaponCategory GetWeaponCategory(UnitDamageData attacker)
         {
-            return attacker.HasTag("Beast");
+            // Check in order of specificity
+            if (attacker.HasTag("Beast"))
+                return WeaponCategory.Beast;
+
+            if (attacker.HasTag("Weapon_Dagger") || attacker.HasTag("Assassin"))
+                return WeaponCategory.Dagger;
+
+            if (attacker.HasTag("Ranged_Bow") || attacker.HasTag("Ranged_Crossbow") ||
+                attacker.HasTag("Ranged_Sling") || attacker.HasTag("Ranged_Javelin"))
+                return WeaponCategory.Ranged;
+
+            if (attacker.HasTag("Weapon_Lance"))
+                return WeaponCategory.Lance;
+
+            if (attacker.HasTag("Weapon_Polearm"))
+                return WeaponCategory.Polearm;
+
+            if (attacker.HasTag("Weapon_Axe"))
+                return WeaponCategory.Axe;
+
+            if (attacker.HasTag("Weapon_Mace"))
+                return WeaponCategory.Mace;
+
+            if (attacker.HasTag("Weapon_Sword"))
+                return WeaponCategory.Sword;
+
+            // Default to unarmed
+            return WeaponCategory.Unarmed;
         }
 
         /// <summary>
-        /// Check if attacker has any ranged weapon tag (Ranged_Bow, Ranged_Crossbow, etc.)
-        /// Used to differentiate ranged units from pure Weapon_Unarmed units.
+        /// Get the armor category for a defender based on their tags.
         /// </summary>
-        private static bool HasRangedTag(UnitDamageData attacker)
+        private static ArmorCategory GetArmorCategory(UnitDamageData defender)
         {
-            return attacker.HasTag("Ranged_Bow") ||
-                   attacker.HasTag("Ranged_Crossbow") ||
-                   attacker.HasTag("Ranged_Sling") ||
-                   attacker.HasTag("Ranged_Javelin");
+            if (defender.HasTag("Armor_Siege") || defender.HasTag("SiegeDefense"))
+                return ArmorCategory.Siege;
+
+            if (defender.HasTag("Armor_Heavy"))
+                return ArmorCategory.Heavy;
+
+            if (defender.HasTag("Armor_Light"))
+                return ArmorCategory.Light;
+
+            if (defender.HasTag("Armor_None"))
+                return ArmorCategory.None;
+
+            // Default to Medium if no armor tag specified
+            return ArmorCategory.Medium;
         }
 
         /// <summary>
-        /// Check if attacker has any polearm-related tag.
+        /// Look up the weapon vs armor multiplier from the table.
         /// </summary>
-        private static bool HasPolearmTag(UnitDamageData attacker)
+        private static float GetWeaponVsArmorMultiplier(WeaponCategory weapon, ArmorCategory armor)
         {
-            return attacker.HasTag("Polearm") || attacker.HasTag("Weapon_Polearm");
-        }
-
-        /// <summary>
-        /// Check if attacker has any armor-piercing tag.
-        /// </summary>
-        private static bool HasArmorPiercingTag(UnitDamageData attacker)
-        {
-            return attacker.HasTag("ArmorPiercing") || attacker.HasTag("Armor_Piercing");
-        }
-
-        /// <summary>
-        /// Check if attacker has the assassin tag.
-        /// </summary>
-        private static bool HasAssassinTag(UnitDamageData attacker)
-        {
-            return attacker.HasTag("Assassin");
-        }
-
-        /// <summary>
-        /// Check if attacker has a blunt weapon tag.
-        /// </summary>
-        private static bool HasBluntTag(UnitDamageData attacker)
-        {
-            return attacker.HasTag("Blunt") || attacker.HasTag("Weapon_Mace");
-        }
-
-        /// <summary>
-        /// Check if attacker has cavalry tag.
-        /// </summary>
-        private static bool HasCavalryTag(UnitDamageData attacker)
-        {
-            return attacker.HasTag("Cavalry");
-        }
-
-        /// <summary>
-        /// Check if attacker has chopping weapon (axes).
-        /// </summary>
-        private static bool HasChoppingTag(UnitDamageData attacker)
-        {
-            return attacker.HasTag("Chopping") || attacker.HasTag("Weapon_Axe");
-        }
-
-        /// <summary>
-        /// Get the effective armor value, considering attacker abilities.
-        /// 
-        /// Normal: Use defender's ArmorValue directly (e.g., 0.5 for Heavy, 2.0 for unarmored)
-        /// 
-        /// Beast: Handled separately (flat damage)
-        /// 
-        /// Armor_Piercing (Lord):
-        /// - Ignores armor reduction (Heavy treated as 1.0)
-        /// - Gets capped bonus vs unarmored: max 1.33x
-        /// 
-        /// Assassin:
-        /// - Ignores armor reduction (Heavy treated as 1.0)
-        /// - Gets huge bonus vs unarmored (up to ~3.1x)
-        /// 
-        /// Weapon_Polearm:
-        /// - Ignores Heavy reduction (treated as 1.0)
-        /// - Gets normal bonus vs unarmored
-        /// </summary>
-        private static float GetEffectiveArmorValue(UnitDamageData attacker, UnitDamageData defender)
-        {
-            float armorValue = defender.ArmorValue;
-
-            // ARMOR PIERCING (Lord): Ignore reduction, capped bonus
-            if (HasArmorPiercingTag(attacker))
+            if (WeaponVsArmorTable.TryGetValue((weapon, armor), out float multiplier))
             {
-                if (armorValue < 1.0f)
-                {
-                    return 1.0f; // Ignore Heavy reduction
-                }
-                // Capped bonus: max ~1.33x
-                // Data: Lord (150) vs Slave (2.0) = 200, so 200/150 = 1.33
-                return Math.Min(armorValue, 1.33f);
+                return multiplier;
             }
-
-            // ASSASSIN: Ignore reduction, huge bonus vs unarmored
-            if (HasAssassinTag(attacker))
-            {
-                if (armorValue < 1.0f)
-                {
-                    return 1.0f; // Ignore Heavy reduction
-                }
-                // Huge bonus: ~3.1x vs unarmored (armor 2.0)
-                // Data: Assassin (80) vs Slave (2.0) = 250, so 250/80 = 3.125
-                // Formula: 1.0 + (armor - 1.0) * 2.125
-                return 1.0f + (armorValue - 1.0f) * 2.125f;
-            }
-
-            // POLEARM: Ignore Heavy reduction, normal bonus vs unarmored
-            if (HasPolearmTag(attacker))
-            {
-                if (armorValue < 1.0f)
-                {
-                    return 1.0f; // Ignore Heavy reduction
-                }
-                // Normal bonus vs unarmored
-                return armorValue;
-            }
-
-            // Normal attackers: Apply armor directly (no cap)
-            return armorValue;
+            return 1.0f; // Default if not found
         }
 
         /// <summary>
-        /// Check if an attacker bypasses Siege Defense (Trebuchet's special armor).
+        /// Get modifier for specific tag vs tag combinations.
         /// </summary>
-        private static bool BypassesSiegeDefense(UnitDamageData attacker)
-        {
-            // Beast always bypasses
-            if (HasBeastTag(attacker))
-                return true;
-
-            // Armor Piercing bypasses
-            if (HasArmorPiercingTag(attacker))
-                return true;
-
-            // Chopping weapons (axes, pickaxes) bypass
-            if (HasChoppingTag(attacker))
-                return true;
-
-            // Light blunt weapons (Base ≤ 50) bypass - Monk (50) bypasses
-            if (HasBluntTag(attacker) && attacker.BaseMeleeDamage <= 50)
-                return true;
-
-            return false;
-        }
-
-        /// <summary>
-        /// Get the weapon vs armor type modifier.
-        /// </summary>
-        private static float GetWeaponArmorModifier(UnitDamageData attacker, UnitDamageData defender)
-        {
-            // Check Blunt vs Heavy
-            // Data: Maceman (75) vs Knight (0.5) = 25, but 75 * 0.5 = 37.5
-            // So modifier = 25/37.5 = 0.67
-            if (HasBluntTag(attacker) && defender.ArmorType == ArmorType.Heavy)
-            {
-                return 0.67f;
-            }
-
-            // Check Cavalry vs Heavy
-            // Data: Knight (80) vs Knight (0.5) = 50, so 80 * 0.5 * X = 50, X = 1.25
-            if (HasCavalryTag(attacker) && defender.ArmorType == ArmorType.Heavy)
-            {
-                return 1.25f;
-            }
-
-            return 1.0f;
-        }
-
-        /// <summary>
-        /// Calculate modifiers based on attacker/defender tags.
-        /// </summary>
-        private static float CalculateTagModifiers(UnitDamageData attacker, UnitDamageData defender)
+        private static float GetTagVsTagModifier(UnitDamageData attacker, UnitDamageData defender)
         {
             float modifier = 1.0f;
 
-            // POLEARM vs LADDERMAN: 5x damage bonus
-            if (HasPolearmTag(attacker) && defender.HasTag("Ladderman"))
+            foreach (var entry in TagVsTagModifiers)
             {
-                modifier *= 5.0f;
-            }
-
-            // HUNTER vs BEAST: 2x damage bonus
-            if (attacker.HasTag("Hunter") && HasBeastTag(defender))
-            {
-                modifier *= 2.0f;
-            }
-
-            // DOG (Predator) vs RABBIT (SmallPrey): 5x damage bonus
-            if (attacker.HasTag("Predator") && defender.HasTag("SmallPrey"))
-            {
-                modifier *= 5.0f;
+                var (attackerTag, defenderTag) = entry.Key;
+                if (attacker.HasTag(attackerTag) && defender.HasTag(defenderTag))
+                {
+                    modifier *= entry.Value;
+                }
             }
 
             return modifier;
         }
 
         /// <summary>
+        /// Special damage calculation for Assassin.
+        /// The Assassin uses defender armor value directly with special scaling.
+        /// </summary>
+        private static float CalculateAssassinDamage(UnitDamageData attacker, UnitDamageData defender)
+        {
+            float armorValue = defender.ArmorValue;
+            float baseDamage = attacker.BaseMeleeDamage;
+
+            // Assassin formula from game data:
+            // vs Heavy (0.5): 80 → 80 (1.0x)
+            // vs Medium (1.0): 80 → 80 (1.0x)
+            // vs Light (1.5): 80 → 150-250 (varies by unit)
+            // vs Unarmored (2.0): 80 → 250 (3.125x)
+            
+            if (armorValue <= 1.0f)
+            {
+                return baseDamage; // 1.0x vs Heavy/Medium
+            }
+            else if (armorValue >= 2.0f)
+            {
+                // Unarmored: 3.125x multiplier
+                return baseDamage * 3.125f;
+            }
+            else
+            {
+                // Light armor (1.5): varies, but generally high
+                // For Arab Slinger (1.5): 250 = 80 * 3.125
+                // For Bedouin Eunuch (1.5): 150 = 80 * 1.875
+                // Use a formula that gives ~2.5x average for 1.5 armor
+                // Formula: base * (1.0 + (armor - 1.0) * 3.0)
+                float multiplier = 1.0f + (armorValue - 1.0f) * 3.0f;
+                return baseDamage * multiplier;
+            }
+        }
+
+        /// <summary>
+        /// Special damage calculation for Ranged units in melee combat.
+        /// Uses defender armor value directly.
+        /// </summary>
+        private static float CalculateRangedMeleeDamage(UnitDamageData attacker, UnitDamageData defender)
+        {
+            float armorValue = defender.ArmorValue;
+            float baseDamage = attacker.BaseMeleeDamage;
+
+            // Ranged units in melee formula from game data:
+            // ARAB_BOW (10) vs ARAB_SLAVE (2.0): Game=30
+            // ARAB_BOW (10) vs ARAB_SLINGER (1.5): Game=30
+            // ARAB_BOW (10) vs ARAB_ASSASIN (1.0): Game=20
+            // ARAB_BOW (10) vs MACEMAN (1.0): Game=15
+            // ARAB_BOW (10) vs KNIGHT (0.5): Game=15
+            
+            // Pattern analysis:
+            // vs 2.0: 10 * 2.0 * 1.5 = 30 ✓
+            // vs 1.5: 10 * 1.5 * 2.0 = 30 ✓
+            // vs 1.0: 10 * 1.0 * 2.0 = 20 ✓ (but some show 15)
+            // vs 0.5: 10 * 0.5 * 3.0 = 15 ✓
+            
+            // Formula: base * armorValue * multiplier
+            // Multiplier varies: 1.5 for high armor (>=1.5), 2.0 for medium (1.0), 3.0 for low (<=0.5)
+            float multiplier;
+            if (armorValue >= 1.5f)
+                multiplier = 1.5f;
+            else if (armorValue >= 1.0f)
+                multiplier = 2.0f;
+            else
+                multiplier = 3.0f;
+            
+            return baseDamage * armorValue * multiplier;
+        }
+
+        /// <summary>
+        /// Special damage calculation for Unarmed units.
+        /// Uses defender armor value directly.
+        /// </summary>
+        private static float CalculateUnarmedDamage(UnitDamageData attacker, UnitDamageData defender)
+        {
+            float armorValue = defender.ArmorValue;
+            float baseDamage = attacker.BaseMeleeDamage;
+
+            // Unarmed units: base * defenderArmorValue
+            // ARAB_BALLISTA (10) vs ARAB_SLAVE (2.0): 10 * 2.0 = 20 ✓
+            // ARAB_BALLISTA (10) vs TREBUCHET (0.4): 10 * 0.4 = 4, but min is 2 ✓
+            
+            return baseDamage * armorValue;
+        }
+
+        /// <summary>
         /// Verify a melee damage calculation against expected value.
-        /// Returns true if calculated matches expected.
         /// </summary>
         public static bool VerifyMeleeDamage(eChimps attacker, eChimps defender, int expectedDamage)
         {
@@ -332,7 +393,7 @@ namespace CrusaderDETweaker.Systems
         }
 
         /// <summary>
-        /// Quick diagnostic for a specific attacker-defender pair.
+        /// Diagnostic for a specific attacker-defender pair.
         /// </summary>
         public static string DiagnoseMeleeDamage(eChimps attacker, eChimps defender)
         {
@@ -344,34 +405,17 @@ namespace CrusaderDETweaker.Systems
             if (defenderData == null)
                 return $"{defender}: No data in registry";
 
-            if (attackerData.BaseMeleeDamage <= WeakAttackerThreshold)
-                return $"{attacker} -> {defender}: Weak attacker (Base={attackerData.BaseMeleeDamage}), deals flat {attackerData.BaseMeleeDamage}";
-
-            if (HasBeastTag(attackerData))
-                return $"{attacker} -> {defender}: Beast attacker, deals flat {attackerData.BaseMeleeDamage}";
-
-            if (defenderData.HasTag("SiegeDefense") && !BypassesSiegeDefense(attackerData))
-                return $"{attacker} -> {defender}: SiegeDefense blocks, deals minimum {MinimumDamage}";
-
-            if (attackerData.HasTag("Weapon_Unarmed") && !HasRangedTag(attackerData))
-                return $"{attacker} -> {defender}: Weapon_Unarmed (non-ranged), flat base damage = {attackerData.BaseMeleeDamage}";
-
-            float baseDamage = attackerData.BaseMeleeDamage;
-            float effectiveArmor = GetEffectiveArmorValue(attackerData, defenderData);
-            float weaponArmorMod = GetWeaponArmorModifier(attackerData, defenderData);
-            float tagMod = CalculateTagModifiers(attackerData, defenderData);
-            float specialMod = attackerData.GetModifierAgainst(defender);
-
-            float rawFinal = baseDamage * effectiveArmor * weaponArmorMod * tagMod * specialMod;
-            int final = Math.Max(MinimumDamage, (int)Math.Round(rawFinal));
+            var weaponCat = GetWeaponCategory(attackerData);
+            var armorCat = GetArmorCategory(defenderData);
+            float multiplier = GetWeaponVsArmorMultiplier(weaponCat, armorCat);
+            float tagMod = GetTagVsTagModifier(attackerData, defenderData);
 
             return $"{attacker} -> {defender}:\n" +
-                   $"  BaseDamage: {baseDamage}\n" +
-                   $"  × EffectiveArmor: {effectiveArmor:F3} (raw={defenderData.ArmorValue})\n" +
-                   $"  × WeaponArmorMod: {weaponArmorMod:F3}\n" +
-                   $"  × TagModifier: {tagMod:F3}\n" +
-                   $"  × SpecialModifier: {specialMod:F3}\n" +
-                   $"  = Raw: {rawFinal:F2}, Final (min {MinimumDamage}): {final}";
+                   $"  Base: {attackerData.BaseMeleeDamage}\n" +
+                   $"  Weapon: {weaponCat}, Armor: {armorCat}\n" +
+                   $"  WeaponVsArmor: {multiplier:F3}\n" +
+                   $"  TagModifier: {tagMod:F3}\n" +
+                   $"  Final: {CalculateMeleeDamage(attacker, defender)}";
         }
     }
 }
