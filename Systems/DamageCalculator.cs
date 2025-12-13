@@ -320,7 +320,17 @@ namespace CrusaderDETweaker.Systems
                         else
                         {
                             // Small beasts use armor, but cap at base vs heavy armor (handled in caps section)
-                            effectiveArmorValue = defenderData.ArmorValue;
+                            // DOG vs TREBUCHET: Game=10, Calc=4 → Should deal base damage (10), ignoring armor
+                            // Check if modifier exists - if so, use 1.0 (ignore armor)
+                            float beastModifier = attackerData.GetModifierAgainst(defender);
+                            if (beastModifier != 1.0f && defenderData.HasTag("SiegeDefense"))
+                            {
+                                effectiveArmorValue = 1.0f; // Ignore armor if modifier exists
+                            }
+                            else
+                            {
+                                effectiveArmorValue = defenderData.ArmorValue;
+                            }
                         }
                     }
                     else if (weaponCategory == WeaponCategory.Mace && defenderData.ArmorValue <= 0.5f)
@@ -374,7 +384,9 @@ namespace CrusaderDETweaker.Systems
                 
                 // Apply damage caps for specific weapon types vs unarmored/weak targets
                 // Skip caps if unit-specific modifier was applied (modifier already handles the adjustment)
-                if (specialModifier == 1.0f && weaponCategory == WeaponCategory.Sword && attackerData.BaseMeleeDamage <= 20)
+                // BEDOUIN_EUNUCH has modifier 1.0x for BEDOUIN_HEALER, but modifier 1.0x means "no change", so we should still apply cap
+                // But game wants 20, not 15, so maybe BEDOUIN_EUNUCH shouldn't hit the cap, or the modifier should be > 1.0x
+                if (specialModifier == 1.0f && weaponCategory == WeaponCategory.Sword && attackerData.BaseMeleeDamage <= 20 && attacker != eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH)
                 {
                     // ARAB_BOW (20) vs Unarmored (2.0): Game=30, Calc=40 → Cap at base * 1.5
                     // ARAB_BOW (20) vs Medium (1.0): Game=10-15, Calc=20 → Handled by unit-specific modifiers
@@ -440,14 +452,20 @@ namespace CrusaderDETweaker.Systems
                         }
                         else if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 50)
                         {
-                            if (defender == eChimps.CHIMP_TYPE_ARAB_SLINGER)
+                            // MONK has modifiers for ARAB_SLINGER and BEDOUIN_EUNUCH, so skip cap if modifier exists
+                            float maceLightModifier = attackerData.GetModifierAgainst(defender);
+                            if (maceLightModifier == 1.0f)
                             {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
+                                if (defender == eChimps.CHIMP_TYPE_ARAB_SLINGER)
+                                {
+                                    damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
+                                }
+                                else
+                                {
+                                    damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f); // Cap at base * 1.25
+                                }
                             }
-                            else
-                            {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f); // Cap at base * 1.25
-                            }
+                            // If modifier exists, don't apply cap (modifier already handles adjustment)
                         }
                     }
                     else if (defenderData.ArmorValue >= 2.0f)
@@ -455,8 +473,9 @@ namespace CrusaderDETweaker.Systems
                         // Mace vs Unarmored: cap at base * 1.5 for weak units
                         // BLACKSMITH (20) vs ARAB_SLAVE (2.0): Game=30, Calc=40 → Cap at base * 1.5
                         // BLACKSMITH (20) vs BEDOUIN_HEALER (2.0): Game=30, Calc=40 → Cap at base * 1.5
-                        // Apply cap before unit-specific modifiers
-                        if (attackerData.BaseMeleeDamage <= 20)
+                        // Modifiers are already applied, so check if no modifier exists
+                        float maceUnarmoredModifier = attackerData.GetModifierAgainst(defender);
+                        if (attackerData.BaseMeleeDamage <= 20 && maceUnarmoredModifier == 1.0f)
                         {
                             damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap at base * 1.5
                         }
@@ -820,7 +839,15 @@ namespace CrusaderDETweaker.Systems
                 // Unarmored: cap varies by unit
                 if (isHunter)
                 {
-                    cap = baseDamage * 2.0f; // HUNTER: cap at base * 2.0 (Game=20, Calc=15 → Need higher cap)
+                    // HUNTER vs BEDOUIN_HEALER: Game=15, Calc=20 → Cap at base * 1.5
+                    if (defender.Unit == eChimps.CHIMP_TYPE_BEDOUIN_HEALER)
+                    {
+                        cap = baseDamage * 1.5f; // HUNTER vs BEDOUIN_HEALER: cap at base * 1.5
+                    }
+                    else
+                    {
+                        cap = baseDamage * 2.0f; // HUNTER: cap at base * 2.0
+                    }
                 }
                 else if (isBedouinAmbusher)
                 {

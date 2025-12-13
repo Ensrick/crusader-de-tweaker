@@ -489,7 +489,7 @@ namespace CrusaderDETweaker.Systems
             {
                 heavyCamel.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 0.667f); // 40/60 = 0.667
                 heavyCamel.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 0.833f); // 50/60 = 0.833
-                heavyCamel.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.5f); // 60/40 = 1.5 (but calc shows 40, not 60, so maybe the modifier isn't being applied?)
+                heavyCamel.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 0.75f); // 60/80 = 0.75
                 heavyCamel.AddSpecialModifier(eChimps.CHIMP_TYPE_KNIGHT, 1.6f); // 40/25 = 1.6
                 heavyCamel.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 1.6f); // 40/25 = 1.6
                 heavyCamel.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 0.667f); // 10/15 = 0.667
@@ -513,7 +513,7 @@ namespace CrusaderDETweaker.Systems
             // vs ARAB_SLAVE (2.0): Game=10, Calc=20 → needs 0.5x modifier (10/20 = 0.5)
             // vs ARAB_SLINGER (1.5): Game=10, Calc=15 → needs 0.667x modifier
             // vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → needs 0.667x modifier (10/15 = 0.667)
-            // vs BEDOUIN_HEALER (2.0): Game=20, Calc=20 → needs 1.0x modifier (20/20 = 1.0)
+            // vs BEDOUIN_HEALER (2.0): Game=20, Calc=15 → needs 1.33x modifier (20/15 = 1.33) to override cap
             // vs Heavy: Game=10, Calc=5 → needs 2.0x modifier
             var bedouinEunuch = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH);
             if (bedouinEunuch != null)
@@ -521,7 +521,7 @@ namespace CrusaderDETweaker.Systems
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 0.5f); // 10/20 = 0.5
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 0.667f); // 10/15 = 0.667
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 0.667f); // 10/15 = 0.667
-                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.0f); // 20/20 = 1.0
+                bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.33f); // 20/15 = 1.33
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_KNIGHT, 2.0f);
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_SWORDSMAN, 2.0f);
                 bedouinEunuch.AddSpecialModifier(eChimps.CHIMP_TYPE_TREBUCHET, 0.5f); // 2/4 = 0.5
@@ -595,12 +595,12 @@ namespace CrusaderDETweaker.Systems
 
             // BEDOUIN_AMBUSHER: Ranged unit in melee, needs special modifiers
             // vs ARAB_SLAVE (2.0): Game=10, Calc=20 → needs 0.5x modifier (10/20 = 0.5)
-            // vs BEDOUIN_HEALER (2.0): Game=20, Calc=20 → needs 1.0x modifier (20/20 = 1.0, but calc shows 40, so maybe 0.5x?)
+            // vs BEDOUIN_HEALER (2.0): Game=20, Calc=20 → needs 1.0x modifier (20/20 = 1.0)
             var bedouinAmbusher = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER);
             if (bedouinAmbusher != null)
             {
                 bedouinAmbusher.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLAVE, 0.5f); // 10/20 = 0.5
-                bedouinAmbusher.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 0.5f); // 20/40 = 0.5
+                bedouinAmbusher.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.0f); // 20/20 = 1.0
             }
 
             // BEDOUIN_HEALER: Unarmed unit, needs special modifiers
@@ -614,11 +614,11 @@ namespace CrusaderDETweaker.Systems
             }
 
             // BEDOUIN_DEMOLISHER: Mace unit, needs special modifier vs BEDOUIN_HEALER
-            // vs BEDOUIN_HEALER (2.0): Game=60, Calc=40 → needs 1.5x modifier
+            // vs BEDOUIN_HEALER (2.0): Game=60, Calc=80 → needs 0.75x modifier (60/80 = 0.75)
             var bedouinDemolisher = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER);
             if (bedouinDemolisher != null)
             {
-                bedouinDemolisher.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 1.5f); // 60/40 = 1.5
+                bedouinDemolisher.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_HEALER, 0.75f); // 60/80 = 0.75
             }
 
             // HUNTER: Special unit with Hunter tag, needs special modifiers
