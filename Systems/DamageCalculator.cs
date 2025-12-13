@@ -214,7 +214,16 @@ namespace CrusaderDETweaker.Systems
                     if (siegeModifier != 1.0f)
                     {
                         // Modifier exists, so bypass SiegeDefense and calculate normally
-                        // This will be handled in the damage calculation below
+                        // HUNTER vs TREBUCHET: Game=10, Calc=50 → The modifier 5.0x is being applied incorrectly
+                        // The base calc should be 2 (SiegeDefense), then 2 * 5 = 10
+                        // But if we bypass SiegeDefense, the base calc is 10 * 0.4 * 3.0 = 12, then 12 * 5 = 60, then cap...
+                        // So we need to handle this specially - apply the modifier to the minimum damage (2)
+                        if (weaponCategory == WeaponCategory.Ranged && attackerData.HasTag("Hunter"))
+                        {
+                            // HUNTER vs TREBUCHET: deal 2 * 5.0 = 10
+                            return (int)(MinimumDamage * siegeModifier);
+                        }
+                        // For other units, calculate normally
                     }
                     else
                     {
@@ -429,19 +438,24 @@ namespace CrusaderDETweaker.Systems
                 {
                     if (defenderData.ArmorValue >= 2.0f)
                     {
-                        // Mace vs Unarmored: cap at base * 1.0 for medium-strength units (40-50)
+                        // Mace vs Unarmored: different caps based on unit strength
+                        // BLACKSMITH (20) vs ARAB_SLAVE (2.0): Game=30, Calc=40 → Cap at base * 1.5
                         // BEDOUIN_DEMOLISHER (40) vs ARAB_SLAVE (2.0): Game=40, Calc=80 → Cap at base * 1.0
-                        // BEDOUIN_DEMOLISHER (40) vs BEDOUIN_HEALER (2.0): Game=60, Calc=80 → No cap (modifier will handle it)
-                        // MACEMAN (75) vs ARAB_SLAVE (2.0): Game=150, Calc=150 → No cap for strong units
                         // MONK (50) vs Unarmored: handled by unit-specific modifiers
-                        // Check if modifier exists - if so, skip cap (modifier already applied)
+                        // MACEMAN (75) vs ARAB_SLAVE (2.0): Game=150, Calc=150 → No cap for strong units
                         float maceModifier = attackerData.GetModifierAgainst(defender);
-                        if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage < 50 && maceModifier == 1.0f)
+                        if (maceModifier == 1.0f)
                         {
-                            // Only cap if no special modifier exists
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
+                            if (attackerData.BaseMeleeDamage <= 20)
+                            {
+                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap at base * 1.5
+                            }
+                            else if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage < 50)
+                            {
+                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
+                            }
                         }
-                        // MONK (50) and strong Mace units (75+): handled by unit-specific modifiers or no cap
+                        // Strong units (50+) with modifiers: no cap
                     }
                     else if (defenderData.ArmorValue >= 1.5f && defenderData.ArmorValue < 2.0f)
                     {
@@ -477,18 +491,6 @@ namespace CrusaderDETweaker.Systems
                                 }
                             }
                             // If modifier exists, don't apply cap (modifier already handles adjustment)
-                        }
-                    }
-                    else if (defenderData.ArmorValue >= 2.0f)
-                    {
-                        // Mace vs Unarmored: cap at base * 1.5 for weak units
-                        // BLACKSMITH (20) vs ARAB_SLAVE (2.0): Game=30, Calc=40 → Cap at base * 1.5
-                        // BLACKSMITH (20) vs BEDOUIN_HEALER (2.0): Game=30, Calc=40 → Cap at base * 1.5
-                        // Modifiers are already applied, so check if no modifier exists
-                        float maceUnarmoredModifier = attackerData.GetModifierAgainst(defender);
-                        if (attackerData.BaseMeleeDamage <= 20 && maceUnarmoredModifier == 1.0f)
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap at base * 1.5
                         }
                     }
                 }
@@ -917,9 +919,20 @@ namespace CrusaderDETweaker.Systems
             else if (armorValue >= 1.0f)
             {
                 // Medium armor: no cap (except for HUNTER vs Beast)
+                // HUNTER vs small beasts (CAMEL, CROCODILE, DOG): cap at base * 1.0 (Game=10)
+                // HUNTER vs large beasts (HYENA, LION, WAR_DOG): no cap (Game=20)
                 if (isHunter && defender.HasTag("Beast"))
                 {
-                    cap = baseDamage * 1.0f; // HUNTER vs Beast: cap at base
+                    // Large beasts (base >= 50): no cap, deal full damage with tag modifier
+                    // Small beasts (base < 50): cap at base
+                    if (defender.BaseMeleeDamage >= 50)
+                    {
+                        cap = float.MaxValue; // No cap for large beasts
+                    }
+                    else
+                    {
+                        cap = baseDamage * 1.0f; // Cap at base for small beasts
+                    }
                 }
                 else
                 {

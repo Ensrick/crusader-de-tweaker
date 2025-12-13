@@ -648,12 +648,12 @@ namespace CrusaderDETweaker.Systems
 
             // LORD: Armor_Piercing Sword unit, needs modifiers vs Light armor
             // vs ARAB_SLINGER (1.5): Game=200, Calc=150 → needs 1.33x modifier (200/150 = 1.33)
-            // vs BEDOUIN_EUNUCH (1.5): Game=175, Calc=150 → needs 1.17x modifier (175/150 = 1.17)
+            // vs BEDOUIN_EUNUCH (1.5): Game=175, Calc=176 → needs 1.166x modifier (175/150 = 1.166)
             var lord = UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_LORD);
             if (lord != null)
             {
                 lord.AddSpecialModifier(eChimps.CHIMP_TYPE_ARAB_SLINGER, 1.33f); // 200/150 = 1.33
-                lord.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 1.17f); // 175/150 = 1.17
+                lord.AddSpecialModifier(eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH, 1.166f); // 175/150 = 1.166
             }
 
             // MACEMAN: Strong Mace unit, needs modifiers vs Light armor and TREBUCHET
