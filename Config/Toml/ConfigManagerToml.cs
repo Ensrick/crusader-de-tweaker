@@ -22,10 +22,12 @@ namespace CrusaderDETweaker
         };
 
         /// <summary>
-        /// Initialize all TOML configuration systems.
+        /// Initialize all configuration systems.
         /// Generates default config files if they don't exist, then loads and applies them.
+        /// Optionally runs validation for systems that support it.
         /// </summary>
-        internal static void Initialize()
+        /// <param name="runValidation">Whether to run validation after loading (default: true)</param>
+        internal static void Initialize(bool runValidation = true)
         {
             // Generate default configs for all systems
             foreach (var system in ConfigSystems)
@@ -39,7 +41,23 @@ namespace CrusaderDETweaker
                 system.Load();
             }
 
-            Plugin.Logger.LogInfo($"Initialized {ConfigSystems.Length} TOML config systems");
+            // Run validation if requested
+            if (runValidation)
+            {
+                int validatedCount = 0;
+                foreach (var system in ConfigSystems)
+                {
+                    if (system.Validate())
+                    {
+                        validatedCount++;
+                    }
+                }
+                Plugin.Logger.LogInfo($"Initialized {ConfigSystems.Length} config systems ({validatedCount} validated)");
+            }
+            else
+            {
+                Plugin.Logger.LogInfo($"Initialized {ConfigSystems.Length} config systems");
+            }
         }
 
         /// <summary>
@@ -57,6 +75,26 @@ namespace CrusaderDETweaker
         {
             var loadedCount = ConfigSystems.Count(s => s.IsLoaded);
             return $"Config Systems: {loadedCount}/{ConfigSystems.Length} loaded";
+        }
+
+        /// <summary>
+        /// Get detailed status information for all config systems.
+        /// </summary>
+        internal static string GetDetailedStatus()
+        {
+            var statusLines = new System.Text.StringBuilder();
+            statusLines.AppendLine("=== Config Systems Status ===");
+            
+            foreach (var system in ConfigSystems)
+            {
+                var status = system.IsLoaded ? "✓ Loaded" : "✗ Not Loaded";
+                statusLines.AppendLine($"  {system.Name}: {status}");
+            }
+            
+            var loadedCount = ConfigSystems.Count(s => s.IsLoaded);
+            statusLines.AppendLine($"\nTotal: {loadedCount}/{ConfigSystems.Length} systems loaded");
+            
+            return statusLines.ToString();
         }
 
         /// <summary>

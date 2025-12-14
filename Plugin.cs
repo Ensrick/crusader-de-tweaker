@@ -45,10 +45,8 @@ namespace CrusaderDETweaker
                 }
 
                 // Initialize all config systems (TOML and CSV) using unified interface
-                ConfigManagerToml.Initialize();
-
-                // Run damage matrix verification (separate from loading, as it's a validation step)
-                DamageMatrixManager.VerifyDamageSystem();
+                // Validation is now integrated into the unified system
+                ConfigManagerToml.Initialize(runValidation: true);
 
                 // Initialize BepInEx config and apply runtime multipliers (LOAD LAST)
                 ConfigManagerBepinex.Initialize(Config);
