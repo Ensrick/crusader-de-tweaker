@@ -112,7 +112,6 @@
     <Compile Include="Config\Toml\Tags\TagConfigGenerator.cs" />
     <Compile Include="Config\Toml\Tags\TagConfigLoader.cs" />
     <Compile Include="Config\Toml\Tags\TagConfigSystem.cs" />
-    <Compile Include="Data\TagDefinition.cs" />
     <Compile Include="Data\ProjectileDamageData.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
