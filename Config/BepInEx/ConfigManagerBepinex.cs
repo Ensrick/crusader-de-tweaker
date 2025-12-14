@@ -34,13 +34,29 @@ namespace CrusaderDETweaker
         {
             Config = config;
 
+            // Unit damage multipliers (grouped together)
             UnitMeleeDamageTakenMultiplier = config.Bind(
                 "Multipliers",
                 "UnitMeleeDamageTakenMultiplier",
                 1.0f,
-                "Global multiplier for all melee damage taken by units"
+                "Global multiplier for all melee damage taken by units. Note: Minimum damage is always 1 (game uses default damage matrix value if damage is 0)."
             );
 
+            UnitRangedDamageTakenMultiplier = config.Bind(
+                "Multipliers",
+                "UnitRangedDamageTakenMultiplier",
+                1.0f,
+                "Global multiplier for all ranged damage taken by units. Affects all projectile types (Arrow, Bolt, Slinger, Javelin). Base projectile damage is 2500. Note: Minimum damage is always 1 (game uses default damage matrix value if damage is 0)."
+            );
+
+            UnitHealthMultiplier = config.Bind(
+               "Multipliers",
+               "UnitHealthMultiplier",
+               1.0f,
+               "Global multiplier for unit max health"
+           );
+
+            // Structure damage multipliers (grouped together)
             StructureDamageTakenMultiplier = config.Bind(
                 "Multipliers",
                 "StructureDamageTakenMultiplier",
@@ -69,13 +85,7 @@ namespace CrusaderDETweaker
                 "Multiplier for damage taken by civilian structures (non-towers, non-gatehouses)"
             );
 
-            UnitHealthMultiplier = config.Bind(
-               "Multipliers",
-               "UnitHealthMultiplier",
-               1.0f,
-               "Global multiplier for unit max health"
-           );
-
+            // Wall cost multipliers (grouped together)
             // Read current values from API to use as defaults (game defaults: Low=0.25, High=0.5)
             float currentLowWallMultiplier = 0.25f;
             float currentHighWallMultiplier = 0.5f;
@@ -101,13 +111,6 @@ namespace CrusaderDETweaker
                 "HighWallCostMultiplier",
                 currentHighWallMultiplier,
                 "Cost multiplier for high walls (stone walls at high height, crenel walls). Game default: 0.5"
-            );
-
-            UnitRangedDamageTakenMultiplier = config.Bind(
-                "Multipliers",
-                "UnitRangedDamageTakenMultiplier",
-                1.0f,
-                "Global multiplier for all ranged damage taken by units. Affects all projectile types (Arrow, Bolt, Slinger, Javelin). Base projectile damage is 2500."
             );
 
             // Validate all multipliers after binding
@@ -182,23 +185,28 @@ namespace CrusaderDETweaker
 
                         eStructs structureType = Plugin.BuildingApi.GetType(buildingId);
 
-                        // Skip non-modifiable structures
-                        if (Data.StructureCategories.NonModable.Contains(structureType))
+                        // Check for walls first (they're in NonModable for cost purposes, but can take damage)
+                        bool isWall = Data.StructureCategories.IsWall(structureType);
+                        bool isTower = Data.StructureCategories.IsTower(structureType);
+                        bool isCivilStructure = Data.StructureCategories.IsCivilStructure(structureType);
+
+                        // Skip non-modifiable structures (except walls, which can take damage)
+                        if (!isWall && Data.StructureCategories.NonModable.Contains(structureType))
                             return;
 
                         float damageMultiplier = 1.0f;
 
                         // Apply specific multipliers first (most specific to least specific)
-                        if (Data.StructureCategories.IsWall(structureType))
+                        if (isWall)
                         {
                             damageMultiplier *= WallDamageTakenMultiplier.Value;
                         }
-                        else if (Data.StructureCategories.IsTower(structureType))
+                        else if (isTower)
                         {
                             damageMultiplier *= TowerDamageTakenMultiplier.Value;
                         }
 
-                        if (Data.StructureCategories.IsCivilStructure(structureType))
+                        if (isCivilStructure)
                         {
                             damageMultiplier *= CivilStructureDamageTakenMultiplier.Value;
                         }
@@ -209,6 +217,8 @@ namespace CrusaderDETweaker
                         // Only apply if multiplier is not 1.0
                         if (!Mathf.Approximately(damageMultiplier, 1.0f))
                         {
+                            // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
+                            // a default value from the damage matrix instead of our modified value.
                             var modified = (int)Mathf.Clamp((float)args.Damage * damageMultiplier, 1, int.MaxValue);
                             args.Damage = modified;
                         }
@@ -219,14 +229,20 @@ namespace CrusaderDETweaker
                     }
                 });
 
+            Plugin.Logger.LogInfo("Subscribing to OnUnitTakeMeleeDamage event hook...");
             UnitR3EventHooks.OnUnitTakeMeleeDamage.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(args =>
                 {
                     try
                     {
+                        Plugin.Logger.LogDebug($"OnUnitTakeMeleeDamage hook triggered: AttackerId={args.AttackingUnitId}, DefenderId={args.DamagedUnitId}, Damage={args.Damage}, Multiplier={UnitMeleeDamageTakenMultiplier.Value}");
+                        
                         if (Mathf.Approximately(UnitMeleeDamageTakenMultiplier.Value, 1.0f))
+                        {
+                            Plugin.Logger.LogDebug("Melee multiplier is 1.0, skipping modification");
                             return;
+                        }
 
                         eChimps attacker = Plugin.UnitApi.GetType(args.AttackingUnitId);
                         eChimps defender = Plugin.UnitApi.GetType(args.DamagedUnitId);
@@ -235,14 +251,20 @@ namespace CrusaderDETweaker
                             ? args.Damage
                             : Plugin.UnitApi.GetMeleeDamageFromTo(attacker, defender);
 
+                        // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
+                        // a default value from the damage matrix instead of our modified value.
                         int modified = Mathf.Max(1, (int)(baseDamage * UnitMeleeDamageTakenMultiplier.Value));
+                        
+                        Plugin.Logger.LogInfo($"Melee damage modification: {attacker} -> {defender} | args.Damage={args.Damage} | baseDamage={baseDamage} | multiplier={UnitMeleeDamageTakenMultiplier.Value} | modified={modified}");
                         args.Damage = modified;
+                        Plugin.Logger.LogDebug($"After modification: args.Damage={args.Damage}");
                     }
                     catch (Exception ex)
                     {
-                        Plugin.Logger.LogWarning($"Failed to apply unit melee damage multiplier: {ex.Message}");
+                        Plugin.Logger.LogError($"Failed to apply unit melee damage multiplier: {ex.Message}\n{ex.StackTrace}");
                     }
                 });
+            Plugin.Logger.LogInfo("Successfully subscribed to OnUnitTakeMeleeDamage event hook");
 
             UnitR3EventHooks.OnUnitCreate.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -285,6 +307,8 @@ namespace CrusaderDETweaker
                             return;
 
                         // Apply multiplier to projectile damage
+                        // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
+                        // a default value from the damage matrix instead of our modified value.
                         int modified = Mathf.Max(1, (int)(args.Damage * UnitRangedDamageTakenMultiplier.Value));
                         args.Damage = modified;
                     }
