@@ -38,7 +38,7 @@ namespace CrusaderDETweaker
                 filePath: ConfigPaths.Structures,
                 registry: StructurePropertyRegistry.Instance,
                 allEntities: Enum.GetValues(typeof(eStructs)).Cast<eStructs>().ToArray(),
-                nonModifiableEntities: Systems.StatsStructures.NonModableStructures,
+                nonModifiableEntities: Data.StructureCategories.NonModable,
                 entityTypeName: "structure"
             );
         }

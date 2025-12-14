@@ -38,7 +38,7 @@ namespace CrusaderDETweaker
             ApplyConfigs(
                 filePath: ConfigPaths.Structures,
                 registry: StructurePropertyRegistry.Instance,
-                nonModifiableEntities: Systems.StatsStructures.NonModableStructures,
+                nonModifiableEntities: Data.StructureCategories.NonModable,
                 entityTypeName: "structure",
                 parseEntity: TryParseStructure
             );

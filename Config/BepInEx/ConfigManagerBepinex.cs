@@ -3,6 +3,7 @@ using System.Linq;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using CrusaderDETweaker.Data;
 using R3;
 using SHCDESE.API;
 using SHCDESE.EventAPI;
@@ -182,22 +183,22 @@ namespace CrusaderDETweaker
                         eStructs structureType = Plugin.BuildingApi.GetType(buildingId);
 
                         // Skip non-modifiable structures
-                        if (Systems.StatsStructures.NonModableStructures.Contains(structureType))
+                        if (Data.StructureCategories.NonModable.Contains(structureType))
                             return;
 
                         float damageMultiplier = 1.0f;
 
                         // Apply specific multipliers first (most specific to least specific)
-                        if (Systems.StatsStructures.IsWall(structureType))
+                        if (Data.StructureCategories.IsWall(structureType))
                         {
                             damageMultiplier *= WallDamageTakenMultiplier.Value;
                         }
-                        else if (Systems.StatsStructures.IsTower(structureType))
+                        else if (Data.StructureCategories.IsTower(structureType))
                         {
                             damageMultiplier *= TowerDamageTakenMultiplier.Value;
                         }
 
-                        if (Systems.StatsStructures.IsCivilStructure(structureType))
+                        if (Data.StructureCategories.IsCivilStructure(structureType))
                         {
                             damageMultiplier *= CivilStructureDamageTakenMultiplier.Value;
                         }
