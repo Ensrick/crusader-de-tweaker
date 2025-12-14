@@ -37,11 +37,7 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
 
         internal override bool CanApplyTo(eStructs structure)
         {
-            // Walls can only have cost modified, not health
-            // Walls are treated as tiles in many places, so health modification is not safe
-            if (StatsStructures.CostOnlyStructures.Contains(structure))
-                return false;
-
+            // All structures can have health modified (walls are in NonModableStructures and won't be processed)
             return true;
         }
 

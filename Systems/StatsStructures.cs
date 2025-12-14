@@ -12,12 +12,12 @@ namespace CrusaderDETweaker.Systems
     {
         /// <summary>
         /// Checks if a structure is a wall type.
+        /// Only stone and crenel walls are considered (wood walls are deprecated from old Stronghold).
         /// </summary>
         internal static bool IsWall(eStructs structure)
         {
             return structure == eStructs.STRUCT_STONE_WALL ||
-                   structure == eStructs.STRUCT_CRENAL_WALL ||
-                   structure == eStructs.STRUCT_WOOD_WALL;
+                   structure == eStructs.STRUCT_CRENAL_WALL;
         }
 
         /// <summary>
@@ -49,17 +49,6 @@ namespace CrusaderDETweaker.Systems
             }
         }
 
-        /// <summary>
-        /// Structures that can only have cost modified (not health or other properties).
-        /// Walls are treated as tiles in many places, so only cost modification is safe.
-        /// </summary>
-        internal static readonly eStructs[] CostOnlyStructures =
-        {
-            eStructs.STRUCT_STONE_WALL,
-            eStructs.STRUCT_CRENAL_WALL,
-            eStructs.STRUCT_WOOD_WALL,
-        };
-
         internal static readonly eStructs[] NonModableStructures =
 {
             eStructs.STRUCT_NULL,
@@ -80,7 +69,16 @@ namespace CrusaderDETweaker.Systems
             eStructs.STRUCT_TUNNEL_CONSTRUCTION,
             eStructs.STRUCT_DOCK,
             eStructs.STRUCT_MAX, // UI probably
-            // Walls removed - now in CostOnlyStructures (only cost can be modified)
+            eStructs.STRUCT_STONE_WALL, // Walls use global cost multipliers (BepInEx config), not regular properties
+            eStructs.STRUCT_CRENAL_WALL, // Walls use global cost multipliers (BepInEx config), not regular properties
+            eStructs.STRUCT_WOOD_WALL, // Deprecated from old Stronghold, not used in Crusader
+            eStructs.STRUCT_WAS_WALL,
+            eStructs.STRUCT_TOWER1_DESTROYED,
+            eStructs.STRUCT_TOWER2_DESTROYED,
+            eStructs.STRUCT_TOWER3_DESTROYED,
+            eStructs.STRUCT_TOWER4_DESTROYED,
+            eStructs.STRUCT_TOWER5_DESTROYED,
+            eStructs.STRUCT_BEE_HIVE,
             eStructs.STRUCT_STAIRS,
             eStructs.STRUCT_BRAZIER,
             eStructs.STRUCT_MANGONEL,

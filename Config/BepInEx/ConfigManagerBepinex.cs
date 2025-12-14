@@ -24,6 +24,9 @@ namespace CrusaderDETweaker
 
         internal static ConfigEntry<float> UnitHealthMultiplier { get; private set; }
 
+        internal static ConfigEntry<float> LowWallCostMultiplier { get; private set; }
+        internal static ConfigEntry<float> HighWallCostMultiplier { get; private set; }
+
         internal static void Initialize(ConfigFile config)
         {
             Config = config;
@@ -46,7 +49,7 @@ namespace CrusaderDETweaker
                 "Multipliers",
                 "WallDamageTakenMultiplier",
                 1.0f,
-                "Multiplier for damage taken by walls (stone, crenel, wood walls)"
+                "Multiplier for damage taken by walls (stone, crenel walls)"
             );
 
             TowerDamageTakenMultiplier = config.Bind(
@@ -70,8 +73,25 @@ namespace CrusaderDETweaker
                "Global multiplier for unit max health"
            );
 
+            LowWallCostMultiplier = config.Bind(
+                "Multipliers",
+                "LowWallCostMultiplier",
+                0.25f,
+                "Cost multiplier for low/short walls (stone walls). Default: 0.25 (25% of base cost)"
+            );
+
+            HighWallCostMultiplier = config.Bind(
+                "Multipliers",
+                "HighWallCostMultiplier",
+                0.5f,
+                "Cost multiplier for high walls (crenel walls). Default: 0.5 (50% of base cost)"
+            );
+
             // Validate all multipliers after binding
             ValidateMultipliers();
+
+            // Apply wall cost multipliers
+            ApplyWallCostMultipliers();
         }
 
         /// <summary>
@@ -86,6 +106,8 @@ namespace CrusaderDETweaker
             ValidateMultiplier("TowerDamageTakenMultiplier", TowerDamageTakenMultiplier.Value);
             ValidateMultiplier("WoodenStructureDamageTakenMultiplier", WoodenStructureDamageTakenMultiplier.Value);
             ValidateMultiplier("UnitHealthMultiplier", UnitHealthMultiplier.Value);
+            ValidateMultiplier("LowWallCostMultiplier", LowWallCostMultiplier.Value);
+            ValidateMultiplier("HighWallCostMultiplier", HighWallCostMultiplier.Value);
         }
 
         /// <summary>
@@ -102,6 +124,25 @@ namespace CrusaderDETweaker
                 Plugin.Logger.LogError($"{name} is invalid ({value}). Using default value of 1.0.");
             }
         }
+
+        /// <summary>
+        /// Applies wall cost multipliers from BepInEx config to the game API.
+        /// Wall costs are based on height - low walls use LowWallCostMultiplier, high walls use HighWallCostMultiplier.
+        /// </summary>
+        private static void ApplyWallCostMultipliers()
+        {
+            try
+            {
+                Plugin.BuildingApi.SetLowWallCostMultiplier(LowWallCostMultiplier.Value);
+                Plugin.BuildingApi.SetHighWallCostMultiplier(HighWallCostMultiplier.Value);
+                Plugin.Logger.LogInfo($"Applied wall cost multipliers: Low={LowWallCostMultiplier.Value}, High={HighWallCostMultiplier.Value}");
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError($"Failed to apply wall cost multipliers: {ex.Message}");
+            }
+        }
+
         internal static void ApplyAllMultiplierConfigs()
         {
             BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable
