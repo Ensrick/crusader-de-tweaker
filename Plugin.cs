@@ -44,11 +44,11 @@ namespace CrusaderDETweaker
                     return;
                 }
 
-                // Initialize TOML config system (unit stats, building costs, etc.)
+                // Initialize all config systems (TOML and CSV) using unified interface
                 ConfigManagerToml.Initialize();
 
-                // Initialize damage matrix system (CSV files for melee/ranged damage)
-                DamageMatrixManager.Initialize();
+                // Run damage matrix verification (separate from loading, as it's a validation step)
+                DamageMatrixManager.VerifyDamageSystem();
 
                 // Initialize BepInEx config and apply runtime multipliers (LOAD LAST)
                 ConfigManagerBepinex.Initialize(Config);
