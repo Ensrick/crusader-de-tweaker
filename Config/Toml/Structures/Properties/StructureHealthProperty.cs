@@ -1,0 +1,54 @@
+﻿// Config/Toml/Structures/Properties/StructureHealthProperty.cs
+using System.Linq;
+using CrusaderDETweaker.Config.Toml.Core;
+using CrusaderDETweaker.Systems;
+using SHCDESE.Interop;
+
+namespace CrusaderDETweaker.Config.Toml.Structures.Properties
+{
+    /// <summary>
+    /// Handles the Health property for structures.
+    /// </summary>
+    internal class StructureHealthProperty : PropertyHandler<eStructs, uint>
+    {
+        public StructureHealthProperty() : base("Health")
+        {
+        }
+
+        protected override bool TryGetFromAPI(eStructs structure, out uint value)
+        {
+            try
+            {
+                int healthValue = Plugin.BuildingApi.GetDefaultHealth(structure);
+                value = (uint)healthValue;
+                return true;
+            }
+            catch
+            {
+                value = 0;
+                return false;
+            }
+        }
+
+        protected override void SetToAPI(eStructs structure, uint value)
+        {
+            Plugin.BuildingApi.SetDefaultHealth(structure, value);
+        }
+
+        internal override bool CanApplyTo(eStructs structure)
+        {
+            // Walls can only have cost modified, not health
+            // Walls are treated as tiles in many places, so health modification is not safe
+            if (StatsStructures.CostOnlyStructures.Contains(structure))
+                return false;
+
+            return true;
+        }
+
+        internal override bool ValidateValue(uint value)
+        {
+            // Health must be positive or zero (some structures like pitch ditch have 0)
+            return true;
+        }
+    }
+}
