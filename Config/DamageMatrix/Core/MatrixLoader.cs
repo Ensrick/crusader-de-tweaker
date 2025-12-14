@@ -79,7 +79,8 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
         /// <summary>
         /// Attempt to apply a single matrix cell value.
         /// Returns true if applied successfully, false if skipped.
-        /// Only applies if the value differs from the current game default.
+        /// Only applies if the value differs from the calculated value (based on TOML configs).
+        /// This prevents CSV from overriding TOML changes unless the CSV value is explicitly different.
         /// </summary>
         private bool TryApplyMatrixCell(TAttacker? attacker, TDefender? defender, int damage)
         {
@@ -89,16 +90,30 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
             if (!ValidateDamageValue(damage))
                 return false;
 
-            // Get current game default value
-            if (!TryGetCurrentValue(attacker.Value, defender.Value, out int currentValue))
-                return false; // Can't read current value, skip
+            // Calculate what the damage should be based on TOML configs (registry)
+            // This is the "expected" value based on current unit properties
+            int calculatedValue = GetCalculatedDamageValue(attacker.Value, defender.Value);
+            
+            // Only apply CSV value if it differs from calculated value
+            // This allows CSV to override TOML for specific matchups, but won't override
+            // if CSV has the same value as what TOML would produce
+            if (calculatedValue >= 0 && damage == calculatedValue)
+                return false; // Same as calculated (TOML), skip to avoid unnecessary override
 
-            // Only apply if CSV value differs from current game value
-            // This allows TOML configs to set base values, and CSV to override specific pairs
-            if (damage == currentValue)
-                return false; // Same as default, skip to avoid overwriting TOML changes
-
+            // Apply the CSV value (it's different from calculated, so user wants this override)
             return ApplyDamageValue(attacker.Value, defender.Value, damage);
+        }
+
+        /// <summary>
+        /// Get the calculated damage value based on current TOML configs (registry).
+        /// Returns -1 if calculation is not possible or not applicable.
+        /// Override in subclasses to provide the appropriate calculation.
+        /// </summary>
+        protected virtual int GetCalculatedDamageValue(TAttacker attacker, TDefender defender)
+        {
+            // Default: Can't calculate, so always apply CSV values
+            // Subclasses should override this to use their damage calculator
+            return -1;
         }
 
         /// <summary>
