@@ -31,6 +31,12 @@ namespace CrusaderDETweaker
         {
             Plugin.Logger.LogInfo($"Initializing {ConfigSystems.Length} config systems...");
 
+            // CRITICAL: Capture original game defaults BEFORE any TOML configs are loaded
+            // This ensures verification always compares against the true original game values,
+            // regardless of user modifications to TOML files.
+            Plugin.Logger.LogInfo("Capturing original game defaults for verification...");
+            Config.DamageMatrix.Core.CsvMatrixReader.CaptureOriginalDefaults();
+
             // Generate default configs for all systems
             Plugin.Logger.LogInfo("Generating default config files...");
             int generatedCount = 0;
