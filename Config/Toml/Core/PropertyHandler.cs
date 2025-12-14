@@ -141,7 +141,35 @@ namespace CrusaderDETweaker.Config.Toml.Core
         private void WriteToConfig(StringBuilder sb, TValue value)
         {
             string formattedValue = FormatValue(value);
-            sb.AppendLine($"{Name} = {formattedValue} # Default: {formattedValue}");
+            
+            // For arrays or long values, put comment on separate line to avoid TOML parsing errors
+            // TOML requires implicit keys to be on a single line
+            if (IsLongValue(formattedValue))
+            {
+                sb.AppendLine($"{Name} = {formattedValue}");
+                sb.AppendLine($"# Default: {formattedValue}");
+            }
+            else
+            {
+                sb.AppendLine($"{Name} = {formattedValue} # Default: {formattedValue}");
+            }
+        }
+
+        /// <summary>
+        /// Check if a formatted value is too long to put on the same line as a comment.
+        /// Arrays and long strings should be on separate lines.
+        /// </summary>
+        private bool IsLongValue(string formattedValue)
+        {
+            // Arrays start with '[' and can be long
+            if (formattedValue.StartsWith("["))
+                return true;
+            
+            // Strings longer than 80 characters should be on separate line
+            if (formattedValue.Length > 80)
+                return true;
+            
+            return false;
         }
     }
 }

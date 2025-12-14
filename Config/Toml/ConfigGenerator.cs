@@ -78,6 +78,13 @@ namespace CrusaderDETweaker
 
                     sb.AppendLine($"[{entity}]");
 
+                    // Add comment for cost-only structures (walls)
+                    if (entityTypeName == "structure" && entity is eStructs structure && 
+                        Systems.StatsStructures.CostOnlyStructures.Contains(structure))
+                    {
+                        sb.AppendLine("# Note: Walls can only have cost modified (not health). Walls are treated as tiles in many places.");
+                    }
+
                     // Get all applicable property handlers for this entity
                     var handlers = registry.GetApplicable(entity);
                     bool hasAnyProperty = false;

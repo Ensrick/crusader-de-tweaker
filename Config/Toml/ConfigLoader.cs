@@ -26,7 +26,7 @@ namespace CrusaderDETweaker
                 registry: UnitPropertyRegistry.Instance,
                 nonModifiableEntities: Systems.StatsUnits.NonModableUnits,
                 entityTypeName: "unit",
-                parseEntity: (string key) => Enum.TryParse<eChimps>(key, out var unit) ? unit : (eChimps?)null
+                parseEntity: TryParseUnit
             );
         }
 
@@ -40,8 +40,28 @@ namespace CrusaderDETweaker
                 registry: StructurePropertyRegistry.Instance,
                 nonModifiableEntities: Systems.StatsStructures.NonModableStructures,
                 entityTypeName: "structure",
-                parseEntity: (string key) => Enum.TryParse<eStructs>(key, out var structure) ? structure : (eStructs?)null
+                parseEntity: TryParseStructure
             );
+        }
+
+        /// <summary>
+        /// Helper method to parse unit enum from string key.
+        /// </summary>
+        private static eChimps? TryParseUnit(string key)
+        {
+            if (Enum.TryParse<eChimps>(key, out var unit))
+                return unit;
+            return (eChimps?)null;
+        }
+
+        /// <summary>
+        /// Helper method to parse structure enum from string key.
+        /// </summary>
+        private static eStructs? TryParseStructure(string key)
+        {
+            if (Enum.TryParse<eStructs>(key, out var structure))
+                return structure;
+            return (eStructs?)null;
         }
 
         /// <summary>

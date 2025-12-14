@@ -18,6 +18,9 @@ namespace CrusaderDETweaker
 
         internal static ConfigEntry<float> UnitMeleeDamageTakenMultiplier { get; private set; }
         internal static ConfigEntry<float> StructureDamageTakenMultiplier { get; private set; }
+        internal static ConfigEntry<float> WallDamageTakenMultiplier { get; private set; }
+        internal static ConfigEntry<float> TowerDamageTakenMultiplier { get; private set; }
+        internal static ConfigEntry<float> WoodenStructureDamageTakenMultiplier { get; private set; }
 
         internal static ConfigEntry<float> UnitHealthMultiplier { get; private set; }
 
@@ -28,20 +31,76 @@ namespace CrusaderDETweaker
             UnitMeleeDamageTakenMultiplier = config.Bind(
                 "Multipliers",
                 "UnitMeleeDamageTakenMultiplier",
-                1.0f
+                1.0f,
+                "Global multiplier for all melee damage taken by units"
             );
 
             StructureDamageTakenMultiplier = config.Bind(
                 "Multipliers",
                 "StructureDamageTakenMultiplier",
-                1.0f
-
+                1.0f,
+                "Global multiplier for damage taken by all structures"
             );
+
+            WallDamageTakenMultiplier = config.Bind(
+                "Multipliers",
+                "WallDamageTakenMultiplier",
+                1.0f,
+                "Multiplier for damage taken by walls (stone, crenel, wood walls)"
+            );
+
+            TowerDamageTakenMultiplier = config.Bind(
+                "Multipliers",
+                "TowerDamageTakenMultiplier",
+                1.0f,
+                "Multiplier for damage taken by towers (tower levels 1-5)"
+            );
+
+            WoodenStructureDamageTakenMultiplier = config.Bind(
+                "Multipliers",
+                "WoodenStructureDamageTakenMultiplier",
+                1.0f,
+                "Multiplier for damage taken by wooden structures (structures with wood cost > 0 and stone cost = 0)"
+            );
+
             UnitHealthMultiplier = config.Bind(
                "Multipliers",
                "UnitHealthMultiplier",
-               1.0f
+               1.0f,
+               "Global multiplier for unit max health"
            );
+
+            // Validate all multipliers after binding
+            ValidateMultipliers();
+        }
+
+        /// <summary>
+        /// Validates all multiplier values and logs warnings for invalid values.
+        /// Multipliers should be >= 0 (negative values would invert damage/healing).
+        /// </summary>
+        private static void ValidateMultipliers()
+        {
+            ValidateMultiplier("UnitMeleeDamageTakenMultiplier", UnitMeleeDamageTakenMultiplier.Value);
+            ValidateMultiplier("StructureDamageTakenMultiplier", StructureDamageTakenMultiplier.Value);
+            ValidateMultiplier("WallDamageTakenMultiplier", WallDamageTakenMultiplier.Value);
+            ValidateMultiplier("TowerDamageTakenMultiplier", TowerDamageTakenMultiplier.Value);
+            ValidateMultiplier("WoodenStructureDamageTakenMultiplier", WoodenStructureDamageTakenMultiplier.Value);
+            ValidateMultiplier("UnitHealthMultiplier", UnitHealthMultiplier.Value);
+        }
+
+        /// <summary>
+        /// Validates a single multiplier value and logs a warning if invalid.
+        /// </summary>
+        private static void ValidateMultiplier(string name, float value)
+        {
+            if (value < 0.0f)
+            {
+                Plugin.Logger.LogWarning($"{name} is negative ({value}). Negative multipliers may cause unexpected behavior. Consider using a positive value.");
+            }
+            else if (float.IsNaN(value) || float.IsInfinity(value))
+            {
+                Plugin.Logger.LogError($"{name} is invalid ({value}). Using default value of 1.0.");
+            }
         }
         internal static void ApplyAllMultiplierConfigs()
         {
@@ -49,29 +108,75 @@ namespace CrusaderDETweaker
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(args =>
                 {
-                    if (Mathf.Approximately(StructureDamageTakenMultiplier.Value, 1.0f))
-                        return;
+                    try
+                    {
+                        // Get building ID from tile ID
+                        ushort buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
+                        if (buildingId == 0)
+                            return; // No building on this tile
 
-                    var modified = (int)Mathf.Clamp((float)args.Damage * StructureDamageTakenMultiplier.Value, 1, int.MaxValue);
-                    args.Damage = modified;
+                        eStructs structureType = Plugin.BuildingApi.GetType(buildingId);
+
+                        // Skip non-modifiable structures
+                        if (Systems.StatsStructures.NonModableStructures.Contains(structureType))
+                            return;
+
+                        float damageMultiplier = 1.0f;
+
+                        // Apply specific multipliers first (most specific to least specific)
+                        if (Systems.StatsStructures.IsWall(structureType))
+                        {
+                            damageMultiplier *= WallDamageTakenMultiplier.Value;
+                        }
+                        else if (Systems.StatsStructures.IsTower(structureType))
+                        {
+                            damageMultiplier *= TowerDamageTakenMultiplier.Value;
+                        }
+
+                        if (Systems.StatsStructures.IsWoodenStructure(structureType))
+                        {
+                            damageMultiplier *= WoodenStructureDamageTakenMultiplier.Value;
+                        }
+
+                        // Apply general structure multiplier last
+                        damageMultiplier *= StructureDamageTakenMultiplier.Value;
+
+                        // Only apply if multiplier is not 1.0
+                        if (!Mathf.Approximately(damageMultiplier, 1.0f))
+                        {
+                            var modified = (int)Mathf.Clamp((float)args.Damage * damageMultiplier, 1, int.MaxValue);
+                            args.Damage = modified;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Plugin.Logger.LogWarning($"Failed to apply structure damage multiplier: {ex.Message}");
+                    }
                 });
 
             UnitR3EventHooks.OnUnitTakeMeleeDamage.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(args =>
                 {
-                    if (Mathf.Approximately(UnitMeleeDamageTakenMultiplier.Value, 1.0f))
-                        return;
+                    try
+                    {
+                        if (Mathf.Approximately(UnitMeleeDamageTakenMultiplier.Value, 1.0f))
+                            return;
 
-                    eChimps attacker = Plugin.UnitApi.GetType(args.AttackingUnitId);
-                    eChimps defender = Plugin.UnitApi.GetType(args.DamagedUnitId);
+                        eChimps attacker = Plugin.UnitApi.GetType(args.AttackingUnitId);
+                        eChimps defender = Plugin.UnitApi.GetType(args.DamagedUnitId);
 
-                    int baseDamage = args.Damage > 0
-                        ? args.Damage
-                        : Plugin.UnitApi.GetMeleeDamageFromTo(attacker, defender);
+                        int baseDamage = args.Damage > 0
+                            ? args.Damage
+                            : Plugin.UnitApi.GetMeleeDamageFromTo(attacker, defender);
 
-                    int modified = Mathf.Max(1, (int)(baseDamage * UnitMeleeDamageTakenMultiplier.Value));
-                    args.Damage = modified;
+                        int modified = Mathf.Max(1, (int)(baseDamage * UnitMeleeDamageTakenMultiplier.Value));
+                        args.Damage = modified;
+                    }
+                    catch (Exception ex)
+                    {
+                        Plugin.Logger.LogWarning($"Failed to apply unit melee damage multiplier: {ex.Message}");
+                    }
                 });
 
             UnitR3EventHooks.OnUnitCreate.Observable
