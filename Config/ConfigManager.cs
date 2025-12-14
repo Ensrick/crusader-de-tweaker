@@ -4,6 +4,7 @@ using CrusaderDETweaker.Config.Core;
 using CrusaderDETweaker.Config.DamageMatrix;
 using CrusaderDETweaker.Config.Toml.Armor;
 using CrusaderDETweaker.Config.Toml.Systems;
+using SHCDESE.Interop;
 
 namespace CrusaderDETweaker
 {
@@ -35,6 +36,17 @@ namespace CrusaderDETweaker
             // This ensures verification always compares against the true original game values,
             // regardless of user modifications to TOML files.
             Plugin.Logger.LogInfo("Capturing original game defaults for verification...");
+            
+            // Ensure registry is initialized first (with hardcoded defaults)
+            if (!Systems.UnitDamageRegistry.HasData(eChimps.CHIMP_TYPE_PEASANT))
+            {
+                Systems.UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_PEASANT); // Force initialization
+            }
+            
+            // Capture snapshot of original registry (before TOML modifications)
+            Systems.UnitDamageRegistry.CaptureOriginalSnapshot();
+            
+            // Capture original damage values from game API
             Config.DamageMatrix.Core.CsvMatrixReader.CaptureOriginalDefaults();
 
             // Generate default configs for all systems

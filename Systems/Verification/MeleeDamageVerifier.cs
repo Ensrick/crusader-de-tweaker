@@ -41,8 +41,9 @@ namespace CrusaderDETweaker.Systems.Verification
                     {
                         result.TotalTests++;
 
-                        // Calculate what our formula predicts based on registry (TOML values)
-                        int calculated = DamageCalculator.CalculateMeleeDamage(attacker, defender);
+                        // Calculate what our formula predicts using ORIGINAL registry data (before TOML modifications)
+                        // This ensures verification tests the calculation logic, not the current TOML values
+                        int calculated = DamageCalculator.CalculateMeleeDamageWithOriginalData(attacker, defender);
 
                         if (calculated == -1)
                         {
@@ -112,7 +113,7 @@ namespace CrusaderDETweaker.Systems.Verification
             foreach (var (attacker, defender) in testPairs)
             {
                 int originalDefault = CsvMatrixReader.GetOriginalMeleeDamage(attacker, defender);
-                int calculated = DamageCalculator.CalculateMeleeDamage(attacker, defender);
+                int calculated = DamageCalculator.CalculateMeleeDamageWithOriginalData(attacker, defender);
                 bool pass = calculated == originalDefault;
                 string status = pass ? "✓ PASS" : "✗ FAIL";
                 Plugin.Logger.LogInfo($"{status}: {attacker} -> {defender} | Original={originalDefault}, Calc={calculated}");

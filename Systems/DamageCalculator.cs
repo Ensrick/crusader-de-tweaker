@@ -69,6 +69,24 @@ namespace CrusaderDETweaker.Systems
 
 
         /// <summary>
+        /// Calculate melee damage from attacker to defender using ORIGINAL registry data (before TOML modifications).
+        /// This is used for verification to test the calculation logic against original game defaults.
+        /// Returns -1 if calculation fails (missing data).
+        /// </summary>
+        public static int CalculateMeleeDamageWithOriginalData(eChimps attacker, eChimps defender)
+        {
+            var attackerData = UnitDamageRegistry.GetOriginalUnitData(attacker);
+            var defenderData = UnitDamageRegistry.GetOriginalUnitData(defender);
+
+            if (attackerData == null || defenderData == null)
+            {
+                return -1;
+            }
+
+            return CalculateMeleeDamageInternal(attackerData, defenderData);
+        }
+
+        /// <summary>
         /// Calculate melee damage from attacker to defender.
         /// Returns -1 if calculation fails (missing data).
         /// </summary>
@@ -81,6 +99,15 @@ namespace CrusaderDETweaker.Systems
             {
                 return -1;
             }
+
+            return CalculateMeleeDamageInternal(attackerData, defenderData);
+        }
+
+        /// <summary>
+        /// Internal calculation method that performs the actual damage calculation.
+        /// </summary>
+        private static int CalculateMeleeDamageInternal(Data.UnitDamageData attackerData, Data.UnitDamageData defenderData)
+        {
 
             // RULE 1: Weak attackers (Base ≤ 2) deal flat damage
             if (attackerData.BaseMeleeDamage <= DamageConstants.WeakAttackerThreshold)
@@ -144,7 +171,7 @@ namespace CrusaderDETweaker.Systems
             
             if (!isSpecialWeapon)
             {
-                float specialModifier = attackerData.GetModifierAgainst(defender);
+                float specialModifier = attackerData.GetModifierAgainst(defenderData.Unit);
                 if (specialModifier != 1.0f)
                 {
                     damage *= specialModifier;
@@ -166,7 +193,7 @@ namespace CrusaderDETweaker.Systems
             // For special weapons (Assassin, Ranged, Unarmed, Beast), apply unit-specific modifiers AFTER caps
             if (isSpecialWeapon)
             {
-                float specialModifier = attackerData.GetModifierAgainst(defender);
+                float specialModifier = attackerData.GetModifierAgainst(defenderData.Unit);
                 damage *= specialModifier;
             }
 
