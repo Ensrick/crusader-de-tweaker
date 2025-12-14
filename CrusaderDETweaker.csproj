@@ -63,10 +63,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Config\Core\IConfigSystem.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixLoader.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixPaths.cs" />
     <Compile Include="Config\DamageMatrix\Core\CsvHelper.cs" />
+    <Compile Include="Config\DamageMatrix\DamageMatrixConfigSystem.cs" />
     <Compile Include="Config\DamageMatrix\DamageMatrixManager.cs" />
     <Compile Include="Config\DamageMatrix\EunuchAoe\EunuchAoeDamageMatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\EunuchAoe\EunuchAoeDamageMatrixLoader.cs" />
@@ -79,10 +81,13 @@
     <Compile Include="Config\Toml\Armor\ArmorConfigConstants.cs" />
     <Compile Include="Config\Toml\Armor\ArmorConfigGenerator.cs" />
     <Compile Include="Config\Toml\Armor\ArmorConfigLoader.cs" />
+    <Compile Include="Config\Toml\Armor\ArmorConfigSystem.cs" />
     <Compile Include="Config\Toml\ConfigManagerToml.cs" />
     <Compile Include="Config\Toml\ConfigGenerator.cs" />
     <Compile Include="Config\Toml\ConfigLoader.cs" />
     <Compile Include="Config\Toml\ConfigPaths.cs" />
+    <Compile Include="Config\Toml\Systems\StructureConfigSystem.cs" />
+    <Compile Include="Config\Toml\Systems\UnitConfigSystem.cs" />
     <Compile Include="Config\Toml\Core\ConfigFileHelper.cs" />
     <Compile Include="Config\Toml\Core\ConfigHelpers.cs" />
     <Compile Include="Config\Toml\Core\PropertyHandler.cs" />
