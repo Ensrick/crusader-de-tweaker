@@ -1,4 +1,6 @@
 ﻿// Config/Toml/ProjectileDamage/ProjectileDamageConfig.cs
+using CrusaderDETweaker;
+
 namespace CrusaderDETweaker.Config.Toml.ProjectileDamage
 {
     /// <summary>
@@ -9,9 +11,20 @@ namespace CrusaderDETweaker.Config.Toml.ProjectileDamage
     internal static class ProjectileDamageConfig
     {
         /// <summary>
-        /// Base damage for all projectile types (before armor modifiers).
-        /// Formula: FinalDamage = BaseProjectileDamage × UnitArmorValue × RangedArmorModifier
+        /// Base damage for all projectile types (before armor modifiers and BepInEx multiplier).
+        /// Formula: FinalDamage = BaseProjectileDamage × UnitRangedDamageTakenMultiplier × UnitArmorValue × RangedArmorModifier
         /// </summary>
         public const int BaseProjectileDamage = 2500;
+
+        /// <summary>
+        /// Gets the effective base projectile damage after applying the BepInEx multiplier.
+        /// </summary>
+        public static float GetEffectiveBaseProjectileDamage()
+        {
+            if (ConfigManagerBepinex.UnitRangedDamageTakenMultiplier == null)
+                return BaseProjectileDamage;
+
+            return BaseProjectileDamage * ConfigManagerBepinex.UnitRangedDamageTakenMultiplier.Value;
+        }
     }
 }

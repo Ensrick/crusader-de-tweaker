@@ -33,20 +33,25 @@ namespace CrusaderDETweaker.Systems
         }
 
         /// <summary>
-        /// Checks if a structure is primarily wooden (uses wood as primary material, no stone).
+        /// Checks if a structure is a gatehouse type.
+        /// Only includes moddable gatehouse structures (not UI placeholders or non-game structures).
         /// </summary>
-        internal static bool IsWoodenStructure(eStructs structure)
+        internal static bool IsGatehouse(eStructs structure)
         {
-            try
-            {
-                var cost = Plugin.BuildingApi.GetDefaultCost(structure);
-                // Wooden structures have wood cost > 0 and stone cost == 0
-                return cost.Wood > 0 && cost.Stone == 0;
-            }
-            catch
-            {
-                return false;
-            }
+            // Only check moddable gatehouses (exclude structures in NonModableStructures)
+            return structure == eStructs.STRUCT_GATE_MAIN ||
+                   structure == eStructs.STRUCT_GATE_INNER ||
+                   structure == eStructs.STRUCT_DRAWBRIDGE;
+        }
+
+        /// <summary>
+        /// Checks if a structure is a civilian structure (not a fortification).
+        /// Civilian structures are those that are NOT towers and NOT gatehouses.
+        /// </summary>
+        internal static bool IsCivilStructure(eStructs structure)
+        {
+            // Civil structures are anything that's not a tower and not a gatehouse
+            return !IsTower(structure) && !IsGatehouse(structure);
         }
 
         internal static readonly eStructs[] NonModableStructures =

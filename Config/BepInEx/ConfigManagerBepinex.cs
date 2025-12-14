@@ -20,12 +20,14 @@ namespace CrusaderDETweaker
         internal static ConfigEntry<float> StructureDamageTakenMultiplier { get; private set; }
         internal static ConfigEntry<float> WallDamageTakenMultiplier { get; private set; }
         internal static ConfigEntry<float> TowerDamageTakenMultiplier { get; private set; }
-        internal static ConfigEntry<float> WoodenStructureDamageTakenMultiplier { get; private set; }
+        internal static ConfigEntry<float> CivilStructureDamageTakenMultiplier { get; private set; }
 
         internal static ConfigEntry<float> UnitHealthMultiplier { get; private set; }
 
         internal static ConfigEntry<float> LowWallCostMultiplier { get; private set; }
         internal static ConfigEntry<float> HighWallCostMultiplier { get; private set; }
+
+        internal static ConfigEntry<float> UnitRangedDamageTakenMultiplier { get; private set; }
 
         internal static void Initialize(ConfigFile config)
         {
@@ -59,11 +61,11 @@ namespace CrusaderDETweaker
                 "Multiplier for damage taken by towers (tower levels 1-5)"
             );
 
-            WoodenStructureDamageTakenMultiplier = config.Bind(
+            CivilStructureDamageTakenMultiplier = config.Bind(
                 "Multipliers",
-                "WoodenStructureDamageTakenMultiplier",
+                "CivilStructureDamageTakenMultiplier",
                 1.0f,
-                "Multiplier for damage taken by wooden structures (structures with wood cost > 0 and stone cost = 0)"
+                "Multiplier for damage taken by civilian structures (non-towers, non-gatehouses)"
             );
 
             UnitHealthMultiplier = config.Bind(
@@ -73,18 +75,38 @@ namespace CrusaderDETweaker
                "Global multiplier for unit max health"
            );
 
+            // Read current values from API to use as defaults (game defaults: Low=0.25, High=0.5)
+            float currentLowWallMultiplier = 0.25f;
+            float currentHighWallMultiplier = 0.5f;
+            try
+            {
+                currentLowWallMultiplier = Plugin.BuildingApi.GetLowWallCostMultiplier();
+                currentHighWallMultiplier = Plugin.BuildingApi.GetHighWallCostMultiplier();
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogWarning($"Could not read current wall cost multipliers from API, using defaults: {ex.Message}");
+            }
+
             LowWallCostMultiplier = config.Bind(
                 "Multipliers",
                 "LowWallCostMultiplier",
-                0.25f,
-                "Cost multiplier for low/short walls (stone walls). Default: 0.25 (25% of base cost)"
+                currentLowWallMultiplier,
+                "Cost multiplier for low/short walls (stone walls at low height, stairs). Game default: 0.25"
             );
 
             HighWallCostMultiplier = config.Bind(
                 "Multipliers",
                 "HighWallCostMultiplier",
-                0.5f,
-                "Cost multiplier for high walls (crenel walls). Default: 0.5 (50% of base cost)"
+                currentHighWallMultiplier,
+                "Cost multiplier for high walls (stone walls at high height, crenel walls). Game default: 0.5"
+            );
+
+            UnitRangedDamageTakenMultiplier = config.Bind(
+                "Multipliers",
+                "UnitRangedDamageTakenMultiplier",
+                1.0f,
+                "Global multiplier for all ranged damage taken by units. Affects all projectile types (Arrow, Bolt, Slinger, Javelin). Base projectile damage is 2500."
             );
 
             // Validate all multipliers after binding
@@ -104,10 +126,11 @@ namespace CrusaderDETweaker
             ValidateMultiplier("StructureDamageTakenMultiplier", StructureDamageTakenMultiplier.Value);
             ValidateMultiplier("WallDamageTakenMultiplier", WallDamageTakenMultiplier.Value);
             ValidateMultiplier("TowerDamageTakenMultiplier", TowerDamageTakenMultiplier.Value);
-            ValidateMultiplier("WoodenStructureDamageTakenMultiplier", WoodenStructureDamageTakenMultiplier.Value);
+            ValidateMultiplier("CivilStructureDamageTakenMultiplier", CivilStructureDamageTakenMultiplier.Value);
             ValidateMultiplier("UnitHealthMultiplier", UnitHealthMultiplier.Value);
             ValidateMultiplier("LowWallCostMultiplier", LowWallCostMultiplier.Value);
             ValidateMultiplier("HighWallCostMultiplier", HighWallCostMultiplier.Value);
+            ValidateMultiplier("UnitRangedDamageTakenMultiplier", UnitRangedDamageTakenMultiplier.Value);
         }
 
         /// <summary>
@@ -174,9 +197,9 @@ namespace CrusaderDETweaker
                             damageMultiplier *= TowerDamageTakenMultiplier.Value;
                         }
 
-                        if (Systems.StatsStructures.IsWoodenStructure(structureType))
+                        if (Systems.StatsStructures.IsCivilStructure(structureType))
                         {
-                            damageMultiplier *= WoodenStructureDamageTakenMultiplier.Value;
+                            damageMultiplier *= CivilStructureDamageTakenMultiplier.Value;
                         }
 
                         // Apply general structure multiplier last
@@ -247,6 +270,26 @@ namespace CrusaderDETweaker
                     catch (Exception ex)
                     {
                         Plugin.Logger.LogWarning($"Failed to apply health multiplier to {unitType}: {ex.Message}");
+                    }
+                });
+
+            // Hook for ranged damage multiplier (using Ex version which allows damage modification)
+            UnitR3EventHooks.OnUnitTakeProjectileDamageEx.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(args =>
+                {
+                    try
+                    {
+                        if (Mathf.Approximately(UnitRangedDamageTakenMultiplier.Value, 1.0f))
+                            return;
+
+                        // Apply multiplier to projectile damage
+                        int modified = Mathf.Max(1, (int)(args.Damage * UnitRangedDamageTakenMultiplier.Value));
+                        args.Damage = modified;
+                    }
+                    catch (Exception ex)
+                    {
+                        Plugin.Logger.LogWarning($"Failed to apply ranged damage multiplier: {ex.Message}");
                     }
                 });
         }
