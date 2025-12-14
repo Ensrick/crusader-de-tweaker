@@ -67,7 +67,7 @@ Systems/DamageCalculation/
 - **Testability**: Individual calculators can be tested independently
 - **Extensibility**: Easy to add new weapon types or modify existing ones
 - **Readability**: Main method is now clear and easy to follow
-- **No Functionality Changes**: All existing behavior preserved (99.91% test pass rate)
+- **No Functionality Changes**: All existing behavior preserved (100% test pass rate)
 
 **Remaining Opportunities**:
 - Add unit tests for individual weapon calculators
@@ -471,7 +471,7 @@ Systems/               # Core game systems (damage, registries)
    - Reduced main method from ~500 lines to ~100 lines
    - Created 9 weapon-specific calculator classes
    - Added helper classes for lookup tables, modifiers, and siege defense
-   - Maintained 99.91% test pass rate (all existing functionality preserved)
+   - Maintained 100% test pass rate (all existing functionality preserved)
    - Much easier to maintain, test, and extend
 
 2. **BepInEx Config System Refactored**:

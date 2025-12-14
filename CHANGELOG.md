@@ -23,7 +23,7 @@
          * Extracted all constants to DamageConstants class
          * Added helper classes: WeaponVsArmorLookupTable, TagVsTagModifierHelper, SiegeDefenseHandler
          * Much easier to maintain, test, and extend
-         * Maintained 99.91% test pass rate (all existing functionality preserved)
+         * Maintained 100% test pass rate (all existing functionality preserved)
        - Improved structure categorization and detection
        - Better error handling and validation for all multipliers
        - Fixed Speed property: Now writes to config for all units (some units have API limitations - see known issues)
