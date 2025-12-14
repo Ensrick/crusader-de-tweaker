@@ -253,7 +253,7 @@ namespace CrusaderDETweaker
                     eChimps unitType = args.UnitType;
 
                     // Skip non-modifiable units
-                    if (Systems.StatsUnits.NonModableUnits.Contains(unitType))
+                    if (Data.UnitCategories.NonModable.Contains(unitType))
                         return;
 
                     try

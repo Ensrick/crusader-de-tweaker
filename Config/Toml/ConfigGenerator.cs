@@ -24,7 +24,7 @@ namespace CrusaderDETweaker
                 filePath: ConfigPaths.Units,
                 registry: UnitPropertyRegistry.Instance,
                 allEntities: Enum.GetValues(typeof(eChimps)).Cast<eChimps>().ToArray(),
-                nonModifiableEntities: Systems.StatsUnits.NonModableUnits,
+                nonModifiableEntities: Data.UnitCategories.NonModable,
                 entityTypeName: "unit"
             );
         }
@@ -77,13 +77,6 @@ namespace CrusaderDETweaker
                     }
 
                     sb.AppendLine($"[{entity}]");
-
-                    // Add comment for cost-only structures (walls)
-                    if (entityTypeName == "structure" && entity is eStructs structure && 
-                        Systems.StatsStructures.CostOnlyStructures.Contains(structure))
-                    {
-                        sb.AppendLine("# Note: Walls can only have cost modified (not health). Walls are treated as tiles in many places.");
-                    }
 
                     // Get all applicable property handlers for this entity
                     var handlers = registry.GetApplicable(entity);

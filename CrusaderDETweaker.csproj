@@ -112,7 +112,6 @@
     <Compile Include="Systems\DamageCalculator.cs" />
     <Compile Include="Systems\ProjectileDamageRegistry.cs" />
     <Compile Include="Systems\StatsStructures.cs" />
-    <Compile Include="Systems\StatsUnits.cs" />
     <Compile Include="Config\BepInEx\ConfigManagerBepinex.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

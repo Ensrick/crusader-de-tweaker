@@ -78,7 +78,6 @@ CrusaderDETweaker/
 ├── Systems/                   # Core game systems
 │   ├── DamageCalculator.cs  # Main damage calculation logic
 │   ├── UnitDamageRegistry.cs # Unit data registry
-│   ├── StatsUnits.cs        # Unit stat modifications
 │   ├── StatsStructures.cs    # Structure stat modifications
 │   └── Verification/        # Damage verification system
 ├── Output/                   # Generated config files (gitignored)

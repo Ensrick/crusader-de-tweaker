@@ -24,7 +24,7 @@ namespace CrusaderDETweaker
             ApplyConfigs(
                 filePath: ConfigPaths.Units,
                 registry: UnitPropertyRegistry.Instance,
-                nonModifiableEntities: Systems.StatsUnits.NonModableUnits,
+                nonModifiableEntities: Data.UnitCategories.NonModable,
                 entityTypeName: "unit",
                 parseEntity: TryParseUnit
             );
