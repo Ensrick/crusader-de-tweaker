@@ -17,7 +17,6 @@ namespace CrusaderDETweaker
         {
             new UnitConfigSystem(),
             new StructureConfigSystem(),
-            new ArmorConfigSystem(),
             new Config.Toml.Tags.TagConfigSystem(),
             new DamageMatrixConfigSystem()
         };

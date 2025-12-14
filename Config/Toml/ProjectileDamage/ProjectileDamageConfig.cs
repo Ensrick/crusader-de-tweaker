@@ -6,7 +6,7 @@ namespace CrusaderDETweaker.Config.Toml.ProjectileDamage
     /// <summary>
     /// Base projectile damage constant.
     /// All projectile types (Bow, Crossbow, Sling, Javelin) use the same base damage.
-    /// Differences between projectile types are handled by armor modifiers in ArmorConfig.
+    /// Differences between projectile types are handled by ranged armor modifiers in Tags config (Ranged_Bow vs Armor_Heavy, etc.).
     /// </summary>
     internal static class ProjectileDamageConfig
     {
