@@ -11,3 +11,13 @@
        - Walls (stone, crenel, wood) can now have their costs modified via TOML
        - Walls are cost-only structures (health and other properties cannot be modified)
        - Added CostOnlyStructures list to handle structures with limited modifiable properties
+1.3.0 - Major update with new multipliers and improvements:
+       - Added UnitRangedDamageTakenMultiplier: Global multiplier for all ranged damage (Arrow, Bolt, Slinger, Javelin)
+       - Fixed WallDamageTakenMultiplier: Now properly detects and applies to walls using tile property flags
+       - Replaced WoodenStructureDamageTakenMultiplier with CivilStructureDamageTakenMultiplier
+       - Added wall cost multipliers: LowWallCostMultiplier and HighWallCostMultiplier (moved from TOML to BepInEx config)
+       - Refactored BepInEx config system into modular structure (UnitMultipliersConfig, StructureMultipliersConfig, WallCostConfig)
+       - Improved structure categorization and detection
+       - Better error handling and validation for all multipliers
+       - Fixed Speed property: Now writes to config for all units (some units have API limitations - see known issues)
+       - Known Issue: Some units (animals, special units) cannot have Speed modified due to SHCDE-SE API limitation

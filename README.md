@@ -20,11 +20,14 @@ After installing the prerequisites:
 - The file can modify properties like unit stats, structure stats, and more.
 - Real-time multipliers are available via BepInEx config file:
   - `UnitMeleeDamageTakenMultiplier`: Global multiplier for all melee damage to units
+  - `UnitRangedDamageTakenMultiplier`: Global multiplier for all ranged damage to units (Arrow, Bolt, Slinger, Javelin)
+  - `UnitHealthMultiplier`: Global multiplier for unit max health
   - `StructureDamageTakenMultiplier`: Global multiplier for all damage to structures
   - `WallDamageTakenMultiplier`: Multiplier for damage to walls
   - `TowerDamageTakenMultiplier`: Multiplier for damage to towers
-  - `WoodenStructureDamageTakenMultiplier`: Multiplier for damage to wooden structures
-  - `UnitHealthMultiplier`: Global multiplier for unit max health
+  - `CivilStructureDamageTakenMultiplier`: Multiplier for damage to civilian structures (non-towers, non-gatehouses)
+  - `LowWallCostMultiplier`: Cost multiplier for low/short walls (default: 0.25)
+  - `HighWallCostMultiplier`: Cost multiplier for high walls and crenel walls (default: 0.5)
 
 > Note: No sample config file is included due to size.
 
