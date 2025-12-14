@@ -76,12 +76,14 @@
     <Compile Include="Config\DamageMatrix\Ranged\RangedDamageMatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\Ranged\RangedDamageMatrixLoader.cs" />
     <Compile Include="Config\Toml\Armor\ArmorConfig.cs" />
+    <Compile Include="Config\Toml\Armor\ArmorConfigConstants.cs" />
     <Compile Include="Config\Toml\Armor\ArmorConfigGenerator.cs" />
     <Compile Include="Config\Toml\Armor\ArmorConfigLoader.cs" />
     <Compile Include="Config\Toml\ConfigManagerToml.cs" />
     <Compile Include="Config\Toml\ConfigGenerator.cs" />
     <Compile Include="Config\Toml\ConfigLoader.cs" />
     <Compile Include="Config\Toml\ConfigPaths.cs" />
+    <Compile Include="Config\Toml\Core\ConfigFileHelper.cs" />
     <Compile Include="Config\Toml\Core\ConfigHelpers.cs" />
     <Compile Include="Config\Toml\Core\PropertyHandler.cs" />
     <Compile Include="Config\Toml\Core\PropertyRegistry.cs" />

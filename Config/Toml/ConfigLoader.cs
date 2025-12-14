@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using CrusaderDETweaker.Config.ConfigToml;
+using CrusaderDETweaker.Config.Toml.Core;
 using CrusaderDETweaker.Config.Toml.Units;
 using CrusaderDETweaker.Config.Toml.Structures;
 using SHCDESE.Interop;
@@ -19,75 +21,13 @@ namespace CrusaderDETweaker
         /// </summary>
         internal static void ApplyAllUnitConfigs()
         {
-            if (!File.Exists(ConfigPaths.Units)) return;
-
-            try
-            {
-                int processedCount = 0;
-                int skippedCount = 0;
-                int errorCount = 0;
-
-                var tomlString = File.ReadAllText(ConfigPaths.Units);
-                var tomlModel = Toml.ToModel(tomlString);
-
-                foreach (var kvp in tomlModel)
-                {
-                    // Parse unit name
-                    if (!Enum.TryParse<eChimps>(kvp.Key, out var unit))
-                    {
-                        Plugin.Logger.LogWarning($"Unknown unit in config: {kvp.Key}");
-                        continue;
-                    }
-
-                    // Skip non-modifiable units
-                    if (Systems.StatsUnits.NonModableUnits.Contains(unit))
-                    {
-                        skippedCount++;
-                        continue;
-                    }
-
-                    // Process this unit's properties
-                    if (kvp.Value is TomlTable unitTable)
-                    {
-                        foreach (var propertyKvp in unitTable)
-                        {
-                            string propertyName = propertyKvp.Key;
-                            object propertyValue = propertyKvp.Value;
-
-                            // Get the appropriate property handler
-                            var handler = UnitPropertyRegistry.Instance.GetByName(propertyName);
-
-                            if (handler == null)
-                            {
-                                Plugin.Logger.LogWarning($"Unknown property '{propertyName}' for unit {unit}");
-                                continue;
-                            }
-
-                            // Try to apply the value
-                            try
-                            {
-                                if (!handler.TryLoadFromObject(unit, propertyValue))
-                                {
-                                    Plugin.Logger.LogDebug($"Skipped {propertyName} for {unit}");
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                Plugin.Logger.LogError($"Failed to apply {propertyName} for {unit}: {ex.Message}");
-                                errorCount++;
-                            }
-                        }
-
-                        processedCount++;
-                    }
-                }
-
-                Plugin.Logger.LogInfo($"Applied unit configs: Processed={processedCount}, Skipped={skippedCount}, Errors={errorCount}");
-            }
-            catch (Exception ex)
-            {
-                Plugin.Logger.LogError($"Failed to load unit configs: {ex}");
-            }
+            ApplyConfigs(
+                filePath: ConfigPaths.Units,
+                registry: UnitPropertyRegistry.Instance,
+                nonModifiableEntities: Systems.StatsUnits.NonModableUnits,
+                entityTypeName: "unit",
+                parseEntity: (string key) => Enum.TryParse<eChimps>(key, out var unit) ? unit : (eChimps?)null
+            );
         }
 
         /// <summary>
@@ -95,7 +35,33 @@ namespace CrusaderDETweaker
         /// </summary>
         internal static void ApplyAllStructureConfigs()
         {
-            if (!File.Exists(ConfigPaths.Structures)) return;
+            ApplyConfigs(
+                filePath: ConfigPaths.Structures,
+                registry: StructurePropertyRegistry.Instance,
+                nonModifiableEntities: Systems.StatsStructures.NonModableStructures,
+                entityTypeName: "structure",
+                parseEntity: (string key) => Enum.TryParse<eStructs>(key, out var structure) ? structure : (eStructs?)null
+            );
+        }
+
+        /// <summary>
+        /// Generic method to load and apply configuration files for any entity type.
+        /// </summary>
+        /// <typeparam name="TEntity">The entity type (eChimps or eStructs)</typeparam>
+        /// <param name="filePath">Path to the TOML config file</param>
+        /// <param name="registry">Property registry for this entity type</param>
+        /// <param name="nonModifiableEntities">Entities that should be skipped</param>
+        /// <param name="entityTypeName">Name of the entity type for logging (e.g., "unit", "structure")</param>
+        /// <param name="parseEntity">Function to parse entity name from string, returns null if invalid</param>
+        private static void ApplyConfigs<TEntity>(
+            string filePath,
+            PropertyRegistry<TEntity> registry,
+            TEntity[] nonModifiableEntities,
+            string entityTypeName,
+            Func<string, TEntity?> parseEntity)
+            where TEntity : struct
+        {
+            if (!ConfigFileHelper.ConfigFileExists(filePath)) return;
 
             try
             {
@@ -103,53 +69,54 @@ namespace CrusaderDETweaker
                 int skippedCount = 0;
                 int errorCount = 0;
 
-                var tomlString = File.ReadAllText(ConfigPaths.Structures);
+                var tomlString = ConfigFileHelper.ReadConfigFile(filePath);
                 var tomlModel = Toml.ToModel(tomlString);
 
                 foreach (var kvp in tomlModel)
                 {
-                    // Parse structure name
-                    if (!Enum.TryParse<eStructs>(kvp.Key, out var structure))
+                    // Parse entity name
+                    var entity = parseEntity(kvp.Key);
+                    if (entity == null)
                     {
-                        Plugin.Logger.LogWarning($"Unknown structure in config: {kvp.Key}");
+                        ConfigHelpers.ErrorLogging.LogUnknownEntity(entityTypeName, kvp.Key);
                         continue;
                     }
 
-                    // Skip non-modifiable structures
-                    if (Systems.StatsStructures.NonModableStructures.Contains(structure))
+                    // Skip non-modifiable entities
+                    if (nonModifiableEntities.Contains(entity.Value))
                     {
                         skippedCount++;
                         continue;
                     }
 
-                    // Process this structure's properties
-                    if (kvp.Value is TomlTable structureTable)
+                    // Process this entity's properties
+                    if (kvp.Value is TomlTable entityTable)
                     {
-                        foreach (var propertyKvp in structureTable)
+                        foreach (var propertyKvp in entityTable)
                         {
                             string propertyName = propertyKvp.Key;
                             object propertyValue = propertyKvp.Value;
 
                             // Get the appropriate property handler
-                            var handler = StructurePropertyRegistry.Instance.GetByName(propertyName);
+                            var handler = registry.GetByName(propertyName);
 
                             if (handler == null)
                             {
-                                Plugin.Logger.LogWarning($"Unknown property '{propertyName}' for structure {structure}");
+                                ConfigHelpers.ErrorLogging.LogUnknownProperty(entityTypeName, entity, propertyName);
                                 continue;
                             }
 
                             // Try to apply the value
                             try
                             {
-                                if (!handler.TryLoadFromObject(structure, propertyValue))
+                                if (!handler.TryLoadFromObject(entity.Value, propertyValue))
                                 {
-                                    Plugin.Logger.LogDebug($"Skipped {propertyName} for {structure}");
+                                    ConfigHelpers.ErrorLogging.LogPropertySkipped(propertyName, entity);
                                 }
                             }
                             catch (Exception ex)
                             {
-                                Plugin.Logger.LogError($"Failed to apply {propertyName} for {structure}: {ex.Message}");
+                                ConfigHelpers.ErrorLogging.LogPropertyLoadException(propertyName, entity, ex);
                                 errorCount++;
                             }
                         }
@@ -158,11 +125,11 @@ namespace CrusaderDETweaker
                     }
                 }
 
-                Plugin.Logger.LogInfo($"Applied structure configs: Processed={processedCount}, Skipped={skippedCount}, Errors={errorCount}");
+                Plugin.Logger.LogInfo($"Applied {entityTypeName} configs: Processed={processedCount}, Skipped={skippedCount}, Errors={errorCount}");
             }
             catch (Exception ex)
             {
-                Plugin.Logger.LogError($"Failed to load structure configs: {ex}");
+                ConfigHelpers.ErrorLogging.LogConfigLoadException($"{entityTypeName} configs", ex);
             }
         }
     }
