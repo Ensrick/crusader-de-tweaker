@@ -103,7 +103,6 @@
     <Compile Include="Config\Toml\Units\Properties\HealthProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ResourceTypeProperties.cs" />
     <Compile Include="Config\Toml\Units\Properties\SpeedProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\CavalryRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\TagsProperty.cs" />
     <Compile Include="Config\Toml\Units\UnitPropertyRegistry.cs" />
     <Compile Include="Data\ProjectileDamageData.cs" />
