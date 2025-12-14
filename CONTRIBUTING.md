@@ -96,7 +96,7 @@ The unified configuration system uses the `IConfigSystem` interface to manage mu
 
 - **UnitConfigSystem**: Handles unit properties (health, speed, cost, damage, armor, tags)
 - **StructureConfigSystem**: Handles structure properties (health, cost, housing)
-- **ArmorConfigSystem**: Handles armor category definitions
+- **TagConfigSystem**: Handles tag vs tag modifiers (includes armor modifiers for ranged damage)
 - **DamageMatrixConfigSystem**: Handles CSV damage matrix loading
 
 **Key Pattern**: All config systems implement `IConfigSystem` with:
@@ -180,12 +180,12 @@ Real-time multipliers via event hooks:
 - **StructureDamageTakenMultiplier**: Global multiplier for all damage to structures
 - **WallDamageTakenMultiplier**: Multiplier for damage to walls (stone, crenel, wood walls)
 - **TowerDamageTakenMultiplier**: Multiplier for damage to towers (tower levels 1-5)
-- **WoodenStructureDamageTakenMultiplier**: Multiplier for damage to wooden structures (structures with wood cost > 0 and stone cost = 0)
+- **CivilStructureDamageTakenMultiplier**: Multiplier for damage to civilian structures (non-towers, non-gatehouses)
 - **UnitHealthMultiplier**: Global multiplier for unit max health
 
 **Implementation**: Uses R3 event hooks (`UnitR3EventHooks`, `BuildingR3EventHooks`) to intercept damage/health events before they're applied.
 
-**Multiplier Stacking**: Structure multipliers stack multiplicatively. For example, a wooden wall will have both `WallDamageTakenMultiplier` and `WoodenStructureDamageTakenMultiplier` applied, then `StructureDamageTakenMultiplier`.
+**Multiplier Stacking**: Structure multipliers stack multiplicatively. For example, a wall will have `WallDamageTakenMultiplier` applied, then `StructureDamageTakenMultiplier`. A civilian structure will have `CivilStructureDamageTakenMultiplier` applied, then `StructureDamageTakenMultiplier`.
 
 **Validation**: All multipliers are validated on initialization. Negative values will log a warning but are allowed (may cause unexpected behavior).
 
@@ -201,10 +201,11 @@ Real-time multipliers via event hooks:
    - These are the "vanilla" game values used as fallbacks
    - **Purpose**: Ensures every unit has data even if TOML doesn't specify it
 
-2. **TOML Configuration Files** (`CrusaderDETweaker_Units.toml`, `CrusaderDETweaker_Structures.toml`)
+2. **TOML Configuration Files** (`CrusaderDETweaker_Units.toml`, `CrusaderDETweaker_Structures.toml`, `CrusaderDETweaker_Tags.toml`)
    - **Primary user configuration method**
    - Overrides hardcoded defaults when loaded
    - Users can modify: `BaseMeleeDamage`, `ArmorValue`, `Tags`, `Health`, `Speed`, `Cost`, etc.
+   - **Tags Config**: Defines tag vs tag modifiers (including armor modifiers for ranged damage)
    - **Load Order**: After hardcoded defaults, before CSV matrices
    - **How it works**: `ConfigLoader` reads TOML, calls `PropertyHandler.SetToAPI()` which updates `UnitDamageRegistry` and/or game API directly
 
@@ -273,11 +274,17 @@ PitchCost = 0
 HousingPopulationSpace = 0
 ```
 
-**Armor** (`CrusaderDETweaker_Armor.toml`):
+**Tags** (`CrusaderDETweaker_Tags.toml`):
 ```toml
-[Armor_Heavy]
-ArmorValue = 0.5
-Description = "Heavy armor - takes 50% damage"
+[TagVsTag.Ranged_Bow_Armor_Heavy]
+AttackerTag = "Ranged_Bow"
+DefenderTag = "Armor_Heavy"
+Multiplier = 0.06  # Arrows are stopped by heavy armor
+
+[TagVsTag.Weapon_Polearm_Ladderman]
+AttackerTag = "Weapon_Polearm"
+DefenderTag = "Ladderman"
+Multiplier = 5.0  # Polearm is very effective vs Ladderman
 ```
 
 ### CSV File Structure
