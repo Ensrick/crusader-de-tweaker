@@ -46,7 +46,7 @@ namespace CrusaderDETweaker
 
                 // Initialize all config systems (TOML and CSV) using unified interface
                 // Validation is now integrated into the unified system
-                ConfigManagerToml.Initialize(runValidation: true);
+                ConfigManager.Initialize(runValidation: true);
 
                 // Initialize BepInEx config and apply runtime multipliers (LOAD LAST)
                 ConfigManagerBepinex.Initialize(Config);

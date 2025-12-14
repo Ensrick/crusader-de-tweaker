@@ -82,7 +82,7 @@
     <Compile Include="Config\Toml\Armor\ArmorConfigGenerator.cs" />
     <Compile Include="Config\Toml\Armor\ArmorConfigLoader.cs" />
     <Compile Include="Config\Toml\Armor\ArmorConfigSystem.cs" />
-    <Compile Include="Config\Toml\ConfigManagerToml.cs" />
+    <Compile Include="Config\ConfigManager.cs" />
     <Compile Include="Config\Toml\ConfigGenerator.cs" />
     <Compile Include="Config\Toml\ConfigLoader.cs" />
     <Compile Include="Config\Toml\ConfigPaths.cs" />
