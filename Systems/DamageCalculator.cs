@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using CrusaderDETweaker.Data;
+using CrusaderDETweaker.Systems.DamageCalculation;
 using SHCDESE.Interop;
 
 namespace CrusaderDETweaker.Systems
@@ -49,107 +50,23 @@ namespace CrusaderDETweaker.Systems
         /// <summary>
         /// Minimum damage floor - all attacks deal at least this much damage.
         /// </summary>
-        public const int MinimumDamage = 2;
+        public const int MinimumDamage = DamageConstants.MinimumDamage;
 
         /// <summary>
         /// Weak attacker threshold - attackers with base damage at or below this
         /// deal flat damage, ignoring ALL modifiers.
         /// </summary>
-        public const int WeakAttackerThreshold = 2;
+        public const int WeakAttackerThreshold = DamageConstants.WeakAttackerThreshold;
 
         /// <summary>
         /// Weapon vs Armor multiplier lookup table.
         /// Key: (WeaponCategory, ArmorCategory), Value: Damage multiplier
         /// 
         /// Derived from analyzing CrusaderDETweaker_MeleeDamage.csv game data.
+        /// Now uses WeaponVsArmorLookupTable for the actual data.
         /// </summary>
-        private static readonly Dictionary<(WeaponCategory, ArmorCategory), float> WeaponVsArmorTable = new Dictionary<(WeaponCategory, ArmorCategory), float>
-        {
-            // UNARMED (civilians, weak units) - flat base damage to everyone
-            { (WeaponCategory.Unarmed, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Unarmed, ArmorCategory.Light), 1.0f },
-            { (WeaponCategory.Unarmed, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Unarmed, ArmorCategory.Heavy), 1.0f },
-            { (WeaponCategory.Unarmed, ArmorCategory.Siege), 1.0f },
+        internal static readonly Dictionary<(WeaponCategory, ArmorCategory), float> WeaponVsArmorTable = WeaponVsArmorLookupTable.Table;
 
-            // SWORD - good all-around
-            // Formula: base * multiplier * armorValue
-            // ARAB_BOW (20) vs ARAB_ASSASIN (1.0 armor, Light): 20 = 20 * 1.0 * 1.0
-            // ARAB_BOW (20) vs ARAB_SLINGER (1.5 armor, Light): 30 = 20 * 1.0 * 1.5
-            // SWORDSMAN (100) vs KNIGHT (0.5 armor, Heavy): 50 = 100 * 1.0 * 0.5
-            { (WeaponCategory.Sword, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Sword, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
-            { (WeaponCategory.Sword, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Sword, ArmorCategory.Heavy), 1.0f },
-            { (WeaponCategory.Sword, ArmorCategory.Siege), 0.4f },
-
-            // MACE - terrible vs heavy armor
-            { (WeaponCategory.Mace, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Mace, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
-            { (WeaponCategory.Mace, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Mace, ArmorCategory.Heavy), 0.33f },
-            { (WeaponCategory.Mace, ArmorCategory.Siege), 0.5f },
-
-            // POLEARM - ignores heavy armor
-            { (WeaponCategory.Polearm, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Polearm, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
-            { (WeaponCategory.Polearm, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Polearm, ArmorCategory.Heavy), 1.0f },
-            { (WeaponCategory.Polearm, ArmorCategory.Siege), 0.4f },
-
-            // LANCE (Cavalry) - bonus vs heavy
-            // Formula: base * multiplier * armorValue
-            // KNIGHT (80) vs KNIGHT (0.5): 50 = 80 * 1.25 * 0.5
-            { (WeaponCategory.Lance, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Lance, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
-            { (WeaponCategory.Lance, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Lance, ArmorCategory.Heavy), 1.25f },  // Fixed: was 0.625, should be 1.25
-            { (WeaponCategory.Lance, ArmorCategory.Siege), 0.4f },
-
-            // AXE - good vs siege
-            { (WeaponCategory.Axe, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Axe, ArmorCategory.Light), 1.0f },  // Fixed: was 1.5, should be 1.0
-            { (WeaponCategory.Axe, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Axe, ArmorCategory.Heavy), 1.0f },
-            { (WeaponCategory.Axe, ArmorCategory.Siege), 1.0f },  // Bypasses siege defense
-
-            // DAGGER (Assassin) - huge bonus vs unarmored, ignores heavy reduction
-            { (WeaponCategory.Dagger, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Dagger, ArmorCategory.Light), 2.0f },
-            { (WeaponCategory.Dagger, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Dagger, ArmorCategory.Heavy), 1.0f },
-            { (WeaponCategory.Dagger, ArmorCategory.Siege), 0.025f },  // 2/80 from data
-
-            // RANGED (bows, crossbows, slings in melee) - bonus vs heavy and light
-            { (WeaponCategory.Ranged, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Ranged, ArmorCategory.Light), 1.5f },
-            { (WeaponCategory.Ranged, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Ranged, ArmorCategory.Heavy), 1.5f },  // Ranged gets bonus vs heavy!
-            { (WeaponCategory.Ranged, ArmorCategory.Siege), 0.2f },
-
-            // BEAST - flat damage, ignores all armor
-            { (WeaponCategory.Beast, ArmorCategory.None), 1.0f },
-            { (WeaponCategory.Beast, ArmorCategory.Light), 1.0f },
-            { (WeaponCategory.Beast, ArmorCategory.Medium), 1.0f },
-            { (WeaponCategory.Beast, ArmorCategory.Heavy), 1.0f },
-            { (WeaponCategory.Beast, ArmorCategory.Siege), 1.0f },
-        };
-
-        /// <summary>
-        /// Special multipliers for specific attacker tags vs defender tags.
-        /// Applied after the weapon vs armor lookup.
-        /// </summary>
-        private static readonly Dictionary<(string, string), float> TagVsTagModifiers = new Dictionary<(string, string), float>
-        {
-            // Polearm vs Ladderman: 5x damage
-            { ("Weapon_Polearm", "Ladderman"), 5.0f },
-            
-            // Hunter vs Beast: 2x damage
-            { ("Hunter", "Beast"), 2.0f },
-            
-            // Predator vs SmallPrey: 5x damage (Dog vs Rabbit)
-            { ("Predator", "SmallPrey"), 5.0f },
-        };
 
         /// <summary>
         /// Calculate melee damage from attacker to defender.
@@ -166,7 +83,7 @@ namespace CrusaderDETweaker.Systems
             }
 
             // RULE 1: Weak attackers (Base ≤ 2) deal flat damage
-            if (attackerData.BaseMeleeDamage <= WeakAttackerThreshold)
+            if (attackerData.BaseMeleeDamage <= DamageConstants.WeakAttackerThreshold)
             {
                 return attackerData.BaseMeleeDamage;
             }
@@ -176,472 +93,86 @@ namespace CrusaderDETweaker.Systems
             var armorCategory = GetArmorCategory(defenderData);
 
             // RULE 2: SiegeDefense - Specific units deal minimum damage (2) vs Trebuchet
-            // Most weak/ranged/unarmed units deal 2, but strong melee (Sword, Mace, Lance, Axe, Polearm) deal normal damage
-            // Exception: Weak Sword units (Base <= 20) with Ranged_Bow or Cavalry tags also deal 2
-            if (defenderData.HasTag("SiegeDefense") || defenderData.HasTag("Armor_Siege"))
+            var siegeDefenseDamage = SiegeDefenseHandler.GetSiegeDefenseDamage(attackerData, defenderData, weaponCategory);
+            if (siegeDefenseDamage.HasValue)
             {
-                // Exception: Weak Sword units with Ranged_Bow or Cavalry deal 2 damage
-                if (weaponCategory == WeaponCategory.Sword && attackerData.BaseMeleeDamage <= 20)
-                {
-                    if (attackerData.HasTag("Ranged_Bow") || (attackerData.HasTag("Cavalry") && attackerData.BaseMeleeDamage <= 20))
-                    {
-                        return MinimumDamage; // 2
-                    }
-                }
-                
-                // Beast units bypass SiegeDefense and deal base damage (ignore armor)
-                if (weaponCategory == WeaponCategory.Beast)
-                {
-                    // Beast units deal flat base damage vs SiegeDefense, ignoring armor value
-                    // CAMEL (100) vs TREBUCHET (0.4): Game=100, Calc=40 → Should be base * 1.0 = 100
-                    // This will be handled in the damage calculation below by setting effectiveArmorValue = 1.0
-                }
-                // Strong melee weapons (Sword, Mace, Lance, Axe, Polearm) bypass SiegeDefense and deal normal damage
-                else if (weaponCategory == WeaponCategory.Sword || 
-                    weaponCategory == WeaponCategory.Mace || 
-                    weaponCategory == WeaponCategory.Lance || 
-                    weaponCategory == WeaponCategory.Axe || 
-                    weaponCategory == WeaponCategory.Polearm)
-                {
-                    // These deal normal calculated damage (will be calculated below)
-                }
-                // All other units (Assassin, Ranged, Unarmed) deal minimum damage (2)
-                // Exception: HUNTER has a modifier 5.0x for TREBUCHET, so bypass SiegeDefense
-                else
-                {
-                    // Check if attacker has a modifier for this defender - if so, bypass SiegeDefense
-                    float siegeModifier = attackerData.GetModifierAgainst(defender);
-                    if (siegeModifier != 1.0f)
-                    {
-                        // Modifier exists, so bypass SiegeDefense and calculate normally
-                        // HUNTER vs TREBUCHET: Game=10, Calc=50 → The modifier 5.0x is being applied incorrectly
-                        // The base calc should be 2 (SiegeDefense), then 2 * 5 = 10
-                        // But if we bypass SiegeDefense, the base calc is 10 * 0.4 * 3.0 = 12, then 12 * 5 = 60, then cap...
-                        // So we need to handle this specially - apply the modifier to the minimum damage (2)
-                        if (weaponCategory == WeaponCategory.Ranged && attackerData.HasTag("Hunter"))
-                        {
-                            // HUNTER vs TREBUCHET: deal 2 * 5.0 = 10
-                            return (int)(MinimumDamage * siegeModifier);
-                        }
-                        // For other units, calculate normally
-                    }
-                    else
-                    {
-                        return MinimumDamage; // 2
-                    }
-                }
+                return siegeDefenseDamage.Value;
             }
 
-            // Core formula varies by weapon type:
-            // - Most weapons: BaseDamage × WeaponVsArmorMultiplier × ArmorValue
-            // - Assassin: Special formula (ignores lookup table)
-            // - Ranged in melee: BaseDamage × ArmorValue × 2.0 (special multiplier)
-            // - Unarmed: BaseDamage × ArmorValue (no lookup table)
+            // Get weapon calculator from factory
+            var calculator = WeaponDamageCalculatorFactory.GetCalculator(weaponCategory);
             
+            // Special case: Strong melee vs SiegeDefense bypasses lookup table
+            // ARAB_SWORDSMAN (100) vs TREBUCHET: Game=40 = 100 * 0.4
+            // BEDOUIN_DEMOLISHER (40) vs TREBUCHET: Game=40 = 40 * 1.0
+            // KNIGHT (80) vs TREBUCHET: Game=30 = 80 * 0.375
+            // LORD (150) vs TREBUCHET: Game=150 = 150 * 1.0
             float damage;
-            
-            // Special handling for Assassin - uses special formula
-            if (weaponCategory == WeaponCategory.Dagger)
+            if ((defenderData.HasTag("SiegeDefense") || defenderData.HasTag("Armor_Siege")) &&
+                (weaponCategory == WeaponCategory.Sword || weaponCategory == WeaponCategory.Mace || 
+                 weaponCategory == WeaponCategory.Lance || weaponCategory == WeaponCategory.Axe || 
+                 weaponCategory == WeaponCategory.Polearm))
             {
-                damage = CalculateAssassinDamage(attackerData, defenderData);
-            }
-            // Special handling for Ranged units in melee
-            else if (weaponCategory == WeaponCategory.Ranged)
-            {
-                damage = CalculateRangedMeleeDamage(attackerData, defenderData);
-            }
-            // Special handling for Unarmed units
-            else if (weaponCategory == WeaponCategory.Unarmed)
-            {
-                // Unarmed units: flat base damage to most, double to unarmored (but cap at base for some units)
-                // ARAB_BALLISTA (10) vs ARAB_SLINGER (1.5): 10 (flat)
-                // ARAB_BALLISTA (10) vs ARAB_SLAVE (2.0): 20 (double)
-                // ARAB_BALLISTA (10) vs BEDOUIN_HEALER (2.0): 10 (flat, not double!)
-                // ARAB_BALLISTA (10) vs KNIGHT (0.5): 10 (flat, not reduced)
-                // ARAB_SLAVE (10) vs ARAB_SLINGER (1.5): 20 (handled by unit-specific modifier)
-                // ARAB_SLAVE (10) vs BEDOUIN_EUNUCH (1.5): 15 (handled by unit-specific modifier)
-                
-                if (defenderData.ArmorValue >= 2.0f)
+                // Strong melee vs SiegeDefense: use weapon-specific multipliers
+                float? siegeMultiplier = SiegeDefenseHandler.GetSiegeDefenseMultiplier(weaponCategory, attackerData);
+                if (attackerData.IsArmorPiercing)
                 {
-                    // Unarmored: double damage for most, but cap at base for some defenders
-                    // BEDOUIN_HEALER seems to be an exception - cap at base
-                    if (defender == eChimps.CHIMP_TYPE_BEDOUIN_HEALER)
-                    {
-                        damage = attackerData.BaseMeleeDamage; // Cap at base
-                    }
-                    else
-                    {
-                        damage = attackerData.BaseMeleeDamage * 2.0f; // Double damage
-                    }
+                    damage = attackerData.BaseMeleeDamage * 1.0f; // Lord: base * 1.0
+                }
+                else if (siegeMultiplier.HasValue)
+                {
+                    damage = attackerData.BaseMeleeDamage * siegeMultiplier.Value;
                 }
                 else
                 {
-                    // Everyone else: flat base damage
-                    // Unit-specific modifiers will be applied later for special cases (e.g., ARAB_SLAVE vs Light)
-                    damage = attackerData.BaseMeleeDamage;
+                    damage = attackerData.BaseMeleeDamage * 1.0f; // Default
                 }
             }
-            // Normal weapons: BaseDamage × WeaponVsArmorMultiplier × ArmorValue
             else
             {
-                // Special case: Strong melee vs SiegeDefense bypasses lookup table
-                // ARAB_SWORDSMAN (100) vs TREBUCHET: Game=40 = 100 * 0.4
-                // BEDOUIN_DEMOLISHER (40) vs TREBUCHET: Game=40 = 40 * 1.0
-                // KNIGHT (80) vs TREBUCHET: Game=30 = 80 * 0.375
-                // LORD (150) vs TREBUCHET: Game=150 = 150 * 1.0
-                if ((defenderData.HasTag("SiegeDefense") || defenderData.HasTag("Armor_Siege")) &&
-                    (weaponCategory == WeaponCategory.Sword || weaponCategory == WeaponCategory.Mace || 
-                     weaponCategory == WeaponCategory.Lance || weaponCategory == WeaponCategory.Axe || 
-                     weaponCategory == WeaponCategory.Polearm))
-                {
-                    // Strong melee vs SiegeDefense: use weapon-specific multipliers
-                    float siegeMultiplier;
-                    if (attackerData.IsArmorPiercing)
-                    {
-                        siegeMultiplier = 1.0f; // Lord: base * 1.0
-                    }
-                    else if (weaponCategory == WeaponCategory.Sword)
-                    {
-                        siegeMultiplier = 0.4f; // Sword: base * 0.4
-                    }
-                    else if (weaponCategory == WeaponCategory.Mace)
-                    {
-                        siegeMultiplier = 1.0f; // Mace: base * 1.0
-                    }
-                    else if (weaponCategory == WeaponCategory.Lance)
-                    {
-                        siegeMultiplier = 0.375f; // Lance: base * 0.375
-                    }
-                    else
-                    {
-                        siegeMultiplier = 1.0f; // Axe/Polearm: base * 1.0
-                    }
-                    
-                    damage = attackerData.BaseMeleeDamage * siegeMultiplier;
-                }
-                else
-                {
-                    float weaponVsArmorMultiplier = GetWeaponVsArmorMultiplier(weaponCategory, armorCategory);
-                    
-                    // Beast units: large beasts (base >= 50) deal flat base damage, small beasts (base <= 10) use armor
-                    // CAMEL (100) vs TREBUCHET: Game=100, Calc=40 → Should be base * 1.0 = 100
-                    // CAMEL (100) vs ARAB_SLINGER: Game=100, Calc=150 → Should be base * 1.0 = 100
-                    // DOG (10) vs ARAB_SLAVE: Game=20, Calc=10 → Should be base * 2.0 = 20
-                    // DOG (10) vs KNIGHT: Game=10, Calc=5 → Should be base * 1.0 = 10 (cap at base vs heavy)
-                    float effectiveArmorValue;
-                    if (weaponCategory == WeaponCategory.Beast)
-                    {
-                        // Large beasts (base >= 50): always deal flat base damage, ignoring armor
-                        // Small beasts (base <= 10): use armor, but cap at base vs heavy armor
-                        if (attackerData.BaseMeleeDamage >= 50)
-                        {
-                            effectiveArmorValue = 1.0f; // Large beasts ignore armor
-                        }
-                        else
-                        {
-                            // Small beasts use armor, but cap at base vs heavy armor (handled in caps section)
-                            // DOG vs TREBUCHET: Game=10, Calc=4 → Should deal base damage (10), ignoring armor
-                            // Check if modifier exists - if so, use 1.0 (ignore armor)
-                            float beastModifier = attackerData.GetModifierAgainst(defender);
-                            if (beastModifier != 1.0f && defenderData.HasTag("SiegeDefense"))
-                            {
-                                effectiveArmorValue = 1.0f; // Ignore armor if modifier exists
-                            }
-                            else
-                            {
-                                effectiveArmorValue = defenderData.ArmorValue;
-                            }
-                        }
-                    }
-                    else if (weaponCategory == WeaponCategory.Mace && defenderData.ArmorValue <= 0.5f)
-                    {
-                        // Mace vs Heavy armor: varies by base damage
-                        // MACEMAN (75) vs KNIGHT: Game=25, Calc=12 → Should be 75 * 0.33 * 1.0 = 25 (ignore armor)
-                        // BEDOUIN_DEMOLISHER (40) vs KNIGHT: Game=40, Calc=7 → Should be 40 * 1.0 * 1.0 = 40 (ignore multiplier and armor)
-                        // MONK (50) vs KNIGHT: Game=50, Calc=8 → Should be 50 * 1.0 * 1.0 = 50 (ignore multiplier and armor)
-                        // BLACKSMITH (20) vs KNIGHT: Game=20, Calc=3 → Should be 20 * 1.0 * 1.0 = 20 (ignore multiplier and armor)
-                        if (attackerData.BaseMeleeDamage >= 20 && attackerData.BaseMeleeDamage < 75)
-                        {
-                            // Medium-strength Mace units (40-74): deal flat base damage vs Heavy
-                            weaponVsArmorMultiplier = 1.0f; // Override 0.33x multiplier
-                            effectiveArmorValue = 1.0f; // Ignore armor
-                        }
-                        else if (attackerData.BaseMeleeDamage >= 75)
-                        {
-                            // Strong Mace units (75+): ignore armor reduction, but keep 0.33x multiplier
-                            effectiveArmorValue = 1.0f; // Ignore armor
-                        }
-                        else
-                        {
-                            // Weak Mace units (< 40): use normal formula
-                            effectiveArmorValue = defenderData.ArmorValue;
-                        }
-                    }
-                    else if (attackerData.IsArmorPiercing)
-                    {
-                        // Lord vs Heavy/Medium: ignores armor (treats as 1.0)
-                        // Lord vs Unarmored: capped at 1.33x (200/150 = 1.33)
-                        if (defenderData.ArmorValue >= 2.0f)
-                            effectiveArmorValue = 1.33f;  // Cap vs unarmored
-                        else
-                            effectiveArmorValue = 1.0f;  // Ignore armor reduction
-                    }
-                    else
-                    {
-                        effectiveArmorValue = defenderData.ArmorValue;
-                    }
-                    
-                    damage = attackerData.BaseMeleeDamage * weaponVsArmorMultiplier * effectiveArmorValue;
-                }
-                
-                // Apply unit-specific modifier BEFORE caps (if it exists)
-                // This allows modifiers to override the standard formula
+                // Calculate base damage using weapon calculator
+                damage = calculator.CalculateBaseDamage(attackerData, defenderData, weaponCategory, armorCategory);
+            }
+            
+            // Apply unit-specific modifier BEFORE caps (for normal weapons only)
+            // This allows modifiers to override the standard formula
+            // Special weapons (Dagger, Ranged, Unarmed, Beast) apply modifiers AFTER caps
+            bool isSpecialWeapon = weaponCategory == WeaponCategory.Dagger || 
+                                   weaponCategory == WeaponCategory.Ranged || 
+                                   weaponCategory == WeaponCategory.Unarmed || 
+                                   weaponCategory == WeaponCategory.Beast;
+            
+            if (!isSpecialWeapon)
+            {
                 float specialModifier = attackerData.GetModifierAgainst(defender);
                 if (specialModifier != 1.0f)
                 {
                     damage *= specialModifier;
                 }
-                
-                // Apply damage caps for specific weapon types vs unarmored/weak targets
-                // Skip caps if unit-specific modifier was applied (modifier already handles the adjustment)
-                // BEDOUIN_EUNUCH has modifier 1.0x for BEDOUIN_HEALER, but modifier 1.0x means "no change", so we should still apply cap
-                // But game wants 20, not 15, so maybe BEDOUIN_EUNUCH shouldn't hit the cap, or the modifier should be > 1.0x
-                if (specialModifier == 1.0f && weaponCategory == WeaponCategory.Sword && attackerData.BaseMeleeDamage <= 20 && attacker != eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH)
-                {
-                    // ARAB_BOW (20) vs Unarmored (2.0): Game=30, Calc=40 → Cap at base * 1.5
-                    // ARAB_BOW (20) vs Medium (1.0): Game=10-15, Calc=20 → Handled by unit-specific modifiers
-                    // ARAB_BOW (20) vs Light (1.5): Game=25-30, Calc=30 → Cap at base * 1.25 for BEDOUIN_EUNUCH
-                    // ARAB_HORSEMAN (20) vs Unarmored: Game=25, Calc=40 → Cap at base * 1.25
-                    // ARAB_HORSEMAN (20) vs Light: Game=25, Calc=30 → Cap at base * 1.25
-                    if (defenderData.ArmorValue >= 2.0f)
-                    {
-                        if (attacker == eChimps.CHIMP_TYPE_ARAB_HORSEMAN)
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f); // ARAB_HORSEMAN: cap at base * 1.25
-                        }
-                        else
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // ARAB_BOW: cap at base * 1.5
-                        }
-                    }
-                    else if (defenderData.ArmorValue >= 1.5f)
-                    {
-                        // Light armor: cap at base * 1.25 for weak Sword units
-                        if (defender == eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH || attacker == eChimps.CHIMP_TYPE_ARAB_HORSEMAN)
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f);
-                        }
-                    }
-                    // Medium armor: handled by unit-specific modifiers for ARAB_BOW
-                }
-                else if (weaponCategory == WeaponCategory.Mace)
-                {
-                    if (defenderData.ArmorValue >= 2.0f)
-                    {
-                        // Mace vs Unarmored: different caps based on unit strength
-                        // BLACKSMITH (20) vs ARAB_SLAVE (2.0): Game=30, Calc=40 → Cap at base * 1.5
-                        // BEDOUIN_DEMOLISHER (40) vs ARAB_SLAVE (2.0): Game=40, Calc=80 → Cap at base * 1.0
-                        // MONK (50) vs Unarmored: handled by unit-specific modifiers
-                        // MACEMAN (75) vs ARAB_SLAVE (2.0): Game=150, Calc=150 → No cap for strong units
-                        float maceModifier = attackerData.GetModifierAgainst(defender);
-                        if (maceModifier == 1.0f)
-                        {
-                            if (attackerData.BaseMeleeDamage <= 20)
-                            {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap at base * 1.5
-                            }
-                            else if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage < 50)
-                            {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
-                            }
-                        }
-                        // Strong units (50+) with modifiers: no cap
-                    }
-                    else if (defenderData.ArmorValue >= 1.5f && defenderData.ArmorValue < 2.0f)
-                    {
-                        // Mace vs Light armor: cap at base * 1.25-1.5 for weak units
-                        // BLACKSMITH (20) vs ARAB_SLINGER (1.5): Game=25, Calc=30 → Cap at base * 1.25
-                        // BLACKSMITH (20) vs BEDOUIN_EUNUCH (1.5): Game=20, Calc=30 → Cap at base * 1.0
-                        // BEDOUIN_DEMOLISHER (40) vs ARAB_SLINGER (1.5): Game=40, Calc=60 → Cap at base * 1.0
-                        // BEDOUIN_DEMOLISHER (40) vs BEDOUIN_EUNUCH (1.5): Game=50, Calc=60 → Cap at base * 1.25
-                        if (attackerData.BaseMeleeDamage <= 20)
-                        {
-                            if (defender == eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH)
-                            {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
-                            }
-                            else
-                            {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f); // Cap at base * 1.25
-                            }
-                        }
-                        else if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 50)
-                        {
-                            // MONK has modifiers for ARAB_SLINGER and BEDOUIN_EUNUCH, so skip cap if modifier exists
-                            float maceLightModifier = attackerData.GetModifierAgainst(defender);
-                            if (maceLightModifier == 1.0f)
-                            {
-                                if (defender == eChimps.CHIMP_TYPE_ARAB_SLINGER)
-                                {
-                                    damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
-                                }
-                                else
-                                {
-                                    damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f); // Cap at base * 1.25
-                                }
-                            }
-                            // If modifier exists, don't apply cap (modifier already handles adjustment)
-                        }
-                    }
-                }
-                else if (weaponCategory == WeaponCategory.Lance && attackerData.HasTag("Cavalry") && defenderData.ArmorValue >= 2.0f)
-                {
-                    // Lance Cavalry vs Unarmored
-                    // BEDOUIN_CAMEL_LANCER (80) vs ARAB_SLAVE (2.0): Game=160, Calc=80 → Should be base * 2.0 (no cap)
-                    // BEDOUIN_HEAVY_CAMEL (40) vs ARAB_SLAVE (2.0): Game=40, Calc=80 → Cap at base * 1.0
-                    // BEDOUIN_HEAVY_CAMEL (40) vs BEDOUIN_HEALER (2.0): Game=60, Calc=80 → No cap (modifier will handle it)
-                    // Check if modifier exists - if so, skip cap (modifier already applied)
-                    float lanceModifier = attackerData.GetModifierAgainst(defender);
-                    if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 50 && lanceModifier == 1.0f)
-                    {
-                        // Only cap if no special modifier exists
-                        damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
-                    }
-                    // Strong Lance units (80+): no cap, deal full damage (base * 2.0)
-                }
-                else if (weaponCategory == WeaponCategory.Axe)
-                {
-                    if (defenderData.ArmorValue >= 2.0f)
-                    {
-                        // Axe vs Unarmored: some units need caps
-                        // BEDOUIN_SAPPER (25) vs ARAB_SLAVE (2.0): Game=40, Calc=50 → Cap at base * 1.6
-                        // TUNNELER (25) vs ARAB_SLAVE (2.0): Game=40, Calc=50 → Cap at base * 1.6
-                        // QUARRY_GRUNT (20) vs ARAB_SLAVE: Game=40, Calc=40 → No cap needed
-                        if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 25)
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.6f); // Cap at base * 1.6
-                        }
-                    }
-                    else if (defenderData.ArmorValue >= 1.5f && defenderData.ArmorValue < 2.0f)
-                    {
-                        // Axe vs Light armor: cap at base * 1.0-1.5 for weak units
-                        // QUARRY_GRUNT (20) vs BEDOUIN_EUNUCH (1.5): Game=20, Calc=30 → Cap at base * 1.0
-                        // QUARRY_GRUNT (20) vs BEDOUIN_HEALER (2.0): Game=30, Calc=40 → Cap at base * 1.5
-                        // BEDOUIN_SAPPER (25) vs ARAB_SLINGER (1.5): Game=30, Calc=38 → Cap at base * 1.2
-                        // BEDOUIN_SAPPER (25) vs BEDOUIN_EUNUCH (1.5): Game=25, Calc=38 → Cap at base * 1.0
-                        // TUNNELER (25) vs ARAB_SLINGER (1.5): Game=30, Calc=38 → Cap at base * 1.2
-                        // TUNNELER (25) vs BEDOUIN_EUNUCH (1.5): Game=25, Calc=38 → Cap at base * 1.0
-                        if (attackerData.BaseMeleeDamage <= 20)
-                        {
-                            if (defender == eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH)
-                            {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
-                            }
-                            else
-                            {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.5f); // Cap at base * 1.5
-                            }
-                        }
-                        else if (attackerData.BaseMeleeDamage > 20 && attackerData.BaseMeleeDamage <= 25)
-                        {
-                            if (defender == eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH)
-                            {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base
-                            }
-                            else
-                            {
-                                damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.2f); // Cap at base * 1.2
-                            }
-                        }
-                    }
-                    else if (defenderData.ArmorValue <= 0.5f)
-                    {
-                        // Axe vs Heavy armor: cap at base damage for weak units
-                        // QUARRY_GRUNT (20) vs KNIGHT (0.5): Game=20, Calc=10 → Cap at base * 1.0
-                        // BEDOUIN_SAPPER (25) vs KNIGHT (0.5): Game=25, Calc=12 → Cap at base * 1.0
-                        // TUNNELER (25) vs KNIGHT (0.5): Game=25, Calc=12 → Cap at base * 1.0
-                        if (attackerData.BaseMeleeDamage <= 25)
-                        {
-                            damage = Math.Max(damage, attackerData.BaseMeleeDamage * 1.0f); // Floor at base
-                        }
-                    }
-                }
-                else if ((weaponCategory == WeaponCategory.Mace || 
-                         (weaponCategory == WeaponCategory.Lance && attackerData.HasTag("Cavalry"))) &&
-                         defenderData.ArmorValue >= 2.0f && attackerData.BaseMeleeDamage <= 20)
-                {
-                    // Small Mace/Lance units vs Unarmored: cap at base * 1.25
-                    // ARAB_HORSEMAN (20) vs ARAB_SLAVE (2.0): Game=25, Calc=40 → Cap at base * 1.25
-                    damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.25f);
-                }
-                else if (weaponCategory == WeaponCategory.Beast)
-                {
-                    // Large beasts (base >= 50): already set effectiveArmorValue = 1.0, so no caps needed
-                    // Small beasts (base <= 10): use armor, but cap at base vs heavy armor and light armor
-                    if (attackerData.BaseMeleeDamage < 50)
-                    {
-                        // Small beasts vs Heavy armor: cap at base (don't reduce below base)
-                        // DOG (10) vs KNIGHT (0.5): Game=10, Calc=5 → Cap at base * 1.0 = 10
-                        if (defenderData.ArmorValue <= 0.5f)
-                        {
-                            damage = Math.Max(damage, attackerData.BaseMeleeDamage * 1.0f); // Floor at base damage
-                        }
-                        // Small beasts vs Light armor: cap at base (don't increase above base)
-                        // DOG (10) vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → Cap at base * 1.0 = 10
-                        // DOG (10) vs BEDOUIN_HEALER (2.0): Game=10, Calc=20 → Cap at base * 1.0 = 10
-                        else if (defenderData.ArmorValue >= 1.5f)
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base damage
-                        }
-                    }
-                    else
-                    {
-                        // Large beasts vs Unarmored: cap at base damage (not double)
-                        // CAMEL (100) vs ARAB_SLAVE (2.0): Game=100, Calc=200 → Cap at base * 1.0
-                        // CROCODILE (100) vs ARAB_SLAVE (2.0): Game=100, Calc=200 → Cap at base * 1.0
-                        // WAR_DOG (50) vs ARAB_SLAVE (2.0): Game=50, Calc=100 → Cap at base * 1.0
-                        if (defenderData.ArmorValue >= 2.0f)
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base damage
-                        }
-                        // Large beasts vs Light armor: cap at base damage (not 1.5x)
-                        // CAMEL (100) vs ARAB_SLINGER (1.5): Game=100, Calc=150 → Cap at base * 1.0
-                        // CROCODILE (100) vs BEDOUIN_EUNUCH (1.5): Game=100, Calc=150 → Cap at base * 1.0
-                        else if (defenderData.ArmorValue >= 1.5f && defenderData.ArmorValue < 2.0f)
-                        {
-                            damage = Math.Min(damage, attackerData.BaseMeleeDamage * 1.0f); // Cap at base damage
-                        }
-                    }
-                }
             }
+            
+            // Apply damage caps using weapon calculator
+            damage = calculator.ApplyDamageCaps(damage, attackerData, defenderData, weaponCategory);
 
             // Apply tag vs tag modifiers (Polearm vs Ladderman, etc.)
-            // Note: For Ranged units, tag modifiers are applied in CalculateRangedMeleeDamage
+            // Note: For Ranged units, tag modifiers are applied in RangedMeleeDamageCalculator
             // For other units, apply here
             if (weaponCategory != WeaponCategory.Ranged)
             {
-                float tagModifier = GetTagVsTagModifier(attackerData, defenderData);
+                float tagModifier = TagVsTagModifierHelper.GetModifier(attackerData, defenderData);
                 damage *= tagModifier;
             }
 
-            // Unit-specific modifiers are now applied earlier (before caps for normal weapons, after base calculation for special weapons)
-            // Only apply here if not already applied above
-            if (weaponCategory != WeaponCategory.Dagger && weaponCategory != WeaponCategory.Ranged && 
-                weaponCategory != WeaponCategory.Unarmed && weaponCategory != WeaponCategory.Beast)
+            // For special weapons (Assassin, Ranged, Unarmed, Beast), apply unit-specific modifiers AFTER caps
+            if (isSpecialWeapon)
             {
-                // For normal weapons, modifier was already applied before caps
-                // This section is now empty, but kept for clarity
-            }
-            else
-            {
-                // For special weapons (Assassin, Ranged, Unarmed, Beast), apply modifiers here
                 float specialModifier = attackerData.GetModifierAgainst(defender);
                 damage *= specialModifier;
             }
 
             // Round and apply minimum damage floor
             int finalDamage = (int)Math.Round(damage);
-            return Math.Max(MinimumDamage, finalDamage);
+            return Math.Max(DamageConstants.MinimumDamage, finalDamage);
         }
 
         /// <summary>
@@ -710,248 +241,9 @@ namespace CrusaderDETweaker.Systems
         /// </summary>
         private static float GetWeaponVsArmorMultiplier(WeaponCategory weapon, ArmorCategory armor)
         {
-            if (WeaponVsArmorTable.TryGetValue((weapon, armor), out float multiplier))
-            {
-                return multiplier;
-            }
-            return 1.0f; // Default if not found
+            return WeaponVsArmorLookupTable.GetMultiplier(weapon, armor);
         }
 
-        /// <summary>
-        /// Get modifier for specific tag vs tag combinations.
-        /// </summary>
-        private static float GetTagVsTagModifier(UnitDamageData attacker, UnitDamageData defender)
-        {
-            float modifier = 1.0f;
-
-            foreach (var entry in TagVsTagModifiers)
-            {
-                var (attackerTag, defenderTag) = entry.Key;
-                if (attacker.HasTag(attackerTag) && defender.HasTag(defenderTag))
-                {
-                    modifier *= entry.Value;
-                }
-            }
-
-            return modifier;
-        }
-
-        /// <summary>
-        /// Special damage calculation for Assassin (Dagger).
-        /// Assassin has unique rules that don't follow the standard lookup table.
-        /// </summary>
-        private static float CalculateAssassinDamage(UnitDamageData attacker, UnitDamageData defender)
-        {
-            float baseDamage = attacker.BaseMeleeDamage;
-            float armorValue = defender.ArmorValue;
-
-            // Assassin formula from game data:
-            // vs Medium (1.0): flat base damage (80)
-            // vs Heavy (0.5): flat base damage (80) - ignores armor reduction
-            // vs Light (1.5): varies by unit (250 for Slinger, 150 for Eunuch)
-            // vs Unarmored (2.0): 250 = base * 3.125
-            // vs Siege (0.4): 2 (minimum damage)
-            
-            if (armorValue <= 0.5f)
-            {
-                // Heavy or Siege: flat base damage (but minimum damage applies)
-                return baseDamage;
-            }
-            else if (armorValue <= 1.0f)
-            {
-                // Medium: flat base damage
-                return baseDamage;
-            }
-            else if (armorValue >= 2.0f)
-            {
-                // Unarmored: 3.125x multiplier
-                return baseDamage * 3.125f;
-            }
-            else
-            {
-                // Light armor (1.5): varies by defender type
-                // ARAB_SLINGER: 250 = 80 * 3.125
-                // BEDOUIN_EUNUCH: 150 = 80 * 1.875
-                // Use average: base * 2.5
-                return baseDamage * 2.5f;
-            }
-        }
-
-        /// <summary>
-        /// Special damage calculation for Ranged units in melee combat.
-        /// Ranged units use a different formula when fighting in melee.
-        /// Formula: base * multiplier * armorValue, with damage caps.
-        /// </summary>
-        private static float CalculateRangedMeleeDamage(UnitDamageData attacker, UnitDamageData defender)
-        {
-            float baseDamage = attacker.BaseMeleeDamage;
-            float armorValue = defender.ArmorValue;
-
-            // Ranged melee formula from CSV data:
-            // ARCHER (10) vs ARAB_ASSASIN (1.0): 10 = 10 * 1.0 * 1.0
-            // ARCHER (10) vs ARAB_BOW (1.0, Ranged): 15 = 10 * 1.5 * 1.0
-            // ARCHER (10) vs ARAB_SLAVE (2.0): 20 = 10 * 1.0 * 2.0
-            // ARCHER (10) vs ARAB_SLINGER (1.5, Ranged): 20 = 10 * 1.33 * 1.5
-            // ARAB_SLINGER (20) vs ARAB_SLAVE (2.0): 25 = 20 * 1.0 * 2.0 = 40, but capped at 25
-            // ARAB_SLINGER (20) vs ARAB_SLINGER (1.5): 25 = 20 * 1.0 * 1.5 = 30, but capped at 25
-            
-            float multiplier;
-            bool defenderIsRanged = defender.IsRangedUnit;
-            
-            if (armorValue >= 2.0f)
-            {
-                // Unarmored: 1.0x multiplier, but capped at base * 1.5 for some units
-                multiplier = 1.0f;
-            }
-            else if (armorValue >= 1.5f)
-            {
-                // Light armor: varies by attacker base damage and defender type
-                // ARCHER (10) vs ARAB_SLINGER (1.5, Ranged): Game=20, Calc=15 → Need 1.33x multiplier
-                // ARCHER (10) vs BEDOUIN_EUNUCH (1.5, not Ranged): Game=10, Calc=15 → Need 1.0x multiplier, cap at base
-                // XBOWMAN (10) vs ARAB_SLINGER (1.5, Ranged): Game=20, Calc=15 → Need 1.33x multiplier
-                // XBOWMAN (10) vs BEDOUIN_EUNUCH (1.5, not Ranged): Game=10, Calc=15 → Need 1.0x multiplier, cap at base
-                if (baseDamage <= 10)
-                {
-                    // Small ranged units: 1.33x if defender is ranged, 1.0x if not
-                    multiplier = defenderIsRanged ? 1.33f : 1.0f;
-                }
-                else
-                {
-                    // Larger ranged units: 1.33x if defender is ranged, 1.0x if not
-                    multiplier = defenderIsRanged ? 1.33f : 1.0f;
-                }
-            }
-            else if (armorValue >= 1.0f)
-            {
-                // Medium armor (1.0): Always 1.0x multiplier
-                // ARCHER (10) vs ARAB_BOW (1.0): 10 = 10 * 1.0 * 1.0
-                // ARCHER (10) vs ARCHER (1.0): 10 = 10 * 1.0 * 1.0
-                multiplier = 1.0f;
-            }
-            else
-            {
-                // Heavy (0.5): 3.0x
-                multiplier = 3.0f;
-            }
-            
-            float damage = baseDamage * armorValue * multiplier;
-            
-            // Apply tag vs tag modifiers (Hunter vs Beast, etc.) BEFORE caps
-            // This allows caps to account for tag modifiers
-            float tagModifier = GetTagVsTagModifier(attacker, defender);
-            damage *= tagModifier;
-            
-            // Apply damage cap based on armor value and unit type
-            // ARCHER (10) vs ARAB_SLAVE (2.0): 20 = 10 * 2.0 (cap = base * 2.0)
-            // ARAB_SLINGER (20) vs ARAB_SLAVE (2.0): 25 = 20 * 1.25 (cap = base * 1.25)
-            // ARAB_SLINGER (20) vs ARAB_SLINGER (1.5): 25 = 20 * 1.25 (cap = base * 1.25)
-            // ARCHER (10) vs ARAB_SLINGER (1.5): 20 = 10 * 2.0 (cap = base * 2.0)
-            // HUNTER (10) vs ARAB_SLINGER (1.5): Game=15, Calc=20 → Cap at base * 1.5
-            // HUNTER (10) vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → Cap at base * 1.0
-            // HUNTER (10) vs BEDOUIN_HEALER (2.0): Game=15, Calc=20 → Cap at base * 1.5
-            // HUNTER (10) vs Beast units: Game=10, Calc=20 → Cap at base * 1.0 (Hunter tag gives 2x, but capped)
-            // HUNTER (10) vs Heavy: Game=10, Calc=15 → Cap at base * 1.0
-            // BEDOUIN_AMBUSHER (10) vs Unarmored/Light: Game=10, Calc=20 → Cap at base * 1.0
-            
-            bool isHunter = attacker.HasTag("Hunter");
-            bool isBedouinAmbusher = attacker.Unit == eChimps.CHIMP_TYPE_BEDOUIN_AMBUSHER;
-            
-            float cap;
-            if (armorValue >= 2.0f)
-            {
-                // Unarmored: cap varies by unit
-                if (isHunter)
-                {
-                    // HUNTER vs BEDOUIN_HEALER: Game=15, Calc=20 → Cap at base * 1.5
-                    if (defender.Unit == eChimps.CHIMP_TYPE_BEDOUIN_HEALER)
-                    {
-                        cap = baseDamage * 1.5f; // HUNTER vs BEDOUIN_HEALER: cap at base * 1.5
-                    }
-                    else
-                    {
-                        cap = baseDamage * 2.0f; // HUNTER: cap at base * 2.0
-                    }
-                }
-                else if (isBedouinAmbusher)
-                {
-                    // BEDOUIN_AMBUSHER vs BEDOUIN_HEALER: Game=20, Calc=10 → Need 2.0x modifier (handled by modifier)
-                    cap = baseDamage * 2.0f; // Allow up to 2.0x
-                }
-                else
-                {
-                    cap = baseDamage <= 10 ? baseDamage * 2.0f : baseDamage * 1.25f;
-                }
-            }
-            else if (armorValue >= 1.5f)
-            {
-                // Light armor: cap varies by unit
-                if (isHunter)
-                {
-                    if (defender.HasTag("Beast"))
-                    {
-                        cap = baseDamage * 1.0f; // HUNTER vs Beast: cap at base (Hunter tag gives 2x, but capped)
-                    }
-                    else if (defender.Unit == eChimps.CHIMP_TYPE_BEDOUIN_EUNUCH)
-                    {
-                        cap = baseDamage * 1.0f; // HUNTER vs BEDOUIN_EUNUCH: cap at base
-                    }
-                    else
-                    {
-                        cap = baseDamage * 1.5f; // HUNTER vs other Light: cap at base * 1.5
-                    }
-                }
-                else if (isBedouinAmbusher)
-                {
-                    cap = baseDamage * 1.0f; // BEDOUIN_AMBUSHER: cap at base
-                }
-                else if (baseDamage <= 10 && !defenderIsRanged)
-                {
-                    // Small ranged units vs non-ranged Light armor: cap at base
-                    // ARCHER (10) vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → Cap at base * 1.0
-                    // XBOWMAN (10) vs BEDOUIN_EUNUCH (1.5): Game=10, Calc=15 → Cap at base * 1.0
-                    cap = baseDamage * 1.0f;
-                }
-                else
-                {
-                    cap = baseDamage <= 10 ? baseDamage * 2.0f : baseDamage * 1.25f;
-                }
-            }
-            else if (armorValue >= 1.0f)
-            {
-                // Medium armor: no cap (except for HUNTER vs Beast)
-                // HUNTER vs CAMEL/CROCODILE/DOG: cap at base * 1.0 (Game=10)
-                // HUNTER vs HYENA/LION/WAR_DOG: no cap (Game=20)
-                if (isHunter && defender.HasTag("Beast"))
-                {
-                    // CAMEL and CROCODILE should be capped even though they're large beasts
-                    // HYENA, LION, and WAR_DOG should not be capped
-                    if (defender.Unit == eChimps.CHIMP_TYPE_CAMEL || 
-                        defender.Unit == eChimps.CHIMP_TYPE_CROCODILE ||
-                        defender.BaseMeleeDamage < 50)
-                    {
-                        cap = baseDamage * 1.0f; // Cap at base for CAMEL, CROCODILE, and small beasts
-                    }
-                    else
-                    {
-                        cap = float.MaxValue; // No cap for HYENA, LION, WAR_DOG
-                    }
-                }
-                else
-                {
-                    cap = float.MaxValue;
-                }
-            }
-            else
-            {
-                // Heavy armor (0.5): cap at base damage for small units
-                // ARCHER (10) vs KNIGHT (0.5): Game=10, Calc=15 → Cap at base * 1.0 = 10
-                // ARCHER (10) vs SWORDSMAN (0.5): Game=10, Calc=15 → Cap at base * 1.0 = 10
-                // HUNTER (10) vs Heavy: Game=10, Calc=15 → Cap at base * 1.0
-                cap = baseDamage <= 10 ? baseDamage * 1.0f : float.MaxValue;
-            }
-            
-            return Math.Min(damage, cap);
-        }
 
         /// <summary>
         /// Verify a melee damage calculation against expected value.
@@ -978,7 +270,7 @@ namespace CrusaderDETweaker.Systems
             var weaponCat = GetWeaponCategory(attackerData);
             var armorCat = GetArmorCategory(defenderData);
             float multiplier = GetWeaponVsArmorMultiplier(weaponCat, armorCat);
-            float tagMod = GetTagVsTagModifier(attackerData, defenderData);
+            float tagMod = TagVsTagModifierHelper.GetModifier(attackerData, defenderData);
 
             return $"{attacker} -> {defender}:\n" +
                    $"  Base: {attackerData.BaseMeleeDamage}\n" +

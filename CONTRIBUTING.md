@@ -76,7 +76,12 @@ CrusaderDETweaker/
 │   ├── ProjectileDamageData.cs
 │   └── UnitCategories.cs
 ├── Systems/                   # Core game systems
-│   ├── DamageCalculator.cs  # Main damage calculation logic
+│   ├── DamageCalculator.cs  # Main damage calculation logic (orchestrator)
+│   ├── DamageCalculation/    # Weapon-specific damage calculators (Strategy pattern)
+│   │   ├── BaseWeaponDamageCalculator.cs
+│   │   ├── SwordDamageCalculator.cs
+│   │   ├── MaceDamageCalculator.cs
+│   │   └── ... (other weapon calculators)
 │   ├── UnitDamageRegistry.cs # Unit data registry
 │   └── Verification/        # Damage verification system
 ├── Output/                   # Generated config files (gitignored)
@@ -116,7 +121,21 @@ Each property has a handler class that:
 
 ### 3. Damage Calculation System (`DamageCalculator`)
 
-The damage system is the most complex part of the mod. It calculates melee damage using:
+**Architecture**: The damage system uses the **Strategy pattern** with weapon-specific calculators. This makes it much more maintainable and testable than the previous monolithic implementation.
+
+**Structure**:
+- `DamageCalculator.cs` - Main orchestrator (reduced from ~500 lines to ~100 lines)
+- `Systems/DamageCalculation/` - Weapon-specific calculators
+  - `IWeaponDamageCalculator` - Interface for all calculators
+  - `BaseWeaponDamageCalculator` - Base class with common logic
+  - Individual calculators: `SwordDamageCalculator`, `MaceDamageCalculator`, `LanceDamageCalculator`, `AxeDamageCalculator`, `DaggerDamageCalculator`, `RangedMeleeDamageCalculator`, `UnarmedDamageCalculator`, `BeastDamageCalculator`
+  - `WeaponDamageCalculatorFactory` - Factory to get appropriate calculator
+  - `DamageConstants` - All magic numbers and thresholds
+  - `WeaponVsArmorLookupTable` - Centralized lookup table
+  - `TagVsTagModifierHelper` - Tag vs tag modifiers
+  - `SiegeDefenseHandler` - Siege defense logic
+
+The damage system calculates melee damage using:
 
 **Formula**: `BaseDamage × WeaponVsArmorMultiplier × ArmorValue × TagModifiers × SpecialModifiers`
 

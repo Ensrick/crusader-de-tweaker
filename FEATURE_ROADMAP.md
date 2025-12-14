@@ -75,7 +75,7 @@ Description = "Vampire modifier"
 ```
 
 #### Dependencies
-- Refactored `DamageCalculator` (from CODE_ANALYSIS.md)
+- ✅ Refactored `DamageCalculator` (COMPLETED in Version 1.3.0 - now uses Strategy pattern)
 - Tag system should be loaded before unit configs
 
 #### Considerations
@@ -414,14 +414,14 @@ Additional BepInEx Multipliers
 Wall Cost Modifier
     ↓ (no dependencies)
 Custom Tag System
-    ↓ (requires DamageCalculator refactoring from CODE_ANALYSIS.md)
+    ↓ (✅ DamageCalculator refactoring COMPLETED in Version 1.3.0)
 Structure Damage Analysis
     ↓ (may inform Custom Tag System)
 ```
 
 ## Notes
 
-- **Custom Tag System** should be implemented after `DamageCalculator` refactoring (from CODE_ANALYSIS.md) to make integration easier
+- ✅ **Custom Tag System** can now be implemented - `DamageCalculator` refactoring is COMPLETE (Version 1.3.0)
 - **Structure Damage Analysis** is exploratory and may reveal that the game handles structure damage differently than expected
 - All features should include:
   - TOML configuration files
