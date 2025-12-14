@@ -1,10 +1,11 @@
 ﻿using System.IO;
+using BepInEx;
 
 namespace CrusaderDETweaker.Config.ConfigToml
 {
     internal static class ConfigPaths
     {
-        private static string ConfigDir => BepInEx.Paths.ConfigPath;
+        private static string ConfigDir => Paths.ConfigPath;
 
         internal static string Units => Path.Combine(ConfigDir, "CrusaderDETweaker_Units.toml");
         internal static string Structures => Path.Combine(ConfigDir, "CrusaderDETweaker_Structures.toml");

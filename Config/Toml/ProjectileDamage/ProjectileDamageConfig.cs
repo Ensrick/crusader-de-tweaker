@@ -21,10 +21,12 @@ namespace CrusaderDETweaker.Config.Toml.ProjectileDamage
         /// </summary>
         public static float GetEffectiveBaseProjectileDamage()
         {
+#pragma warning disable CS0618 // Type or member is obsolete
             if (ConfigManagerBepinex.UnitRangedDamageTakenMultiplier == null)
                 return BaseProjectileDamage;
 
             return BaseProjectileDamage * ConfigManagerBepinex.UnitRangedDamageTakenMultiplier.Value;
+#pragma warning restore CS0618 // Type or member is obsolete
         }
     }
 }
