@@ -105,12 +105,8 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 {
                     try
                     {
-                        // Log EVERY hook call to see if it's firing at all
-                        Plugin.Logger.LogInfo($"[WALL DEBUG] OnBuildingTileTakeDamage hook FIRED: TileId={args.TileId}, TileX={args.TileX}, TileY={args.TileY}, Damage={args.Damage}");
-                        
                         // Get building ID from tile ID
                         ushort buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
-                        Plugin.Logger.LogInfo($"[WALL DEBUG] GetTileBuildingId returned: {buildingId} for TileId={args.TileId}");
                         
                         eStructs structureType = default(eStructs);
                         bool isWall = false;
@@ -122,7 +118,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                         {
                             // Check if this is a wall tile using tile property flags
                             TilePropertyFlag tileFlags = GameTileManagerAPI.Instance.GetTilePropertyFlag(args.TileId);
-                            Plugin.Logger.LogInfo($"[WALL DEBUG] Tile property flags: {tileFlags} (0x{((int)tileFlags):X8})");
                             
                             // Check if this tile is a wall
                             if ((tileFlags & TilePropertyFlag.IsWall) == TilePropertyFlag.IsWall)
@@ -135,18 +130,15 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                                 if (hasCrenelation)
                                 {
                                     structureType = eStructs.STRUCT_CRENAL_WALL;
-                                    Plugin.Logger.LogInfo($"[WALL DEBUG] Detected CRENEL WALL from tile flags");
                                 }
                                 else
                                 {
                                     structureType = eStructs.STRUCT_STONE_WALL;
-                                    Plugin.Logger.LogInfo($"[WALL DEBUG] Detected STONE WALL from tile flags");
                                 }
                             }
                             else
                             {
                                 // Not a wall and no building ID - skip this tile
-                                Plugin.Logger.LogInfo($"[WALL DEBUG] No building on tile {args.TileId} and not a wall, returning early");
                                 return;
                             }
                         }
@@ -154,62 +146,44 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                         {
                             // Regular building - get structure type from building API
                             structureType = Plugin.BuildingApi.GetType(buildingId);
-                            Plugin.Logger.LogInfo($"[WALL DEBUG] BuildingId={buildingId} has StructureType={structureType}");
 
                             // Check for walls, towers, and civil structures
                             isWall = StructureCategories.IsWall(structureType);
                             isTower = StructureCategories.IsTower(structureType);
                             isCivilStructure = StructureCategories.IsCivilStructure(structureType);
 
-                            Plugin.Logger.LogInfo($"[WALL DEBUG] Structure detection: IsWall={isWall}, IsTower={isTower}, IsCivil={isCivilStructure}, OriginalDamage={args.Damage}");
-                            Plugin.Logger.LogInfo($"[WALL DEBUG] Checking NonModable: Contains={StructureCategories.NonModable.Contains(structureType)}");
-
                             // Skip non-modifiable structures (except walls, which can take damage)
                             if (!isWall && StructureCategories.NonModable.Contains(structureType))
                             {
-                                Plugin.Logger.LogInfo($"[WALL DEBUG] Skipping non-modifiable structure: {structureType}");
                                 return;
                             }
                         }
 
                         float damageMultiplier = 1.0f;
-                        string multiplierBreakdown = "1.0";
 
                         // Apply specific multipliers first (most specific to least specific)
                         if (isWall)
                         {
-                            Plugin.Logger.LogInfo($"[WALL DEBUG] WALL DETECTED! Applying WallDamageTakenMultiplier={WallDamageTakenMultiplier.Value}");
                             damageMultiplier *= WallDamageTakenMultiplier.Value;
-                            multiplierBreakdown += $" * Wall({WallDamageTakenMultiplier.Value})";
                         }
                         else if (isTower)
                         {
                             damageMultiplier *= TowerDamageTakenMultiplier.Value;
-                            multiplierBreakdown += $" * Tower({TowerDamageTakenMultiplier.Value})";
                         }
 
                         if (isCivilStructure)
                         {
                             damageMultiplier *= CivilStructureDamageTakenMultiplier.Value;
-                            multiplierBreakdown += $" * Civil({CivilStructureDamageTakenMultiplier.Value})";
                         }
 
                         // Apply general structure multiplier last
                         damageMultiplier *= GlobalDamageTakenMultiplier.Value;
-                        multiplierBreakdown += $" * Global({GlobalDamageTakenMultiplier.Value})";
 
-                        Plugin.Logger.LogInfo($"[WALL DEBUG] Structure damage calculation: {structureType} | Original={args.Damage} | {multiplierBreakdown} = {damageMultiplier}");
-
-                        // Always apply multiplier (even if 1.0) to ensure we log and handle edge cases
+                        // Always apply multiplier (even if 1.0) to ensure we handle edge cases
                         // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
                         // a default value from the damage matrix instead of our modified value.
-                        float damageBeforeClamp = (float)args.Damage * damageMultiplier;
-                        var modified = (int)Mathf.Clamp(damageBeforeClamp, 1, int.MaxValue);
-                        
-                        Plugin.Logger.LogInfo($"[WALL DEBUG] Structure damage modification: {structureType} | Original={args.Damage} | Multiplier={damageMultiplier} | BeforeClamp={damageBeforeClamp} | Modified={modified} | (Floor of 1 applied)");
-                        Plugin.Logger.LogInfo($"[WALL DEBUG] Setting args.Damage from {args.Damage} to {modified}");
+                        var modified = (int)Mathf.Clamp((float)args.Damage * damageMultiplier, 1, int.MaxValue);
                         args.Damage = modified;
-                        Plugin.Logger.LogInfo($"[WALL DEBUG] After assignment: args.Damage={args.Damage}");
                     }
                     catch (Exception ex)
                     {
