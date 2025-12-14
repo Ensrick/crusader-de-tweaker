@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CrusaderDETweaker.Config.DamageMatrix.Core;
 using CrusaderDETweaker.Data;
 using SHCDESE.Interop;
 
@@ -40,26 +41,6 @@ namespace CrusaderDETweaker.Systems.Verification
                     {
                         result.TotalTests++;
 
-                        // Get the ACTUAL damage from the game API (the ground truth)
-                        int gameApiDamage;
-                        try
-                        {
-                            gameApiDamage = Plugin.UnitApi.GetMeleeDamageFromTo(attacker, defender);
-                        }
-                        catch (Exception ex)
-                        {
-                            Plugin.Logger.LogDebug($"Could not get API damage for {attacker} -> {defender}: {ex.Message}");
-                            result.SkippedCount++;
-                            continue;
-                        }
-
-                        // Skip invalid entries
-                        if (gameApiDamage < 0)
-                        {
-                            result.SkippedCount++;
-                            continue;
-                        }
-
                         // Calculate what our formula predicts based on registry (TOML values)
                         int calculated = DamageCalculator.CalculateMeleeDamage(attacker, defender);
 
@@ -67,20 +48,35 @@ namespace CrusaderDETweaker.Systems.Verification
                         {
                             // Missing data in our registry
                             result.SkippedCount++;
+                            continue;
                         }
-                        else if (calculated == gameApiDamage)
+
+                        // Get the ORIGINAL game default from CSV file (not current game API)
+                        // This is the "ground truth" - what the game originally had before any mods
+                        int originalGameDefault = CsvMatrixReader.GetOriginalMeleeDamage(attacker, defender);
+
+                        if (originalGameDefault < 0)
                         {
-                            // Perfect match - calculation matches game API
+                            // Not found in CSV - skip this test
+                            result.SkippedCount++;
+                            continue;
+                        }
+
+                        // Compare calculated (TOML) vs original game default (CSV)
+                        // This verifies that our calculation logic is correct, regardless of:
+                        // - User modifications to TOML
+                        // - CSV overrides applied to game API
+                        if (calculated == originalGameDefault)
+                        {
+                            // Perfect match - our calculation matches the original game default
                             result.PassedTests++;
                         }
                         else
                         {
-                            // Mismatch: Could be CSV override or calculation error
-                            // With the updated CSV loader, CSV only applies if it differs from calculated (TOML) value.
-                            // So if calculated (TOML) != game API, it means CSV has an override for this matchup.
-                            // This is expected behavior - CSV is meant to override TOML for specific matchups.
-                            // Skip this test as it's a CSV override, not a calculation error.
-                            result.SkippedCount++;
+                            // Mismatch - our calculation doesn't match the original game default
+                            // This indicates a calculation error in our damage system
+                            result.FailedTests++;
+                            result.AddMismatch(attacker, defender, originalGameDefault, calculated);
                         }
                     }
                 }
@@ -115,11 +111,11 @@ namespace CrusaderDETweaker.Systems.Verification
 
             foreach (var (attacker, defender) in testPairs)
             {
-                int gameValue = Plugin.UnitApi.GetMeleeDamageFromTo(attacker, defender);
+                int originalDefault = CsvMatrixReader.GetOriginalMeleeDamage(attacker, defender);
                 int calculated = DamageCalculator.CalculateMeleeDamage(attacker, defender);
-                bool pass = calculated == gameValue;
+                bool pass = calculated == originalDefault;
                 string status = pass ? "✓ PASS" : "✗ FAIL";
-                Plugin.Logger.LogInfo($"{status}: {attacker} -> {defender} | Game={gameValue}, Calc={calculated}");
+                Plugin.Logger.LogInfo($"{status}: {attacker} -> {defender} | Original={originalDefault}, Calc={calculated}");
             }
         }
 

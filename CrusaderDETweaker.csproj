@@ -68,6 +68,7 @@
     <Compile Include="Config\DamageMatrix\Core\MatrixLoader.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixPaths.cs" />
     <Compile Include="Config\DamageMatrix\Core\CsvHelper.cs" />
+    <Compile Include="Config\DamageMatrix\Core\CsvMatrixReader.cs" />
     <Compile Include="Config\DamageMatrix\DamageMatrixConfigSystem.cs" />
     <Compile Include="Config\DamageMatrix\DamageMatrixManager.cs" />
     <Compile Include="Config\DamageMatrix\EunuchAoe\EunuchAoeDamageMatrixGenerator.cs" />
