@@ -48,7 +48,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 "Multipliers",
                 "TowerDamageTakenMultiplier",
                 1.0f,
-                "Multiplier for damage taken by towers (tower levels 1-5)"
+                "Multiplier for damage taken by towers (tower levels 1-5) and gatehouses"
             );
 
             CivilStructureDamageTakenMultiplier = config.Bind(
@@ -111,6 +111,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                         eStructs structureType = default(eStructs);
                         bool isWall = false;
                         bool isTower = false;
+                        bool isGatehouse = false;
                         bool isCivilStructure = false;
 
                         // Walls don't have building IDs - they're identified by tile property flags
@@ -147,9 +148,10 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                             // Regular building - get structure type from building API
                             structureType = Plugin.BuildingApi.GetType(buildingId);
 
-                            // Check for walls, towers, and civil structures
+                            // Check for walls, towers, gatehouses, and civil structures
                             isWall = StructureCategories.IsWall(structureType);
                             isTower = StructureCategories.IsTower(structureType);
+                            isGatehouse = StructureCategories.IsGatehouse(structureType);
                             isCivilStructure = StructureCategories.IsCivilStructure(structureType);
 
                             // Skip non-modifiable structures (except walls, which can take damage)
@@ -166,8 +168,9 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                         {
                             damageMultiplier *= WallDamageTakenMultiplier.Value;
                         }
-                        else if (isTower)
+                        else if (isTower || isGatehouse)
                         {
+                            // Towers and gatehouses use the same multiplier
                             damageMultiplier *= TowerDamageTakenMultiplier.Value;
                         }
 

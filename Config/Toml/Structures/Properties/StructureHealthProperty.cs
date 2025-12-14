@@ -24,7 +24,8 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
                 defaultValue: 0
             );
             value = (uint)healthValue;
-            return healthValue >= 0;
+            // Don't include health property in config if health is 0 (e.g., drawbridge)
+            return healthValue > 0;
         }
 
         protected override void SetToAPI(eStructs structure, uint value)

@@ -214,13 +214,14 @@ namespace CrusaderDETweaker.Data
         /// <summary>
         /// Checks if a structure is a gatehouse type.
         /// Only includes moddable gatehouse structures (not UI placeholders or non-game structures).
+        /// Drawbridge is not included as it's not attackable (only cost is modifiable).
         /// </summary>
         internal static bool IsGatehouse(eStructs structure)
         {
             // Only check moddable gatehouses (exclude structures in NonModable)
+            // Drawbridge is excluded as it's not attackable
             return structure == eStructs.STRUCT_GATE_MAIN ||
-                   structure == eStructs.STRUCT_GATE_INNER ||
-                   structure == eStructs.STRUCT_DRAWBRIDGE;
+                   structure == eStructs.STRUCT_GATE_INNER;
         }
 
         /// <summary>
