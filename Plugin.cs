@@ -2,6 +2,7 @@
 using BepInEx;
 using BepInEx.Logging;
 using SHCDESE.API;
+using CrusaderDETweaker.Config.BepInEx;
 using CrusaderDETweaker.Config.DamageMatrix;
 
 namespace CrusaderDETweaker
@@ -49,8 +50,8 @@ namespace CrusaderDETweaker
                 ConfigManager.Initialize(runValidation: true);
 
                 // Initialize BepInEx config and apply runtime multipliers (LOAD LAST)
-                ConfigManagerBepinex.Initialize(Config);
-                ConfigManagerBepinex.ApplyAllMultiplierConfigs(); // REAL TIME HOOKS
+                // BepInEx configs use real-time event hooks for runtime modifications
+                BepInExConfigManager.Initialize(Config);
 
                 Logger.LogInfo("Crusader DE Tweaker initialized successfully.");
                 _isInitialized = true;

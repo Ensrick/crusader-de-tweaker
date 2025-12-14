@@ -112,6 +112,11 @@
     <Compile Include="Data\UnitDamageData.cs" />
     <Compile Include="Systems\DamageCalculator.cs" />
     <Compile Include="Systems\ProjectileDamageRegistry.cs" />
+    <Compile Include="Config\BepInEx\BepInExConfigManager.cs" />
+    <Compile Include="Config\BepInEx\Core\IBepInExConfigSystem.cs" />
+    <Compile Include="Config\BepInEx\Systems\UnitMultipliersConfig.cs" />
+    <Compile Include="Config\BepInEx\Systems\StructureMultipliersConfig.cs" />
+    <Compile Include="Config\BepInEx\Systems\WallCostConfig.cs" />
     <Compile Include="Config\BepInEx\ConfigManagerBepinex.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

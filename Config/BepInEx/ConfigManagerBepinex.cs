@@ -1,322 +1,82 @@
-﻿using System;
-using System.Linq;
-using BepInEx;
+﻿// Config/BepInEx/ConfigManagerBepinex.cs
+// DEPRECATED: This file is kept for backward compatibility.
+// New code should use BepInExConfigManager and the individual config systems.
+// This file will be removed in a future version.
+
 using BepInEx.Configuration;
-using BepInEx.Logging;
-using CrusaderDETweaker.Data;
-using R3;
-using SHCDESE.API;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Units;
-using SHCDESE.Interop;
-using UnityEngine;
+using CrusaderDETweaker.Config.BepInEx.Systems;
 
 namespace CrusaderDETweaker
 {
+    /// <summary>
+    /// DEPRECATED: Legacy wrapper for backward compatibility.
+    /// Use BepInExConfigManager and individual config systems instead.
+    /// </summary>
+    [System.Obsolete("Use BepInExConfigManager and individual config systems instead")]
     internal static class ConfigManagerBepinex
     {
+        private static UnitMultipliersConfig _unitConfig;
+        private static StructureMultipliersConfig _structureConfig;
+        private static WallCostConfig _wallCostConfig;
+
         internal static ConfigFile Config { get; private set; }
 
-        internal static ConfigEntry<float> UnitMeleeDamageTakenMultiplier { get; private set; }
-        internal static ConfigEntry<float> StructureDamageTakenMultiplier { get; private set; }
-        internal static ConfigEntry<float> WallDamageTakenMultiplier { get; private set; }
-        internal static ConfigEntry<float> TowerDamageTakenMultiplier { get; private set; }
-        internal static ConfigEntry<float> CivilStructureDamageTakenMultiplier { get; private set; }
+        // Legacy property accessors for backward compatibility
+        internal static ConfigEntry<float> UnitMeleeDamageTakenMultiplier => _unitConfig?.MeleeDamageTakenMultiplier;
+        internal static ConfigEntry<float> UnitRangedDamageTakenMultiplier => _unitConfig?.RangedDamageTakenMultiplier;
+        internal static ConfigEntry<float> UnitHealthMultiplier => _unitConfig?.HealthMultiplier;
+        internal static ConfigEntry<float> StructureDamageTakenMultiplier => _structureConfig?.GlobalDamageTakenMultiplier;
+        internal static ConfigEntry<float> WallDamageTakenMultiplier => _structureConfig?.WallDamageTakenMultiplier;
+        internal static ConfigEntry<float> TowerDamageTakenMultiplier => _structureConfig?.TowerDamageTakenMultiplier;
+        internal static ConfigEntry<float> CivilStructureDamageTakenMultiplier => _structureConfig?.CivilStructureDamageTakenMultiplier;
+        internal static ConfigEntry<float> LowWallCostMultiplier => _wallCostConfig?.LowWallCostMultiplier;
+        internal static ConfigEntry<float> HighWallCostMultiplier => _wallCostConfig?.HighWallCostMultiplier;
 
-        internal static ConfigEntry<float> UnitHealthMultiplier { get; private set; }
-
-        internal static ConfigEntry<float> LowWallCostMultiplier { get; private set; }
-        internal static ConfigEntry<float> HighWallCostMultiplier { get; private set; }
-
-        internal static ConfigEntry<float> UnitRangedDamageTakenMultiplier { get; private set; }
-
+        /// <summary>
+        /// DEPRECATED: Initialize is now handled by BepInExConfigManager.
+        /// This method exists for backward compatibility only.
+        /// </summary>
+        [System.Obsolete("Use BepInExConfigManager.Initialize() instead")]
         internal static void Initialize(ConfigFile config)
         {
             Config = config;
 
-            // Unit damage multipliers (grouped together)
-            UnitMeleeDamageTakenMultiplier = config.Bind(
-                "Multipliers",
-                "UnitMeleeDamageTakenMultiplier",
-                1.0f,
-                "Global multiplier for all melee damage taken by units. Note: Minimum damage is always 1 (game uses default damage matrix value if damage is 0)."
-            );
-
-            UnitRangedDamageTakenMultiplier = config.Bind(
-                "Multipliers",
-                "UnitRangedDamageTakenMultiplier",
-                1.0f,
-                "Global multiplier for all ranged damage taken by units. Affects all projectile types (Arrow, Bolt, Slinger, Javelin). Base projectile damage is 2500. Note: Minimum damage is always 1 (game uses default damage matrix value if damage is 0)."
-            );
-
-            UnitHealthMultiplier = config.Bind(
-               "Multipliers",
-               "UnitHealthMultiplier",
-               1.0f,
-               "Global multiplier for unit max health"
-           );
-
-            // Structure damage multipliers (grouped together)
-            StructureDamageTakenMultiplier = config.Bind(
-                "Multipliers",
-                "StructureDamageTakenMultiplier",
-                1.0f,
-                "Global multiplier for damage taken by all structures"
-            );
-
-            WallDamageTakenMultiplier = config.Bind(
-                "Multipliers",
-                "WallDamageTakenMultiplier",
-                1.0f,
-                "Multiplier for damage taken by walls (stone, crenel walls)"
-            );
-
-            TowerDamageTakenMultiplier = config.Bind(
-                "Multipliers",
-                "TowerDamageTakenMultiplier",
-                1.0f,
-                "Multiplier for damage taken by towers (tower levels 1-5)"
-            );
-
-            CivilStructureDamageTakenMultiplier = config.Bind(
-                "Multipliers",
-                "CivilStructureDamageTakenMultiplier",
-                1.0f,
-                "Multiplier for damage taken by civilian structures (non-towers, non-gatehouses)"
-            );
-
-            // Wall cost multipliers (grouped together)
-            // Read current values from API to use as defaults (game defaults: Low=0.25, High=0.5)
-            float currentLowWallMultiplier = 0.25f;
-            float currentHighWallMultiplier = 0.5f;
-            try
+            // Initialize config systems (for backward compatibility)
+            // Note: BepInExConfigManager.Initialize() should be called instead
+            if (_unitConfig == null)
             {
-                currentLowWallMultiplier = Plugin.BuildingApi.GetLowWallCostMultiplier();
-                currentHighWallMultiplier = Plugin.BuildingApi.GetHighWallCostMultiplier();
-            }
-            catch (Exception ex)
-            {
-                Plugin.Logger.LogWarning($"Could not read current wall cost multipliers from API, using defaults: {ex.Message}");
-            }
+                _unitConfig = new UnitMultipliersConfig();
+                _structureConfig = new StructureMultipliersConfig();
+                _wallCostConfig = new WallCostConfig();
 
-            LowWallCostMultiplier = config.Bind(
-                "Multipliers",
-                "LowWallCostMultiplier",
-                currentLowWallMultiplier,
-                "Cost multiplier for low/short walls (stone walls at low height, stairs). Game default: 0.25"
-            );
-
-            HighWallCostMultiplier = config.Bind(
-                "Multipliers",
-                "HighWallCostMultiplier",
-                currentHighWallMultiplier,
-                "Cost multiplier for high walls (stone walls at high height, crenel walls). Game default: 0.5"
-            );
-
-            // Validate all multipliers after binding
-            ValidateMultipliers();
-
-            // Apply wall cost multipliers
-            ApplyWallCostMultipliers();
-        }
-
-        /// <summary>
-        /// Validates all multiplier values and logs warnings for invalid values.
-        /// Multipliers should be >= 0 (negative values would invert damage/healing).
-        /// </summary>
-        private static void ValidateMultipliers()
-        {
-            ValidateMultiplier("UnitMeleeDamageTakenMultiplier", UnitMeleeDamageTakenMultiplier.Value);
-            ValidateMultiplier("StructureDamageTakenMultiplier", StructureDamageTakenMultiplier.Value);
-            ValidateMultiplier("WallDamageTakenMultiplier", WallDamageTakenMultiplier.Value);
-            ValidateMultiplier("TowerDamageTakenMultiplier", TowerDamageTakenMultiplier.Value);
-            ValidateMultiplier("CivilStructureDamageTakenMultiplier", CivilStructureDamageTakenMultiplier.Value);
-            ValidateMultiplier("UnitHealthMultiplier", UnitHealthMultiplier.Value);
-            ValidateMultiplier("LowWallCostMultiplier", LowWallCostMultiplier.Value);
-            ValidateMultiplier("HighWallCostMultiplier", HighWallCostMultiplier.Value);
-            ValidateMultiplier("UnitRangedDamageTakenMultiplier", UnitRangedDamageTakenMultiplier.Value);
-        }
-
-        /// <summary>
-        /// Validates a single multiplier value and logs a warning if invalid.
-        /// </summary>
-        private static void ValidateMultiplier(string name, float value)
-        {
-            if (value < 0.0f)
-            {
-                Plugin.Logger.LogWarning($"{name} is negative ({value}). Negative multipliers may cause unexpected behavior. Consider using a positive value.");
-            }
-            else if (float.IsNaN(value) || float.IsInfinity(value))
-            {
-                Plugin.Logger.LogError($"{name} is invalid ({value}). Using default value of 1.0.");
+                _unitConfig.Initialize(config);
+                _structureConfig.Initialize(config);
+                _wallCostConfig.Initialize(config);
             }
         }
 
         /// <summary>
-        /// Applies wall cost multipliers from BepInEx config to the game API.
-        /// Wall costs are based on height - low walls use LowWallCostMultiplier, high walls use HighWallCostMultiplier.
+        /// DEPRECATED: Apply is now handled by BepInExConfigManager.
+        /// This method exists for backward compatibility only.
         /// </summary>
-        private static void ApplyWallCostMultipliers()
-        {
-            try
-            {
-                Plugin.BuildingApi.SetLowWallCostMultiplier(LowWallCostMultiplier.Value);
-                Plugin.BuildingApi.SetHighWallCostMultiplier(HighWallCostMultiplier.Value);
-                Plugin.Logger.LogInfo($"Applied wall cost multipliers: Low={LowWallCostMultiplier.Value}, High={HighWallCostMultiplier.Value}");
-            }
-            catch (Exception ex)
-            {
-                Plugin.Logger.LogError($"Failed to apply wall cost multipliers: {ex.Message}");
-            }
-        }
-
+        [System.Obsolete("Use BepInExConfigManager.Initialize() instead (it calls Apply automatically)")]
         internal static void ApplyAllMultiplierConfigs()
         {
-            BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args =>
-                {
-                    try
-                    {
-                        // Get building ID from tile ID
-                        ushort buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
-                        if (buildingId == 0)
-                            return; // No building on this tile
+            // If systems weren't initialized via Initialize(), try to get them from BepInExConfigManager
+            // Otherwise apply them directly
+            _unitConfig?.Apply();
+            _structureConfig?.Apply();
+            _wallCostConfig?.Apply();
+        }
 
-                        eStructs structureType = Plugin.BuildingApi.GetType(buildingId);
-
-                        // Check for walls first (they're in NonModable for cost purposes, but can take damage)
-                        bool isWall = Data.StructureCategories.IsWall(structureType);
-                        bool isTower = Data.StructureCategories.IsTower(structureType);
-                        bool isCivilStructure = Data.StructureCategories.IsCivilStructure(structureType);
-
-                        // Skip non-modifiable structures (except walls, which can take damage)
-                        if (!isWall && Data.StructureCategories.NonModable.Contains(structureType))
-                            return;
-
-                        float damageMultiplier = 1.0f;
-
-                        // Apply specific multipliers first (most specific to least specific)
-                        if (isWall)
-                        {
-                            damageMultiplier *= WallDamageTakenMultiplier.Value;
-                        }
-                        else if (isTower)
-                        {
-                            damageMultiplier *= TowerDamageTakenMultiplier.Value;
-                        }
-
-                        if (isCivilStructure)
-                        {
-                            damageMultiplier *= CivilStructureDamageTakenMultiplier.Value;
-                        }
-
-                        // Apply general structure multiplier last
-                        damageMultiplier *= StructureDamageTakenMultiplier.Value;
-
-                        // Only apply if multiplier is not 1.0
-                        if (!Mathf.Approximately(damageMultiplier, 1.0f))
-                        {
-                            // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
-                            // a default value from the damage matrix instead of our modified value.
-                            var modified = (int)Mathf.Clamp((float)args.Damage * damageMultiplier, 1, int.MaxValue);
-                            args.Damage = modified;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Plugin.Logger.LogWarning($"Failed to apply structure damage multiplier: {ex.Message}");
-                    }
-                });
-
-            Plugin.Logger.LogInfo("Subscribing to OnUnitTakeMeleeDamage event hook...");
-            UnitR3EventHooks.OnUnitTakeMeleeDamage.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args =>
-                {
-                    try
-                    {
-                        Plugin.Logger.LogDebug($"OnUnitTakeMeleeDamage hook triggered: AttackerId={args.AttackingUnitId}, DefenderId={args.DamagedUnitId}, Damage={args.Damage}, Multiplier={UnitMeleeDamageTakenMultiplier.Value}");
-                        
-                        if (Mathf.Approximately(UnitMeleeDamageTakenMultiplier.Value, 1.0f))
-                        {
-                            Plugin.Logger.LogDebug("Melee multiplier is 1.0, skipping modification");
-                            return;
-                        }
-
-                        eChimps attacker = Plugin.UnitApi.GetType(args.AttackingUnitId);
-                        eChimps defender = Plugin.UnitApi.GetType(args.DamagedUnitId);
-
-                        int baseDamage = args.Damage > 0
-                            ? args.Damage
-                            : Plugin.UnitApi.GetMeleeDamageFromTo(attacker, defender);
-
-                        // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
-                        // a default value from the damage matrix instead of our modified value.
-                        int modified = Mathf.Max(1, (int)(baseDamage * UnitMeleeDamageTakenMultiplier.Value));
-                        
-                        Plugin.Logger.LogInfo($"Melee damage modification: {attacker} -> {defender} | args.Damage={args.Damage} | baseDamage={baseDamage} | multiplier={UnitMeleeDamageTakenMultiplier.Value} | modified={modified}");
-                        args.Damage = modified;
-                        Plugin.Logger.LogDebug($"After modification: args.Damage={args.Damage}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Plugin.Logger.LogError($"Failed to apply unit melee damage multiplier: {ex.Message}\n{ex.StackTrace}");
-                    }
-                });
-            Plugin.Logger.LogInfo("Successfully subscribed to OnUnitTakeMeleeDamage event hook");
-
-            UnitR3EventHooks.OnUnitCreate.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(args =>
-                {
-                    if (Mathf.Approximately(UnitHealthMultiplier.Value, 1.0f))
-                        return; // Skip if multiplier is 1.0
-
-                    eChimps unitType = args.UnitType;
-
-                    // Skip non-modifiable units
-                    if (Data.UnitCategories.NonModable.Contains(unitType))
-                        return;
-
-                    try
-                    {
-                        int unitId = (int)args.ReturnValue; // ReturnValue is long, cast to int
-
-                        // Get current health and apply multiplier
-                        int currentMaxHealth = Plugin.UnitApi.GetMaxHealth(unitId);
-                        int newMaxHealth = Mathf.Max(1, (int)(currentMaxHealth * UnitHealthMultiplier.Value));
-
-                        Plugin.UnitApi.SetMaxHealth(unitId, newMaxHealth);
-                        Plugin.UnitApi.SetCurrentHealth(unitId, newMaxHealth);
-                    }
-                    catch (Exception ex)
-                    {
-                        Plugin.Logger.LogWarning($"Failed to apply health multiplier to {unitType}: {ex.Message}");
-                    }
-                });
-
-            // Hook for ranged damage multiplier (using Ex version which allows damage modification)
-            UnitR3EventHooks.OnUnitTakeProjectileDamageEx.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args =>
-                {
-                    try
-                    {
-                        if (Mathf.Approximately(UnitRangedDamageTakenMultiplier.Value, 1.0f))
-                            return;
-
-                        // Apply multiplier to projectile damage
-                        // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
-                        // a default value from the damage matrix instead of our modified value.
-                        int modified = Mathf.Max(1, (int)(args.Damage * UnitRangedDamageTakenMultiplier.Value));
-                        args.Damage = modified;
-                    }
-                    catch (Exception ex)
-                    {
-                        Plugin.Logger.LogWarning($"Failed to apply ranged damage multiplier: {ex.Message}");
-                    }
-                });
+        /// <summary>
+        /// Internal method to set config system instances (used by BepInExConfigManager).
+        /// </summary>
+        internal static void SetConfigSystems(UnitMultipliersConfig unitConfig, StructureMultipliersConfig structureConfig, WallCostConfig wallCostConfig)
+        {
+            _unitConfig = unitConfig;
+            _structureConfig = structureConfig;
+            _wallCostConfig = wallCostConfig;
         }
     }
 }
