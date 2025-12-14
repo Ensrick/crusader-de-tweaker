@@ -191,6 +191,63 @@ Real-time multipliers via event hooks:
 
 ## Configuration System
 
+### System Load Order and Data Flow
+
+**Understanding how configuration layers work together:**
+
+1. **Hardcoded Defaults** (`UnitDamageRegistryInitializer.cs`)
+   - Initializes `UnitDamageRegistry` with default values for all units
+   - Provides base `BaseMeleeDamage`, `ArmorValue`, and `Tags` for each unit
+   - These are the "vanilla" game values used as fallbacks
+   - **Purpose**: Ensures every unit has data even if TOML doesn't specify it
+
+2. **TOML Configuration Files** (`CrusaderDETweaker_Units.toml`, `CrusaderDETweaker_Structures.toml`)
+   - **Primary user configuration method**
+   - Overrides hardcoded defaults when loaded
+   - Users can modify: `BaseMeleeDamage`, `ArmorValue`, `Tags`, `Health`, `Speed`, `Cost`, etc.
+   - **Load Order**: After hardcoded defaults, before CSV matrices
+   - **How it works**: `ConfigLoader` reads TOML, calls `PropertyHandler.SetToAPI()` which updates `UnitDamageRegistry` and/or game API directly
+
+3. **CSV Damage Matrices** (`CrusaderDETweaker_MeleeDamage.csv`, `CrusaderDETweaker_RangedDamage.csv`, `CrusaderDETweaker_EunuchAoeDamage.csv`)
+   - **Surgical overrides for specific matchups**
+   - Only applies values that differ from the current game state
+   - **Purpose**: Fine-tune specific unit-vs-unit damage without modifying TOML
+   - **Load Order**: After TOML configs
+   - **How it works**: `MatrixLoader` compares CSV values to current API values, only sets values that differ
+   - **Note**: CSV matrices directly modify the game's damage lookup tables via API, bypassing the damage calculation system
+
+4. **BepInEx Real-time Multipliers** (`ensrick_crusaderdetweaker.cfg`)
+   - **Real-time multipliers applied via event hooks**
+   - Applied during gameplay when damage/health events occur
+   - **Load Order**: Applied continuously during gameplay (not a one-time load)
+   - **Examples**: `UnitMeleeDamageTakenMultiplier`, `StructureDamageTakenMultiplier`, `WallDamageTakenMultiplier`
+   - **How it works**: Event hooks (`OnUnitTakeMeleeDamage`, `OnBuildingTileTakeDamage`) intercept events and multiply damage/health values
+
+**Complete Load Order:**
+```
+Game Start
+  ↓
+1. Hardcoded Defaults (UnitDamageRegistryInitializer)
+  ↓
+2. TOML Configs (Units, Structures, Armor)
+  ↓
+3. CSV Matrices (Melee, Ranged, EunuchAOE) - only changed values
+  ↓
+4. BepInEx Multipliers (applied in real-time via event hooks)
+```
+
+**Example Flow:**
+1. Knight starts with hardcoded `BaseMeleeDamage = 80`, `ArmorValue = 0.5`
+2. User sets `BaseMeleeDamage = 100` in TOML → Registry updated to 100
+3. User edits CSV to set Knight vs Archer damage to 120 → API directly set to 120 (bypasses calculation)
+4. User sets `UnitMeleeDamageTakenMultiplier = 0.5` in BepInEx config → All melee damage to Knight is halved in real-time
+
+**Key Points:**
+- **TOML is the primary configuration method** - users modify base damage, armor, and tags here
+- **CSV matrices are for granular overrides** - only change specific matchups you want to tweak
+- **BepInEx multipliers are real-time** - they apply continuously during gameplay, not at load time
+- **Hardcoded defaults ensure completeness** - every unit has data even without TOML entries
+
 ### TOML File Structure
 
 **Units** (`CrusaderDETweaker_Units.toml`):

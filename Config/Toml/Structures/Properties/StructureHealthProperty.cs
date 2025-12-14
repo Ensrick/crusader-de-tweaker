@@ -17,22 +17,23 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
 
         protected override bool TryGetFromAPI(eStructs structure, out uint value)
         {
-            try
-            {
-                int healthValue = Plugin.BuildingApi.GetDefaultHealth(structure);
-                value = (uint)healthValue;
-                return true;
-            }
-            catch
-            {
-                value = 0;
-                return false;
-            }
+            int healthValue = ErrorHandlingHelper.TryGetValue(
+                $"Get {Name}",
+                structure.ToString(),
+                () => Plugin.BuildingApi.GetDefaultHealth(structure),
+                defaultValue: 0
+            );
+            value = (uint)healthValue;
+            return healthValue >= 0;
         }
 
         protected override void SetToAPI(eStructs structure, uint value)
         {
-            Plugin.BuildingApi.SetDefaultHealth(structure, value);
+            ErrorHandlingHelper.TryExecute(
+                $"Set {Name}",
+                structure.ToString(),
+                () => Plugin.BuildingApi.SetDefaultHealth(structure, value)
+            );
         }
 
         internal override bool CanApplyTo(eStructs structure)

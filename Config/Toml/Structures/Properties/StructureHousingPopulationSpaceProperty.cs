@@ -18,22 +18,23 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
 
         protected override bool TryGetFromAPI(eStructs structure, out ushort value)
         {
-            try
-            {
-                int housingValue = Plugin.BuildingApi.GetDefaultHousingPopulationSpace(structure);
-                value = (ushort)housingValue;
-                return true;
-            }
-            catch
-            {
-                value = 0;
-                return false;
-            }
+            int housingValue = ErrorHandlingHelper.TryGetValue(
+                $"Get {Name}",
+                structure.ToString(),
+                () => Plugin.BuildingApi.GetDefaultHousingPopulationSpace(structure),
+                defaultValue: 0
+            );
+            value = (ushort)housingValue;
+            return housingValue >= 0;
         }
 
         protected override void SetToAPI(eStructs structure, ushort value)
         {
-            Plugin.BuildingApi.SetDefaultHousingPopulationSpace(structure, value);
+            ErrorHandlingHelper.TryExecute(
+                $"Set {Name}",
+                structure.ToString(),
+                () => Plugin.BuildingApi.SetDefaultHousingPopulationSpace(structure, value)
+            );
         }
 
         internal override bool CanApplyTo(eStructs structure)

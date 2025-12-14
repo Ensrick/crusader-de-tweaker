@@ -26,16 +26,15 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
             if (StructureCategories.IsWall(structure))
                 return false;
 
-            try
-            {
-                var cost = Plugin.BuildingApi.GetDefaultCost(structure);
-                value = GetCost(cost);
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            BuildingCost cost = ErrorHandlingHelper.TryGetValue(
+                $"Get {Name}",
+                structure.ToString(),
+                () => Plugin.BuildingApi.GetDefaultCost(structure),
+                defaultValue: default(BuildingCost)
+            );
+
+            value = GetCost(cost);
+            return true;
         }
 
         protected override void SetToAPI(eStructs structure, int value)
@@ -44,9 +43,16 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
             if (StructureCategories.IsWall(structure))
                 return;
 
-            var cost = Plugin.BuildingApi.GetDefaultCost(structure);
-            SetCost(ref cost, value);
-            Plugin.BuildingApi.SetDefaultCost(structure, cost);
+            ErrorHandlingHelper.TryExecute(
+                $"Set {Name}",
+                structure.ToString(),
+                () =>
+                {
+                    var cost = Plugin.BuildingApi.GetDefaultCost(structure);
+                    SetCost(ref cost, value);
+                    Plugin.BuildingApi.SetDefaultCost(structure, cost);
+                }
+            );
         }
 
         internal override bool ValidateValue(int value)

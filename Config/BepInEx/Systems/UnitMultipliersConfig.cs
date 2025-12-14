@@ -3,6 +3,7 @@ using System;
 using System.Linq;
 using BepInEx.Configuration;
 using CrusaderDETweaker.Config.BepInEx.Core;
+using CrusaderDETweaker.Config.Toml.Units.Properties;
 using CrusaderDETweaker.Data;
 using R3;
 using SHCDESE.EventAPI;
@@ -186,6 +187,17 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
 
                         Plugin.UnitApi.SetMaxHealth(unitId, newMaxHealth);
                         Plugin.UnitApi.SetCurrentHealth(unitId, newMaxHealth);
+
+                        // Apply shield health to Demolisher units
+                        if (unitType == eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER)
+                        {
+                            ushort shieldHealth = ShieldHealthProperty.GetDemolisherShieldHealth();
+                            if (shieldHealth > 0)
+                            {
+                                Plugin.UnitApi.SetShieldHealth(unitId, shieldHealth);
+                                Plugin.Logger.LogDebug($"Applied shield health {shieldHealth} to Demolisher unit {unitId}");
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {

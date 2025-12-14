@@ -91,6 +91,7 @@
     <Compile Include="Config\Toml\Core\ConfigFileHelper.cs" />
     <Compile Include="Config\Toml\Core\ConfigHelpers.cs" />
     <Compile Include="Config\Toml\Core\PropertyHandler.cs" />
+    <Compile Include="Config\Toml\Core\ErrorHandlingHelper.cs" />
     <Compile Include="Config\Toml\Core\PropertyRegistry.cs" />
     <Compile Include="Config\Toml\ProjectileDamage\ProjectileDamageConfig.cs" />
     <Compile Include="Config\Toml\Structures\Properties\StructureCostProperties.cs" />
@@ -104,7 +105,14 @@
     <Compile Include="Config\Toml\Units\Properties\ResourceTypeProperties.cs" />
     <Compile Include="Config\Toml\Units\Properties\SpeedProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\TagsProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\ShieldHealthProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\EunuchAoeBaseDamageProperty.cs" />
     <Compile Include="Config\Toml\Units\UnitPropertyRegistry.cs" />
+    <Compile Include="Config\Toml\Tags\TagConfig.cs" />
+    <Compile Include="Config\Toml\Tags\TagConfigGenerator.cs" />
+    <Compile Include="Config\Toml\Tags\TagConfigLoader.cs" />
+    <Compile Include="Config\Toml\Tags\TagConfigSystem.cs" />
+    <Compile Include="Data\TagDefinition.cs" />
     <Compile Include="Data\ProjectileDamageData.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />

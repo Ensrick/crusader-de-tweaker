@@ -23,7 +23,14 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
 
         protected override bool TryGetFromAPI(eChimps unit, out float value)
         {
-            var unitData = UnitDamageRegistry.GetUnitData(unit);
+            var unitData = ErrorHandlingHelper.TryGetValue(
+                $"Get {Name}",
+                unit.ToString(),
+                () => UnitDamageRegistry.GetUnitData(unit),
+                defaultValue: null,
+                logAsWarning: false
+            );
+
             if (unitData != null)
             {
                 value = unitData.ArmorValue;
@@ -36,14 +43,21 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
 
         protected override void SetToAPI(eChimps unit, float value)
         {
-            var unitData = UnitDamageRegistry.GetUnitData(unit);
-            if (unitData == null)
-            {
-                unitData = new Data.UnitDamageData { Unit = unit };
-                UnitDamageRegistry.RegisterUnit(unitData);
-            }
+            ErrorHandlingHelper.TryExecute(
+                $"Set {Name}",
+                unit.ToString(),
+                () =>
+                {
+                    var unitData = UnitDamageRegistry.GetUnitData(unit);
+                    if (unitData == null)
+                    {
+                        unitData = new Data.UnitDamageData { Unit = unit };
+                        UnitDamageRegistry.RegisterUnit(unitData);
+                    }
 
-            unitData.ArmorValue = value;
+                    unitData.ArmorValue = value;
+                }
+            );
         }
 
         internal override bool ValidateValue(float value)

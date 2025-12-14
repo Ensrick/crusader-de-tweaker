@@ -16,42 +16,34 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
 
         protected override bool TryGetFromAPI(eChimps unit, out int value)
         {
-            try
-            {
-                value = Plugin.UnitApi.GetDefaultSpeed(unit);
-                return true;
-            }
-            catch (IndexOutOfRangeException)
-            {
-                // Some units don't have speed data in the game's array (animals, special units, etc.)
-                // Return a default value so the property is still written to config
-                value = 1;
-                return true;
-            }
-            catch
-            {
-                // If API call fails for any other reason, use default value of 1 so property is still written
-                value = 1;
-                return true;
-            }
+            // Use specialized handler for IndexOutOfRangeException (common for units without speed data)
+            bool success = ErrorHandlingHelper.TryGetValueWithIndexCheck(
+                $"Get {Name}",
+                unit.ToString(),
+                () => Plugin.UnitApi.GetDefaultSpeed(unit),
+                defaultValue: 1,
+                out value
+            );
+
+            // Always return true so property is written to config even if API fails
+            return true;
         }
 
         protected override void SetToAPI(eChimps unit, int value)
         {
+            // Use specialized handler for IndexOutOfRangeException
             try
             {
                 Plugin.UnitApi.SetDefaultSpeed(unit, (ushort)value);
             }
             catch (IndexOutOfRangeException)
             {
-                // Some units don't have speed data in the game's array
-                // Log a warning but don't throw - the property was written to config but can't be applied
-                Plugin.Logger.LogWarning($"Cannot set Speed for {unit}: Unit does not have speed data in game's array");
+                // Expected for units that don't have speed data in the game's array
+                Plugin.Logger.LogWarning($"[Set {Name}] {unit} does not have speed data in game's array (IndexOutOfRangeException). Property written to config but cannot be applied.");
             }
             catch (Exception ex)
             {
-                // Log other exceptions but don't throw
-                Plugin.Logger.LogWarning($"Failed to set Speed for {unit}: {ex.Message}");
+                Plugin.Logger.LogError($"[Set {Name}] Failed for {unit}: {ex.GetType().Name} - {ex.Message}");
             }
         }
 
