@@ -48,7 +48,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 "Multipliers",
                 "TowerDamageTakenMultiplier",
                 1.0f,
-                "Multiplier for damage taken by towers (tower levels 1-5) and gatehouses"
+                "Multiplier for damage taken by towers (tower levels 1-5, destroyed tower remnants) and gatehouses"
             );
 
             CivilStructureDamageTakenMultiplier = config.Bind(

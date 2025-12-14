@@ -40,11 +40,6 @@ namespace CrusaderDETweaker.Data
             eStructs.STRUCT_CRENAL_WALL, // Walls use global cost multipliers (BepInEx config), not regular properties
             eStructs.STRUCT_WOOD_WALL, // Deprecated from old Stronghold, not used in Crusader
             eStructs.STRUCT_WAS_WALL,
-            eStructs.STRUCT_TOWER1_DESTROYED,
-            eStructs.STRUCT_TOWER2_DESTROYED,
-            eStructs.STRUCT_TOWER3_DESTROYED,
-            eStructs.STRUCT_TOWER4_DESTROYED,
-            eStructs.STRUCT_TOWER5_DESTROYED,
             eStructs.STRUCT_BEE_HIVE,
             eStructs.STRUCT_STAIRS,
             eStructs.STRUCT_BRAZIER,
@@ -201,6 +196,7 @@ namespace CrusaderDETweaker.Data
 
         /// <summary>
         /// Checks if a structure is a tower type.
+        /// Includes both active towers (levels 1-5) and destroyed tower remnants.
         /// </summary>
         internal static bool IsTower(eStructs structure)
         {
@@ -208,7 +204,12 @@ namespace CrusaderDETweaker.Data
                    structure == eStructs.STRUCT_TOWER2 ||
                    structure == eStructs.STRUCT_TOWER3 ||
                    structure == eStructs.STRUCT_TOWER4 ||
-                   structure == eStructs.STRUCT_TOWER5;
+                   structure == eStructs.STRUCT_TOWER5 ||
+                   structure == eStructs.STRUCT_TOWER1_DESTROYED ||
+                   structure == eStructs.STRUCT_TOWER2_DESTROYED ||
+                   structure == eStructs.STRUCT_TOWER3_DESTROYED ||
+                   structure == eStructs.STRUCT_TOWER4_DESTROYED ||
+                   structure == eStructs.STRUCT_TOWER5_DESTROYED;
         }
 
         /// <summary>
