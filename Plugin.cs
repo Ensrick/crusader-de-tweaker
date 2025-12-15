@@ -32,7 +32,7 @@ namespace CrusaderDETweaker
         //   - Never regenerates or overwrites files
         //   - User config files (CrusaderDETweaker_*.toml) are never touched
         // ============================================================================
-        private const bool ENABLE_MODEL_DISCOVERY_MODE = false;
+        private const bool ENABLE_MODEL_DISCOVERY_MODE = true;
 
         /// <summary>
         /// Check if model discovery mode is enabled.
@@ -88,8 +88,8 @@ namespace CrusaderDETweaker
                         Logger.LogWarning("Continuing with existing discovery files (if any) or old system.");
                     }
                 }
+#pragma warning disable CS0162 // Unreachable code (expected when ENABLE_MODEL_DISCOVERY_MODE is true)
                 else
-#pragma warning restore CS0162
                 {
                     // User Mode: Only load discovery files if they exist, never regenerate
                     string discoveredUnitsPath = System.IO.Path.Combine(
@@ -107,6 +107,7 @@ namespace CrusaderDETweaker
                         Logger.LogInfo("To regenerate discovery files, set ENABLE_MODEL_DISCOVERY_MODE = true in Plugin.cs");
                     }
                 }
+#pragma warning restore CS0162
 
                 // Initialize all config systems (TOML and CSV) using unified interface
                 // Validation is now integrated into the unified system
