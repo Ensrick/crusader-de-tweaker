@@ -18,7 +18,7 @@ namespace CrusaderDETweaker.Systems.Verification
 
         /// <summary>
         /// Verify ranged damage values against the game API.
-        /// Unlike melee, ranged damage is direct lookup, not formula-based.
+        /// Compares current game API values against original defaults (from CSV or captured API values).
         /// </summary>
         public override VerificationResult Verify()
         {
@@ -43,11 +43,11 @@ namespace CrusaderDETweaker.Systems.Verification
                     {
                         result.TotalTests++;
 
-                        // Get the actual damage from the game API
-                        int gameApiDamage;
+                        // Get the current damage from the game API
+                        int currentGameApiDamage;
                         try
                         {
-                            gameApiDamage = GetRangedDamage(projectile, defender);
+                            currentGameApiDamage = GetRangedDamage(projectile, defender);
                         }
                         catch (Exception ex)
                         {
@@ -57,16 +57,39 @@ namespace CrusaderDETweaker.Systems.Verification
                         }
 
                         // Skip invalid entries
-                        if (gameApiDamage < 0)
+                        if (currentGameApiDamage < 0)
                         {
                             result.SkippedCount++;
                             continue;
                         }
 
-                        // For ranged damage, we're checking against stored/registry values
-                        // Since ranged damage isn't formula-based, we just verify the game values are accessible
-                        // The actual "verification" here is that we can read the values correctly
-                        result.PassedTests++;
+                        // Get the ORIGINAL game default from CSV file or captured cache
+                        // This is the "ground truth" - what the game originally had before any mods
+                        int originalGameDefault = Config.DamageMatrix.Core.CsvMatrixReader.GetOriginalRangedDamage(projectile, defender);
+
+                        if (originalGameDefault < 0)
+                        {
+                            // Not found in CSV/cache - skip this test
+                            result.SkippedCount++;
+                            continue;
+                        }
+
+                        // Compare current game API value vs original game default
+                        // This verifies that our CSV/config system matches the original game values
+                        if (currentGameApiDamage == originalGameDefault)
+                        {
+                            // Perfect match - current value matches the original game default
+                            result.PassedTests++;
+                        }
+                        else
+                        {
+                            // Mismatch - current value differs from the original game default
+                            // This indicates either:
+                            // 1. User modified the CSV/TOML and it's been applied
+                            // 2. There's a discrepancy between our config and the original game values
+                            result.FailedTests++;
+                            result.AddMismatch(projectile, defender, originalGameDefault, currentGameApiDamage);
+                        }
                     }
                 }
 

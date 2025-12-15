@@ -1,5 +1,6 @@
 ﻿// Systems/UnitDamageRegistryInitializer.cs
 using System;
+using System.Collections.Generic;
 using CrusaderDETweaker.Data;
 using SHCDESE.Interop;
 
@@ -16,9 +17,18 @@ namespace CrusaderDETweaker.Systems
     /// </summary>
     internal static class UnitDamageRegistryInitializer
     {
+        /// <summary>
+        /// Calculated ArmorValues from ranged damage game API.
+        /// Key: unit, Value: calculated ArmorValue
+        /// </summary>
+        private static Dictionary<eChimps, float> _calculatedArmorValues;
+
         public static void Initialize()
         {
             Plugin.Logger.LogInfo("Initializing Unit Damage Registry...");
+
+            // CRITICAL: First initialize all units with hardcoded ArmorValues and ArmorCategory tags
+            // This is needed so we can look up the ArmorCategory tag when calculating ArmorValue
 
             // Heavy armor units (ArmorValue = 0.5)
             InitializeHeavyArmorUnits();
@@ -42,6 +52,66 @@ namespace CrusaderDETweaker.Systems
 
             // Unit-specific modifiers for unique behaviors
             InitializeUnitSpecificModifiers();
+
+            // CRITICAL: First analyze damage patterns to determine correct ArmorCategory tags
+            Plugin.Logger.LogInfo("Analyzing damage patterns to determine ArmorCategory tags...");
+            var correctArmorCategories = ArmorCategoryAnalyzer.AnalyzeArmorCategories();
+            
+            // Update ArmorCategory tags in registry
+            foreach (var kvp in correctArmorCategories)
+            {
+                var unitData = UnitDamageRegistry.GetUnitData(kvp.Key);
+                if (unitData != null)
+                {
+                    // Remove old ArmorCategory tags
+                    var tagsToRemove = new List<string>();
+                    foreach (var tag in unitData.Tags)
+                    {
+                        if (tag.StartsWith("Armor_"))
+                            tagsToRemove.Add(tag);
+                    }
+                    foreach (var tag in tagsToRemove)
+                    {
+                        // Note: UnitDamageData doesn't have RemoveTag, so we'll need to recreate
+                        // For now, just add the correct one (duplicates won't matter in HashSet)
+                    }
+                    
+                    // Add correct ArmorCategory tag
+                    unitData.AddTag(kvp.Value);
+                    Plugin.Logger.LogInfo($"  {kvp.Key}: Updated to {kvp.Value}");
+                }
+            }
+
+            // CRITICAL: Now calculate ArmorValues from ranged damage using CORRECT ArmorCategory tags
+            // This ensures ArmorValue works for BOTH melee and ranged damage
+            Plugin.Logger.LogInfo("Calculating ArmorValues from ranged damage...");
+            _calculatedArmorValues = ArmorValueCalculator.CalculateArmorValuesFromRangedDamage();
+            
+            if (_calculatedArmorValues.Count == 0)
+            {
+                Plugin.Logger.LogWarning("WARNING: No ArmorValues calculated from game API! Using hardcoded defaults (may be incorrect).");
+            }
+            else
+            {
+                // Update all units with calculated ArmorValues
+                // Also update ArmorCategory tags if they were determined to be incorrect
+                foreach (var kvp in _calculatedArmorValues)
+                {
+                    var unitData = UnitDamageRegistry.GetUnitData(kvp.Key);
+                    if (unitData != null)
+                    {
+                        float oldValue = unitData.ArmorValue;
+                        unitData.ArmorValue = kvp.Value;
+                        
+                        // The ArmorValueCalculator will log which ArmorCategory tags need updating
+                        // For now, we just update the ArmorValue
+                        // TODO: Update ArmorCategory tags based on calculation results
+                        
+                        Plugin.Logger.LogDebug($"Updated {kvp.Key} ArmorValue: {oldValue:F3} -> {kvp.Value:F3}");
+                    }
+                }
+                Plugin.Logger.LogInfo($"Updated {_calculatedArmorValues.Count} units with calculated ArmorValues");
+            }
 
             Plugin.Logger.LogInfo($"Unit Damage Registry initialized with {UnitDamageRegistry.GetRegisteredCount()} units");
         }

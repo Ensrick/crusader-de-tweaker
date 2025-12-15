@@ -1,5 +1,6 @@
 ﻿// Systems/Verification/VerificationResult.cs
 using CrusaderDETweaker.Data;
+using CrusaderDETweaker.Systems;
 using SHCDESE.Interop;
 using System;
 using System.Collections.Generic;
@@ -74,6 +75,7 @@ namespace CrusaderDETweaker.Systems.Verification
 
                 string attackerBase = "N/A";
                 string attackerTags = "N/A";
+                string attackerInfo = "";
 
                 if (mismatch.Attacker is eChimps attackerChimp)
                 {
@@ -82,14 +84,29 @@ namespace CrusaderDETweaker.Systems.Verification
                     {
                         attackerBase = attackerData.BaseMeleeDamage.ToString();
                         attackerTags = string.Join(";", attackerData.Tags);
+                        attackerInfo = $"(Base={attackerBase}, Tags=[{attackerTags}])";
                     }
+                }
+                else if (mismatch.Attacker is ProjectileType projectile)
+                {
+                    // For ranged damage, attacker is a ProjectileType
+                    attackerInfo = $"(Projectile={projectile})";
+                }
+                else if (mismatch.Attacker is string attackerString)
+                {
+                    // For Eunuch AOE, attacker is a string
+                    attackerInfo = $"(Attacker={attackerString})";
+                }
+                else
+                {
+                    attackerInfo = "";
                 }
 
                 int diff = mismatch.Calculated - mismatch.Expected;
                 float ratio = mismatch.Expected > 0 ? (float)mismatch.Calculated / mismatch.Expected : 0f;
 
                 Plugin.Logger.LogWarning(
-                    $"  -> Att: {mismatch.Attacker} (Base={attackerBase}, Tags=[{attackerTags}]), " +
+                    $"  -> Att: {mismatch.Attacker} {attackerInfo}, " +
                     $"Def: {mismatch.Defender} (Armor={defenderArmor}, Tags=[{defenderTags}]) | " +
                     $"Game={mismatch.Expected}, Calc={mismatch.Calculated}, Diff={diff}, Ratio={ratio:F3}"
                 );

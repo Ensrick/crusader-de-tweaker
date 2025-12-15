@@ -145,6 +145,8 @@
     <Compile Include="Config\BepInEx\ConfigManagerBepinex.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Systems\ArmorCategoryAnalyzer.cs" />
+    <Compile Include="Systems\ArmorValueCalculator.cs" />
     <Compile Include="Systems\UnitDamageRegistry.cs" />
     <Compile Include="Systems\UnitDamageRegistryInitializer.cs" />
     <Compile Include="Systems\Verification\DamageVerificationManager.cs" />

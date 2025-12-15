@@ -37,6 +37,11 @@ namespace CrusaderDETweaker.Systems.Verification
                 var result = verifier.Verify();
                 result.PrintSummary();
 
+                if (result.FailedTests > 0)
+                {
+                    result.PrintAllMismatches();
+                }
+
                 combinedResult.MergeFrom(result);
             }
 
@@ -70,7 +75,7 @@ namespace CrusaderDETweaker.Systems.Verification
         }
 
         /// <summary>
-        /// Run only ranged damage verification.
+        /// Run only ranged damage verification with detailed analysis.
         /// </summary>
         public static VerificationResult VerifyRangedDamage()
         {
@@ -78,13 +83,19 @@ namespace CrusaderDETweaker.Systems.Verification
             var result = verifier.Verify();
 
             result.PrintSummary();
+
+            if (result.FailedTests > 0)
+            {
+                result.PrintAllMismatches();
+            }
+
             verifier.PrintRangedDamagePatterns();
 
             return result;
         }
 
         /// <summary>
-        /// Run only Eunuch AOE damage verification.
+        /// Run only Eunuch AOE damage verification with detailed analysis.
         /// </summary>
         public static VerificationResult VerifyEunuchAoeDamage()
         {
@@ -92,6 +103,12 @@ namespace CrusaderDETweaker.Systems.Verification
             var result = verifier.Verify();
 
             result.PrintSummary();
+
+            if (result.FailedTests > 0)
+            {
+                result.PrintAllMismatches();
+            }
+
             verifier.PrintAoeDamagePatterns();
 
             return result;

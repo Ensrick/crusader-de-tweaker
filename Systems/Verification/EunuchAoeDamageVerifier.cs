@@ -17,6 +17,7 @@ namespace CrusaderDETweaker.Systems.Verification
 
         /// <summary>
         /// Verify Eunuch AOE damage values against the game API.
+        /// Compares current game API values against original defaults (from CSV or captured API values).
         /// </summary>
         public override VerificationResult Verify()
         {
@@ -37,11 +38,11 @@ namespace CrusaderDETweaker.Systems.Verification
                 {
                     result.TotalTests++;
 
-                    // Get the actual damage from the game API
-                    int gameApiDamage;
+                    // Get the current damage from the game API
+                    int currentGameApiDamage;
                     try
                     {
-                        gameApiDamage = Plugin.UnitApi.GetMeleeEunuchAOEDamageTo(defender);
+                        currentGameApiDamage = Plugin.UnitApi.GetMeleeEunuchAOEDamageTo(defender);
                     }
                     catch (Exception ex)
                     {
@@ -51,15 +52,39 @@ namespace CrusaderDETweaker.Systems.Verification
                     }
 
                     // Skip invalid entries
-                    if (gameApiDamage < 0)
+                    if (currentGameApiDamage < 0)
                     {
                         result.SkippedCount++;
                         continue;
                     }
 
-                    // For AOE damage, we're checking against stored/registry values
-                    // Similar to ranged, this is a lookup, not formula-based
-                    result.PassedTests++;
+                    // Get the ORIGINAL game default from CSV file or captured cache
+                    // This is the "ground truth" - what the game originally had before any mods
+                    int originalGameDefault = Config.DamageMatrix.Core.CsvMatrixReader.GetOriginalEunuchAoeDamage(defender);
+
+                    if (originalGameDefault < 0)
+                    {
+                        // Not found in CSV/cache - skip this test
+                        result.SkippedCount++;
+                        continue;
+                    }
+
+                    // Compare current game API value vs original game default
+                    // This verifies that our CSV/config system matches the original game values
+                    if (currentGameApiDamage == originalGameDefault)
+                    {
+                        // Perfect match - current value matches the original game default
+                        result.PassedTests++;
+                    }
+                    else
+                    {
+                        // Mismatch - current value differs from the original game default
+                        // This indicates either:
+                        // 1. User modified the CSV/TOML and it's been applied
+                        // 2. There's a discrepancy between our config and the original game values
+                        result.FailedTests++;
+                        result.AddMismatch("EunuchAOE", defender, originalGameDefault, currentGameApiDamage);
+                    }
                 }
 
                 return result;
