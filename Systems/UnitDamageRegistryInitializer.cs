@@ -113,7 +113,46 @@ namespace CrusaderDETweaker.Systems
                 Plugin.Logger.LogInfo($"Updated {_calculatedArmorValues.Count} units with calculated ArmorValues");
             }
 
+            // Load discovered properties from model discovery system
+            LoadDiscoveredProperties();
+
             Plugin.Logger.LogInfo($"Unit Damage Registry initialized with {UnitDamageRegistry.GetRegisteredCount()} units");
+        }
+
+        /// <summary>
+        /// Load discovered properties from model discovery system output.
+        /// </summary>
+        private static void LoadDiscoveredProperties()
+        {
+            try
+            {
+                Plugin.Logger.LogInfo("Loading discovered properties from model discovery system...");
+                var discoveredProps = CrusaderDETweaker.Systems.ModelDiscovery.DiscoveredPropertiesLoader.LoadUnitProperties();
+                
+                if (discoveredProps.Count == 0)
+                {
+                    Plugin.Logger.LogInfo("No discovered properties found (model discovery may not have been run)");
+                    return;
+                }
+
+                int appliedCount = 0;
+                foreach (var kvp in discoveredProps)
+                {
+                    var unitData = UnitDamageRegistry.GetUnitData(kvp.Key);
+                    if (unitData != null)
+                    {
+                        CrusaderDETweaker.Systems.ModelDiscovery.DiscoveredPropertiesLoader.ApplyDiscoveredProperties(unitData, discoveredProps);
+                        appliedCount++;
+                    }
+                }
+
+                Plugin.Logger.LogInfo($"Applied discovered properties to {appliedCount} units");
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogWarning($"Failed to load discovered properties: {ex.Message}");
+                Plugin.Logger.LogDebug(ex.StackTrace);
+            }
         }
 
         // ============================================

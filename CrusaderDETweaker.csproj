@@ -108,6 +108,10 @@
     <Compile Include="Config\Toml\Units\Properties\TagsProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ShieldHealthProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\EunuchAoeBaseDamageProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\DiscoveredBaseDamageProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\DiscoveredArmorValueProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\WeaponProfileIdProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\ArmorProfileIdProperty.cs" />
     <Compile Include="Config\Toml\Units\UnitPropertyRegistry.cs" />
     <Compile Include="Config\Toml\Tags\TagConfig.cs" />
     <Compile Include="Config\Toml\Tags\TagConfigGenerator.cs" />
@@ -159,6 +163,10 @@
     <Compile Include="Systems\ModelDiscovery\SystemIdentifier.cs" />
     <Compile Include="Systems\ModelDiscovery\TomlOutputGenerator.cs" />
     <Compile Include="Systems\ModelDiscovery\ModelValidator.cs" />
+    <Compile Include="Systems\ModelDiscovery\ModelDiscoveryTester.cs" />
+    <Compile Include="Systems\ModelDiscovery\DiscoveredPropertiesLoader.cs" />
+    <Compile Include="Systems\ModelDiscovery\DiscoveredDamageCalculator.cs" />
+    <Compile Include="Systems\ModelDiscovery\DiscoveredDamageExceptions.cs" />
     <Compile Include="Systems\UnitDamageRegistry.cs" />
     <Compile Include="Systems\UnitDamageRegistryInitializer.cs" />
     <Compile Include="Systems\Verification\DamageVerificationManager.cs" />

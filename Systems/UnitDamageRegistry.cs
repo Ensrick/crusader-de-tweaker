@@ -119,7 +119,12 @@ namespace CrusaderDETweaker.Systems
                 {
                     Unit = originalData.Unit,
                     BaseMeleeDamage = originalData.BaseMeleeDamage,
-                    ArmorValue = originalData.ArmorValue
+                    ArmorValue = originalData.ArmorValue,
+                    DiscoveredBaseDamage = originalData.DiscoveredBaseDamage,
+                    DiscoveredArmorValue = originalData.DiscoveredArmorValue,
+                    WeaponProfileId = originalData.WeaponProfileId,
+                    ArmorProfileId = originalData.ArmorProfileId,
+                    Penetration = originalData.Penetration
                 };
 
                 // Copy tags

@@ -43,7 +43,13 @@ namespace CrusaderDETweaker.Systems.Verification
 
                         // Calculate what our formula predicts using ORIGINAL registry data (before TOML modifications)
                         // This ensures verification tests the calculation logic, not the current TOML values
-                        int calculated = DamageCalculator.CalculateMeleeDamageWithOriginalData(attacker, defender);
+                        // Try discovered formula first, fallback to old system
+                        int calculated = ModelDiscovery.DiscoveredDamageCalculator.CalculateMeleeDamageWithOriginalData(attacker, defender);
+                        if (calculated == -1)
+                        {
+                            // Fallback to old system if discovered formula not available
+                            calculated = DamageCalculator.CalculateMeleeDamageWithOriginalData(attacker, defender);
+                        }
 
                         if (calculated == -1)
                         {

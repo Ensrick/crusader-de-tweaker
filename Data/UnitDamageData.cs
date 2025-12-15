@@ -56,6 +56,37 @@ namespace CrusaderDETweaker.Data
         }
 
         /// <summary>
+        /// Discovered base damage from model discovery system.
+        /// Used with multiplicative formula: damage = Base × BaseDamage^Alpha × (1/ArmorValue)^Beta
+        /// If null, falls back to BaseMeleeDamage.
+        /// </summary>
+        public float? DiscoveredBaseDamage { get; set; }
+
+        /// <summary>
+        /// Discovered armor value from model discovery system.
+        /// Used with multiplicative formula. If null, falls back to ArmorValue.
+        /// </summary>
+        public float? DiscoveredArmorValue { get; set; }
+
+        /// <summary>
+        /// Weapon profile ID from model discovery system (NMF clustering).
+        /// Units with same WeaponProfileId have similar attack characteristics.
+        /// </summary>
+        public int? WeaponProfileId { get; set; }
+
+        /// <summary>
+        /// Armor profile ID from model discovery system (NMF clustering).
+        /// Units with same ArmorProfileId have similar defense characteristics.
+        /// </summary>
+        public int? ArmorProfileId { get; set; }
+
+        /// <summary>
+        /// Penetration value from model discovery system (if available).
+        /// Represents armor penetration capability.
+        /// </summary>
+        public float? Penetration { get; set; }
+
+        /// <summary>
         /// Tags for special behavior and damage rules.
         /// 
         /// Armor category tags (defender):

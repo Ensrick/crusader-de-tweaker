@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using CrusaderDETweaker.Data;
 using CrusaderDETweaker.Systems.DamageCalculation;
+using CrusaderDETweaker.Systems.ModelDiscovery;
 using SHCDESE.Interop;
 
 namespace CrusaderDETweaker.Systems
@@ -88,6 +89,7 @@ namespace CrusaderDETweaker.Systems
 
         /// <summary>
         /// Calculate melee damage from attacker to defender.
+        /// Uses discovered formula if available, otherwise falls back to old system.
         /// Returns -1 if calculation fails (missing data).
         /// </summary>
         public static int CalculateMeleeDamage(eChimps attacker, eChimps defender)
@@ -100,6 +102,13 @@ namespace CrusaderDETweaker.Systems
                 return -1;
             }
 
+            // Try discovered formula first if properties are available
+            if (attackerData.DiscoveredBaseDamage.HasValue && defenderData.DiscoveredArmorValue.HasValue)
+            {
+                return DiscoveredDamageCalculator.CalculateMeleeDamage(attacker, defender);
+            }
+
+            // Fallback to old system
             return CalculateMeleeDamageInternal(attackerData, defenderData);
         }
 

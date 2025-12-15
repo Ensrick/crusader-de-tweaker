@@ -69,6 +69,22 @@ namespace CrusaderDETweaker.Config.Toml.Units
             _instance.Register(new TagsProperty());
 
             // ============================================
+            // DISCOVERED MODEL PROPERTIES
+            // ============================================
+
+            // Discovered base damage from model discovery system
+            _instance.Register(new DiscoveredBaseDamageProperty());
+
+            // Discovered armor value from model discovery system
+            _instance.Register(new DiscoveredArmorValueProperty());
+
+            // Weapon profile ID (NMF clustering)
+            _instance.Register(new WeaponProfileIdProperty());
+
+            // Armor profile ID (NMF clustering)
+            _instance.Register(new ArmorProfileIdProperty());
+
+            // ============================================
             // SPECIAL UNIT PROPERTIES
             // ============================================
             
