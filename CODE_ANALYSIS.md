@@ -2,7 +2,7 @@
 
 This document provides an expert analysis of the Crusader DE Tweaker codebase, identifying strengths, weaknesses, and areas for improvement. It includes a prioritized to-do list for refactoring and optimization.
 
-**Last Updated**: Version 1.3.0 (Post-Damage Calculator Refactoring)
+**Last Updated**: Version 1.3.1 (Post-Verification System Fix)
 
 ## Executive Summary
 
@@ -230,11 +230,15 @@ Systems/DamageCalculation/
 **Status**: ✅ **In-Game Verification System** (Appropriate for Game Plugin)
 
 **Current Approach**:
-- **In-Game Verification System**: Runs when game loads, compares calculated damage vs game API
+- **In-Game Verification System**: Runs when game loads, compares calculated damage vs original game defaults
   - `MeleeDamageVerifier` - Tests all melee damage matchups (80×80 = 6400 tests)
   - `RangedDamageVerifier` - Tests all ranged damage matchups (4 projectiles × 80 defenders = 320 tests)
   - `EunuchAoeDamageVerifier` - Tests AOE damage (80 defenders)
   - **Total**: 6800 verification tests, 100% pass rate
+- **Original Defaults Capture**: System captures original game defaults before TOML loads:
+  - `UnitDamageRegistry.CaptureOriginalSnapshot()` - Deep copy of registry with hardcoded defaults
+  - `CsvMatrixReader.CaptureOriginalDefaults()` - Original damage values from game API
+  - Verification uses `CalculateMeleeDamageWithOriginalData()` which uses original defaults, not modified TOML
 - Aggressive logging with try/catch for debugging
 - Verification runs automatically and logs results
 
@@ -243,8 +247,9 @@ Systems/DamageCalculation/
 - In-game verification tests actual game behavior
 - Catches regressions immediately when game loads
 - More appropriate for game plugin than isolated unit tests
+- **Verification works correctly even with modified TOML**: Uses original defaults for both calculation and comparison
 
-**Note**: The refactored damage calculator structure makes the code easier to understand and maintain, but the in-game verification system is the appropriate testing method for this plugin.
+**Note**: The refactored damage calculator structure makes the code easier to understand and maintain, but the in-game verification system is the appropriate testing method for this plugin. The verification system has been fixed to always use original game defaults, ensuring it validates calculation logic correctly regardless of user TOML modifications.
 
 **Priority**: **LOW** - Current testing approach is appropriate and effective.
 

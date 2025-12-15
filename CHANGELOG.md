@@ -28,3 +28,10 @@
        - Better error handling and validation for all multipliers
        - Fixed Speed property: Now writes to config for all units (some units have API limitations - see known issues)
        - Known Issue: Some units (animals, special units) cannot have Speed modified due to SHCDE-SE API limitation
+1.3.1 - Fixed verification system to work correctly with modified TOML configs:
+       - **CRITICAL FIX: Verification System** - Verification now uses original game defaults instead of modified TOML values
+       - Added original registry snapshot mechanism: Captures hardcoded defaults before TOML loads
+       - Added CalculateMeleeDamageWithOriginalData(): Uses original defaults for verification calculations
+       - Added CsvMatrixReader.CaptureOriginalDefaults(): Captures original damage values from game API before TOML loads
+       - Verification now correctly validates calculation logic against original game defaults, regardless of user TOML modifications
+       - This ensures verification always passes at 100% when calculation logic is correct, even if TOML files are modified

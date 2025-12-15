@@ -410,16 +410,33 @@ CHIMP_TYPE_SWORDSMAN,CHIMP_TYPE_ARAB_SLAVE,200
 
 ### Damage Verification System
 
-The verification system compares calculated damage to actual game values:
+The verification system validates that the damage calculation logic is correct by comparing calculated values against original game defaults.
 
-1. **MeleeDamageVerifier**: Verifies melee damage calculations
-2. **RangedDamageVerifier**: Verifies ranged damage calculations
-3. **EunuchAoeDamageVerifier**: Verifies area-of-effect damage
+**How It Works**:
+1. **Original Defaults Capture** (Before TOML loads):
+   - `UnitDamageRegistry.CaptureOriginalSnapshot()` - Creates a deep copy of the registry with hardcoded defaults
+   - `CsvMatrixReader.CaptureOriginalDefaults()` - Captures original damage values from game API
+   - These snapshots preserve the "vanilla" game values before any user modifications
+
+2. **Verification Process**:
+   - Uses `CalculateMeleeDamageWithOriginalData()` which reads from the original snapshot
+   - Compares calculated values (using original defaults) against captured original game defaults
+   - This ensures verification tests the **calculation logic**, not the current TOML values
+
+3. **Why This Matters**:
+   - Verification should validate that the formula is correct, regardless of user TOML modifications
+   - If TOML is modified, verification still uses original defaults for both calculation and comparison
+   - This ensures 100% pass rate when calculation logic is correct, even with modified TOML files
+
+**Verifiers**:
+1. **MeleeDamageVerifier**: Verifies melee damage calculations (6400 tests)
+2. **RangedDamageVerifier**: Verifies ranged damage calculations (320 tests)
+3. **EunuchAoeDamageVerifier**: Verifies area-of-effect damage (80 tests)
 
 **Usage**:
 ```csharp
 DamageVerificationManager.VerifyAll();
-// Results written to CSV files
+// Results logged to console, mismatches detailed in logs
 ```
 
 ### Config Validation
