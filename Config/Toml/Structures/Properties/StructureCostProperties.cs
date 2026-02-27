@@ -2,7 +2,6 @@
 using CrusaderDETweaker.Config.Toml.Core;
 using CrusaderDETweaker.Data;
 using SHCDESE.Interop;
-using SHCDESE.Core.Interop;
 
 namespace CrusaderDETweaker.Config.Toml.Structures.Properties
 {
@@ -30,7 +29,7 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
                 $"Get {Name}",
                 structure.ToString(),
                 () => Plugin.BuildingApi.GetDefaultCost(structure),
-                defaultValue: default(BuildingCost)
+                defaultValue: default
             );
 
             value = GetCost(cost);

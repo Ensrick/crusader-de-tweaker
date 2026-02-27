@@ -1,4 +1,18 @@
 ﻿// Config/DamageMatrix/Core/MatrixGenerator.cs
+//
+// PURPOSE: Base class for generating damage matrix CSV files using Template Method pattern.
+//
+// USAGE:
+// - Subclasses: MeleeDamageMatrixGenerator, RangedDamageMatrixGenerator, EunuchAoeDamageMatrixGenerator
+// - Generate(): Template method that orchestrates CSV file generation
+// - Subclasses implement: GetDefenders(), GetAttackers(), BuildMatrix(), FormatHeader()
+//
+// IMPORTANT FOR AI AGENTS:
+// - This is a base class - don't instantiate directly, use subclasses
+// - Template Method pattern: base class defines workflow, subclasses implement steps
+// - CSV format: Rows = Defenders, Columns = Attackers
+// - Only generates files if they don't exist (won't overwrite user modifications)
+//
 using System;
 using System.Text;
 
@@ -6,7 +20,13 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
 {
     /// <summary>
     /// Base class for all matrix generators using Template Method pattern.
-    /// Defines the common workflow for generating damage matrices.
+    /// 
+    /// Defines the common workflow for generating damage matrices:
+    /// 1. Check if file exists (don't overwrite)
+    /// 2. Get defenders and attackers
+    /// 3. Build damage matrix from game API
+    /// 4. Write CSV file with headers
+    /// 
     /// CSV Format: Rows = Defenders, Columns = Attackers
     /// </summary>
     /// <typeparam name="TAttacker">The attacker entity type (eChimps, projectile type, etc.)</typeparam>

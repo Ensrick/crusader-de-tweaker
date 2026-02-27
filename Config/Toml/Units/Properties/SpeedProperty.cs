@@ -56,8 +56,24 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
 
         internal override bool CanApplyTo(eChimps unit)
         {
-            // Most units have speed, but TryGetFromAPI will handle units that don't
+            // Stationary siege weapons have no speed property
+            if (unit == eChimps.CHIMP_TYPE_TREBUCHET ||
+                unit == eChimps.CHIMP_TYPE_MANGONEL ||
+                unit == eChimps.CHIMP_TYPE_BALLISTA)
+                return false;
+
             return true;
+        }
+
+        /// <summary>
+        /// Try to get the original/default value from the API (captured before TOML modifications).
+        /// For properties that read directly from API, we use the current API value as default when generating.
+        /// </summary>
+        protected override bool TryGetOriginalValue(eChimps unit, out int defaultValue)
+        {
+            // When generating config, current API value is the default
+            // This is called during config generation, so API still has original values
+            return TryGetFromAPI(unit, out defaultValue);
         }
     }
 }

@@ -1,11 +1,28 @@
 // Data/StructureCategories.cs
+//
+// PURPOSE: Provides structure categorization for filtering and type detection.
+//
+// USAGE:
+// - NonModable: Used by all config systems to skip non-modifiable structures (UI placeholders, ruins, etc.)
+// - IsWall/IsTower/IsGatehouse/IsCivilStructure: Used by BepInEx damage multipliers and TOML cost properties
+//
+// IMPORTANT FOR AI AGENTS:
+// - NonModable determines which structures are skipped during config loading
+// - Structure type helpers (delegated to StructureTypeHelpers) are used for BepInEx multiplier logic
+// - Walls are in NonModable because they use BepInEx cost multipliers, not TOML properties
+//
 using SHCDESE.Interop;
 
 namespace CrusaderDETweaker.Data
 {
     /// <summary>
-    /// Categorizes structures and provides helper methods for structure type queries.
-    /// Similar to UnitCategories, but for building/structure types.
+    /// Categorizes structures for filtering and type detection.
+    /// 
+    /// Purpose:
+    /// - NonModable: Lists structures that should be skipped during config loading (UI placeholders, ruins, etc.)
+    /// - Structure type queries: Delegated to StructureTypeHelpers for BepInEx multiplier logic
+    /// 
+    /// Note: Walls are in NonModable because they use BepInEx cost multipliers, not TOML properties.
     /// </summary>
     internal static class StructureCategories
     {
@@ -19,7 +36,7 @@ namespace CrusaderDETweaker.Data
         internal static readonly eStructs[] NonModable =
         {
             eStructs.STRUCT_NULL,
-            eStructs.STRUCT_QUARRYPILE, //Can't see any moddalbe property this would have yet
+            eStructs.STRUCT_QUARRYPILE, // Can't see any modifiable property this would have yet
             eStructs.STRUCT_RUINS,
             eStructs.STRUCT_KEEP_ONE,
             eStructs.STRUCT_KEEP_TWO,
@@ -175,7 +192,6 @@ namespace CrusaderDETweaker.Data
             eStructs.STRUCT_PARADEGROUND_HVY,
             eStructs.STRUCT_PARADEGROUND_TUN,
             eStructs.STRUCT_GATE_WOOD, // not in the game
-            eStructs.STRUCT_BARRACKS_WOOD, // not in the game
             eStructs.STRUCT_GOODS_YARD, // no modable properties, unless I guess someone wants to add a cost or something
             // add structures that aren't fully supported by SHCDE-SE or modifaible
         };
@@ -183,57 +199,28 @@ namespace CrusaderDETweaker.Data
         // ========================================
         // STRUCTURE TYPE QUERIES
         // ========================================
+        // Delegated to StructureTypeHelpers for better organization
+        // ========================================
 
         /// <summary>
         /// Checks if a structure is a wall type.
-        /// Only stone and crenel walls are considered (wood walls are deprecated from old Stronghold).
         /// </summary>
-        internal static bool IsWall(eStructs structure)
-        {
-            return structure == eStructs.STRUCT_STONE_WALL ||
-                   structure == eStructs.STRUCT_CRENAL_WALL;
-        }
+        internal static bool IsWall(eStructs structure) => StructureTypeHelpers.IsWall(structure);
 
         /// <summary>
         /// Checks if a structure is a tower type.
-        /// Includes both active towers (levels 1-5) and destroyed tower remnants.
         /// </summary>
-        internal static bool IsTower(eStructs structure)
-        {
-            return structure == eStructs.STRUCT_TOWER1 ||
-                   structure == eStructs.STRUCT_TOWER2 ||
-                   structure == eStructs.STRUCT_TOWER3 ||
-                   structure == eStructs.STRUCT_TOWER4 ||
-                   structure == eStructs.STRUCT_TOWER5 ||
-                   structure == eStructs.STRUCT_TOWER1_DESTROYED ||
-                   structure == eStructs.STRUCT_TOWER2_DESTROYED ||
-                   structure == eStructs.STRUCT_TOWER3_DESTROYED ||
-                   structure == eStructs.STRUCT_TOWER4_DESTROYED ||
-                   structure == eStructs.STRUCT_TOWER5_DESTROYED;
-        }
+        internal static bool IsTower(eStructs structure) => StructureTypeHelpers.IsTower(structure);
 
         /// <summary>
         /// Checks if a structure is a gatehouse type.
-        /// Only includes moddable gatehouse structures (not UI placeholders or non-game structures).
-        /// Drawbridge is not included as it's not attackable (only cost is modifiable).
         /// </summary>
-        internal static bool IsGatehouse(eStructs structure)
-        {
-            // Only check moddable gatehouses (exclude structures in NonModable)
-            // Drawbridge is excluded as it's not attackable
-            return structure == eStructs.STRUCT_GATE_MAIN ||
-                   structure == eStructs.STRUCT_GATE_INNER;
-        }
+        internal static bool IsGatehouse(eStructs structure) => StructureTypeHelpers.IsGatehouse(structure);
 
         /// <summary>
         /// Checks if a structure is a civilian structure (not a fortification).
-        /// Civilian structures are those that are NOT towers and NOT gatehouses.
         /// </summary>
-        internal static bool IsCivilStructure(eStructs structure)
-        {
-            // Civil structures are anything that's not a tower and not a gatehouse
-            return !IsTower(structure) && !IsGatehouse(structure);
-        }
+        internal static bool IsCivilStructure(eStructs structure) => StructureTypeHelpers.IsCivilStructure(structure);
     }
 }
 

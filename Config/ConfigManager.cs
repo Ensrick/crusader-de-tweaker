@@ -1,55 +1,93 @@
+// Config/ConfigManager.cs
+//
+// PURPOSE: Central orchestrator for all configuration systems (TOML and CSV).
+//
+// INITIALIZATION ORDER (CRITICAL - DO NOT CHANGE):
+// 1. Capture original game defaults (BEFORE any configs load)
+//    - This ensures CSV comparison logic compares against true game values
+// 2. Generate default config files (if missing)
+//    - Creates template files users can edit
+// 3. Load TOML configs first (Units, Structures)
+//    - TOML configs modify unit/structure properties
+// 4. Load CSV damage matrices last
+//    - CSV values override game defaults for specific matchups
+// 5. Validate all configs (optional)
+//
+// IMPORTANT FOR AI AGENTS:
+// - Initialization order is CRITICAL - original defaults must be captured first
+// - ConfigSystems array defines which systems are initialized
+// - All config systems implement IConfigSystem interface for consistency
+// - TOML configs load before CSV matrices (CSV can override TOML changes)
+//
 using System.Collections.Generic;
 using System.Linq;
 using CrusaderDETweaker.Config.Core;
 using CrusaderDETweaker.Config.DamageMatrix;
-using CrusaderDETweaker.Config.Toml.Armor;
 using CrusaderDETweaker.Config.Toml.Systems;
 using SHCDESE.Interop;
 
 namespace CrusaderDETweaker
 {
     /// <summary>
-    /// Manages initialization of all configuration systems (TOML and CSV).
-    /// Uses the unified IConfigSystem interface for consistent initialization.
+    /// Central manager for all configuration systems (TOML and CSV).
+    /// 
+    /// This class orchestrates the initialization of all config systems using the unified
+    /// IConfigSystem interface. It ensures proper initialization order:
+    /// 
+    /// 1. Capture original game defaults (BEFORE any configs load - for CSV comparison)
+    /// 2. Generate default config files (if missing)
+    /// 3. Load TOML configs (Units, Structures)
+    /// 4. Load CSV damage matrices (overrides for specific matchups)
+    /// 5. Validate all configs (optional)
+    /// 
+    /// The unified interface allows different config types (TOML, CSV) to be managed
+    /// consistently, making it easy to add new config systems in the future.
     /// </summary>
     internal static class ConfigManager
     {
         private static readonly IConfigSystem[] ConfigSystems = new IConfigSystem[]
         {
+            // DEACTIVATED: Tag system is too complex for automated management within context limits
+            // new UnitTagsConfigSystem(),  // Load tags FIRST (before units, so tag interactions are ready)
+            new GlobalConfigSystem(),
             new UnitConfigSystem(),
             new StructureConfigSystem(),
-            new Config.Toml.Tags.TagConfigSystem(),
             new DamageMatrixConfigSystem()
         };
 
         /// <summary>
         /// Initialize all configuration systems.
-        /// Generates default config files if they don't exist, then loads and applies them.
-        /// Optionally runs validation for systems that support it.
+        /// 
+        /// This method orchestrates the complete initialization sequence:
+        /// 1. Capture original game defaults (before TOML modifications)
+        /// 2. Generate default config files (if missing)
+        /// 3. Load and apply all configs
+        /// 4. Validate all configs (if requested)
+        /// 
+        /// The order is critical: original defaults must be captured before TOML configs
+        /// are loaded, so CSV comparison logic can compare against true game values.
         /// </summary>
         /// <param name="runValidation">Whether to run validation after loading (default: true)</param>
         internal static void Initialize(bool runValidation = true)
         {
             Plugin.Logger.LogInfo($"Initializing {ConfigSystems.Length} config systems...");
 
-            // CRITICAL: Capture original game defaults BEFORE any TOML configs are loaded
-            // This ensures verification always compares against the true original game values,
+            // STEP 1: Capture original game defaults BEFORE any TOML configs are loaded.
+            // This ensures CSV comparison logic can compare against the true original game values,
             // regardless of user modifications to TOML files.
-            Plugin.Logger.LogInfo("Capturing original game defaults for verification...");
+            // 
+            // CRITICAL: This MUST happen before TOML configs are loaded, otherwise the
+            // "original" defaults will include user modifications. This breaks CSV comparison logic.
+            // 
+            // DO NOT change this order - original defaults MUST be captured first.
+            Plugin.Logger.LogInfo("Capturing original game defaults...");
             
-            // Ensure registry is initialized first (with hardcoded defaults)
-            if (!Systems.UnitDamageRegistry.HasData(eChimps.CHIMP_TYPE_PEASANT))
-            {
-                Systems.UnitDamageRegistry.GetUnitData(eChimps.CHIMP_TYPE_PEASANT); // Force initialization
-            }
-            
-            // Capture snapshot of original registry (before TOML modifications)
-            Systems.UnitDamageRegistry.CaptureOriginalSnapshot();
-            
-            // Capture original damage values from game API
+            // Capture original damage values from game API (for CSV matrix comparison)
+            // Safe to call multiple times if needed
             Config.DamageMatrix.Core.CsvMatrixReader.CaptureOriginalDefaults();
 
-            // Generate default configs for all systems
+            // STEP 3: Generate default config files for all systems (if they don't exist)
+            // This creates template files that users can edit to customize game behavior
             Plugin.Logger.LogInfo("Generating default config files...");
             int generatedCount = 0;
             foreach (var system in ConfigSystems)
@@ -67,9 +105,14 @@ namespace CrusaderDETweaker
             }
             Plugin.Logger.LogInfo($"Generated defaults for {generatedCount}/{ConfigSystems.Length} systems");
 
-            // Load and apply all configs
+            // STEP 4: Load and apply all configs
+            // This reads TOML/CSV files and applies modifications to game units/structures
             Plugin.Logger.LogInfo("Loading config files...");
             int loadedCount = 0;
+            
+            // Load all config systems in order (array ordering controls priority)
+            // TOML configs load first (via GlobalConfigSystem, UnitConfigSystem, StructureConfigSystem)
+            // CSV damage matrices load last (via DamageMatrixConfigSystem)
             foreach (var system in ConfigSystems)
             {
                 try
@@ -83,9 +126,11 @@ namespace CrusaderDETweaker
                     Plugin.Logger.LogError($"  Failed to load {system.Name}: {ex.Message}");
                 }
             }
+
             Plugin.Logger.LogInfo($"Loaded {loadedCount}/{ConfigSystems.Length} systems");
 
-            // Run validation if requested
+            // STEP 5: Run validation if requested
+            // Validation checks that configs are correct and don't contain errors
             if (runValidation)
             {
                 Plugin.Logger.LogInfo("Running validation...");
@@ -140,7 +185,7 @@ namespace CrusaderDETweaker
         internal static string GetDetailedStatus()
         {
             var statusLines = new System.Text.StringBuilder();
-            statusLines.AppendLine("=== Config Systems Status ===");
+            statusLines.AppendLine("Config Systems Status:");
             
             foreach (var system in ConfigSystems)
             {

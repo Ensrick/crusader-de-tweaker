@@ -1,7 +1,6 @@
 ﻿// Config/Toml/Structures/Properties/StructureHealthProperty.cs
 using System.Linq;
 using CrusaderDETweaker.Config.Toml.Core;
-using CrusaderDETweaker.Systems;
 using SHCDESE.Interop;
 
 namespace CrusaderDETweaker.Config.Toml.Structures.Properties

@@ -1,15 +1,7 @@
 // Config/BepInEx/Systems/UnitMultipliersConfig.cs
-using System;
-using System.Linq;
 using BepInEx.Configuration;
 using CrusaderDETweaker.Config.BepInEx.Core;
-using CrusaderDETweaker.Config.Toml.Units.Properties;
-using CrusaderDETweaker.Data;
-using R3;
-using SHCDESE.EventAPI;
-using SHCDESE.EventAPI.Units;
-using SHCDESE.Interop;
-using UnityEngine;
+using CrusaderDETweaker.Config.BepInEx.Systems.Handlers;
 
 namespace CrusaderDETweaker.Config.BepInEx.Systems
 {
@@ -33,21 +25,31 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 "Multipliers",
                 "UnitMeleeDamageTakenMultiplier",
                 1.0f,
-                "Global multiplier for all melee damage taken by units. Note: Minimum damage is always 1 (game uses default damage matrix value if damage is 0)."
+                "Global multiplier for all melee damage taken by units.\n" +
+                "Example: Set to 1.5 to increase all melee damage by 50%, or 0.75 to reduce it by 25%.\n" +
+                "Note: This multiplies the final calculated damage. Minimum damage is always 1 (game uses default if damage is 0).\n" +
+                "Tip: For fine-grained control, edit BaseMeleeDamage and ArmorValue in the TOML config files instead."
             );
 
             RangedDamageTakenMultiplier = config.Bind(
                 "Multipliers",
                 "UnitRangedDamageTakenMultiplier",
                 1.0f,
-                "Global multiplier for all ranged damage taken by units. Affects all projectile types (Arrow, Bolt, Slinger, Javelin). Base projectile damage is 2500. Note: Minimum damage is always 1 (game uses default damage matrix value if damage is 0)."
+                "Global multiplier for all ranged damage taken by units.\n" +
+                "Affects all projectile types: Arrow, Bolt, Slinger, and Javelin.\n" +
+                "Example: Set to 1.2 to increase all ranged damage by 20%, or 0.8 to reduce it by 20%.\n" +
+                "Note: This multiplies the final calculated damage. Minimum damage is always 1 (game uses default if damage is 0).\n" +
+                "Tip: Changes apply in real-time (no restart needed). For unit-specific changes, edit RangedArmorValue in TOML config."
             );
 
             HealthMultiplier = config.Bind(
                 "Multipliers",
                 "UnitHealthMultiplier",
                 1.0f,
-                "Global multiplier for unit max health"
+                "Global multiplier for unit max health.\n" +
+                "Example: Set to 1.5 to increase all unit health by 50%, or 0.75 to reduce it by 25%.\n" +
+                "Note: Changes apply to newly created units (existing units keep their current health).\n" +
+                "Tip: For unit-specific changes, edit Health property in the TOML config files."
             );
 
             ValidateMultipliers();
@@ -56,9 +58,9 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
 
         public void Apply()
         {
-            ApplyMeleeDamageMultiplier();
-            ApplyRangedDamageMultiplier();
-            ApplyHealthMultiplier();
+            MeleeDamageMultiplierHandler.Subscribe(MeleeDamageTakenMultiplier);
+            RangedDamageMultiplierHandler.Subscribe(RangedDamageTakenMultiplier);
+            HealthMultiplierHandler.Subscribe(HealthMultiplier);
         }
 
         /// <summary>
@@ -66,144 +68,11 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         /// </summary>
         private void ValidateMultipliers()
         {
-            ValidateMultiplier("UnitMeleeDamageTakenMultiplier", MeleeDamageTakenMultiplier.Value);
-            ValidateMultiplier("UnitRangedDamageTakenMultiplier", RangedDamageTakenMultiplier.Value);
-            ValidateMultiplier("UnitHealthMultiplier", HealthMultiplier.Value);
-        }
-
-        /// <summary>
-        /// Validates a single multiplier value and logs a warning if invalid.
-        /// </summary>
-        private void ValidateMultiplier(string name, float value)
-        {
-            if (value < 0.0f)
-            {
-                Plugin.Logger.LogWarning($"{name} is negative ({value}). Negative multipliers may cause unexpected behavior. Consider using a positive value.");
-            }
-            else if (float.IsNaN(value) || float.IsInfinity(value))
-            {
-                Plugin.Logger.LogError($"{name} is invalid ({value}). Using default value of 1.0.");
-            }
-        }
-
-        /// <summary>
-        /// Subscribes to melee damage event hook to apply melee damage multiplier in real-time.
-        /// </summary>
-        private void ApplyMeleeDamageMultiplier()
-        {
-            Plugin.Logger.LogInfo("Subscribing to OnUnitTakeMeleeDamage event hook...");
-            UnitR3EventHooks.OnUnitTakeMeleeDamage.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args =>
-                {
-                    try
-                    {
-                        // Commented out to reduce log spam - uncomment for debugging
-                        // Plugin.Logger.LogDebug($"OnUnitTakeMeleeDamage hook triggered: AttackerId={args.AttackingUnitId}, DefenderId={args.DamagedUnitId}, Damage={args.Damage}, Multiplier={MeleeDamageTakenMultiplier.Value}");
-                        
-                        if (Mathf.Approximately(MeleeDamageTakenMultiplier.Value, 1.0f))
-                        {
-                            // Plugin.Logger.LogDebug("Melee multiplier is 1.0, skipping modification");
-                            return;
-                        }
-
-                        eChimps attacker = Plugin.UnitApi.GetType(args.AttackingUnitId);
-                        eChimps defender = Plugin.UnitApi.GetType(args.DamagedUnitId);
-
-                        int baseDamage = args.Damage > 0
-                            ? args.Damage
-                            : Plugin.UnitApi.GetMeleeDamageFromTo(attacker, defender);
-
-                        // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
-                        // a default value from the damage matrix instead of our modified value.
-                        int modified = Mathf.Max(1, (int)(baseDamage * MeleeDamageTakenMultiplier.Value));
-
-                        // Commented out to reduce log spam - uncomment for debugging
-                        // Plugin.Logger.LogInfo($"Melee damage modification: {attacker} -> {defender} | args.Damage={args.Damage} | baseDamage={baseDamage} | multiplier={MeleeDamageTakenMultiplier.Value} | modified={modified}");
-                        args.Damage = modified;
-                        // Plugin.Logger.LogDebug($"After modification: args.Damage={args.Damage}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Plugin.Logger.LogError($"Failed to apply unit melee damage multiplier: {ex.Message}\n{ex.StackTrace}");
-                    }
-                });
-            Plugin.Logger.LogInfo("Successfully subscribed to OnUnitTakeMeleeDamage event hook");
-        }
-
-        /// <summary>
-        /// Subscribes to ranged damage event hook to apply ranged damage multiplier in real-time.
-        /// </summary>
-        private void ApplyRangedDamageMultiplier()
-        {
-            // Hook for ranged damage multiplier (using Ex version which allows damage modification)
-            UnitR3EventHooks.OnUnitTakeProjectileDamageEx.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args =>
-                {
-                    try
-                    {
-                        if (Mathf.Approximately(RangedDamageTakenMultiplier.Value, 1.0f))
-                            return;
-
-                        // Apply multiplier to projectile damage
-                        // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
-                        // a default value from the damage matrix instead of our modified value.
-                        int modified = Mathf.Max(1, (int)(args.Damage * RangedDamageTakenMultiplier.Value));
-                        args.Damage = modified;
-                    }
-                    catch (Exception ex)
-                    {
-                        Plugin.Logger.LogWarning($"Failed to apply ranged damage multiplier: {ex.Message}");
-                    }
-                });
-        }
-
-        /// <summary>
-        /// Subscribes to unit creation event hook to apply health multiplier to newly created units.
-        /// </summary>
-        private void ApplyHealthMultiplier()
-        {
-            UnitR3EventHooks.OnUnitCreate.Observable
-                .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(args =>
-                {
-                    if (Mathf.Approximately(HealthMultiplier.Value, 1.0f))
-                        return; // Skip if multiplier is 1.0
-
-                    eChimps unitType = args.UnitType;
-
-                    // Skip non-modifiable units
-                    if (UnitCategories.NonModable.Contains(unitType))
-                        return;
-
-                    try
-                    {
-                        int unitId = (int)args.ReturnValue; // ReturnValue is long, cast to int
-
-                        // Get current health and apply multiplier
-                        int currentMaxHealth = Plugin.UnitApi.GetMaxHealth(unitId);
-                        int newMaxHealth = Mathf.Max(1, (int)(currentMaxHealth * HealthMultiplier.Value));
-
-                        Plugin.UnitApi.SetMaxHealth(unitId, newMaxHealth);
-                        Plugin.UnitApi.SetCurrentHealth(unitId, newMaxHealth);
-
-                        // Apply shield health to Demolisher units
-                        if (unitType == eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER)
-                        {
-                            ushort shieldHealth = ShieldHealthProperty.GetDemolisherShieldHealth();
-                            if (shieldHealth > 0)
-                            {
-                                Plugin.UnitApi.SetShieldHealth(unitId, shieldHealth);
-                                Plugin.Logger.LogDebug($"Applied shield health {shieldHealth} to Demolisher unit {unitId}");
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Plugin.Logger.LogWarning($"Failed to apply health multiplier to {unitType}: {ex.Message}");
-                    }
-                });
+            BepInExConfigHelper.ValidateMultipliers(
+                ("UnitMeleeDamageTakenMultiplier", MeleeDamageTakenMultiplier),
+                ("UnitRangedDamageTakenMultiplier", RangedDamageTakenMultiplier),
+                ("UnitHealthMultiplier", HealthMultiplier)
+            );
         }
     }
 }

@@ -52,21 +52,23 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
                 }
 
                 // Step 4: Apply each damage value to the game
-                int appliedCount = 0;
-                int skippedCount = 0;
-
-                for (int row = 0; row < defenders.Length; row++)
-                {
-                    for (int col = 0; col < attackers.Length; col++)
-                    {
-                        if (TryApplyMatrixCell(attackers[col], defenders[row], matrix[row, col]))
-                            appliedCount++;
-                        else
-                            skippedCount++;
-                    }
-                }
+                var (appliedCount, skippedCount) = MatrixApplicationLoop.ApplyMatrix(
+                    attackers,
+                    defenders,
+                    matrix,
+                    (attacker, defender, damage) => 
+                        !attacker.HasValue || !defender.HasValue ||
+                        ShouldSkipAttacker(attacker.Value) || ShouldSkipDefender(defender.Value) ||
+                        !ValidateDamageValue(damage) ||
+                        (GetOriginalDefaultValue(attacker.Value, defender.Value) >= 0 && damage == GetOriginalDefaultValue(attacker.Value, defender.Value)),
+                    (attacker, defender, damage) => TryApplyMatrixCell(attacker, defender, damage)
+                );
 
                 Plugin.Logger.LogInfo($"Matrix loaded: Applied={appliedCount}, Skipped={skippedCount}");
+
+                // Step 5: Post-load validation hook (optional - for anomaly logging, etc.)
+                OnLoadComplete(appliedCount, skippedCount);
+
                 return true;
             }
             catch (Exception ex)
@@ -77,55 +79,81 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
         }
 
         /// <summary>
+        /// Optional hook called after matrix loading completes successfully.
+        /// Override in subclasses to add post-load validation, anomaly logging, etc.
+        /// </summary>
+        protected virtual void OnLoadComplete(int appliedCount, int skippedCount)
+        {
+            // Base implementation does nothing - override in subclasses if needed
+        }
+
+        /// <summary>
         /// Attempt to apply a single matrix cell value.
         /// Returns true if applied successfully, false if skipped.
-        /// Only applies if the value differs from the calculated value (based on TOML configs).
-        /// This prevents CSV from overriding TOML changes unless the CSV value is explicitly different.
+        /// 
+        /// CRITICAL LOGIC (DO NOT CHANGE THIS):
+        /// - CSV values are ONLY applied if they differ from ORIGINAL DEFAULT values
+        /// - If CSV == original default, skip it (game default is already correct)
+        /// - If CSV != original default, apply CSV (user explicitly modified this matchup)
         /// </summary>
         private bool TryApplyMatrixCell(TAttacker? attacker, TDefender? defender, int damage)
         {
-            if (!attacker.HasValue || !defender.HasValue)
-                return false;
+            // Note: Null checks and skip checks are now done in Load() before calling this method
+            // This method assumes valid, non-null, modifiable entities
 
             if (!ValidateDamageValue(damage))
                 return false;
 
-            // Calculate what the damage should be based on TOML configs (registry)
-            // This is the "expected" value based on current unit properties
-            int calculatedValue = GetCalculatedDamageValue(attacker.Value, defender.Value);
+            // Get the ORIGINAL DEFAULT value (from game before any mods)
+            // This is what the CSV file was generated from
+            int originalDefault = GetOriginalDefaultValue(attacker.Value, defender.Value);
             
-            // Only apply CSV value if it differs from calculated value
-            // This allows CSV to override TOML for specific matchups, but won't override
-            // if CSV has the same value as what TOML would produce
-            if (calculatedValue >= 0 && damage == calculatedValue)
-                return false; // Same as calculated (TOML), skip to avoid unnecessary override
+            if (originalDefault >= 0)
+            {
+                // Compare CSV value against ORIGINAL DEFAULT
+                if (damage == originalDefault)
+                {
+                    // CSV matches original default - user hasn't modified this matchup
+                    // Skip CSV, use game default
+                    return false;
+                }
+                else
+                {
+                    // CSV differs from original default - user explicitly modified this matchup
+                    // Apply CSV override (this overrides game default for this specific matchup)
+                    Plugin.Logger.LogDebug($"CSV override: {attacker.Value} -> {defender.Value}: CSV={damage}, Original={originalDefault}");
+                    return ApplyDamageValue(attacker.Value, defender.Value, damage);
+                }
+            }
 
-            // Apply the CSV value (it's different from calculated, so user wants this override)
+            // No original default available - apply CSV value as-is
             return ApplyDamageValue(attacker.Value, defender.Value, damage);
         }
 
         /// <summary>
-        /// Get the calculated damage value based on current TOML configs (registry).
-        /// Returns -1 if calculation is not possible or not applicable.
-        /// Override in subclasses to provide the appropriate calculation.
+        /// Get the ORIGINAL DEFAULT damage value (from game before any mods).
+        /// This is used to determine if CSV value was modified by user.
+        /// Returns -1 if original default is not available.
+        /// 
+        /// CRITICAL: This MUST return the ORIGINAL game default (captured before any mods).
+        /// This is used to compare against CSV to determine if the user explicitly modified a CSV value.
+        /// 
+        /// Override in subclasses to provide the appropriate lookup:
+        /// - MeleeDamageMatrixLoader: Use CsvMatrixReader.GetOriginalMeleeDamage()
+        /// - RangedDamageMatrixLoader: Use CsvMatrixReader.GetOriginalRangedDamage()
+        /// - EunuchAoeDamageMatrixLoader: Use CsvMatrixReader.GetOriginalEunuchAoeDamage()
+        /// 
+        /// DO NOT:
+        /// - Skip implementing this method (CSV comparison will fail)
         /// </summary>
-        protected virtual int GetCalculatedDamageValue(TAttacker attacker, TDefender defender)
+        protected virtual int GetOriginalDefaultValue(TAttacker attacker, TDefender defender)
         {
-            // Default: Can't calculate, so always apply CSV values
-            // Subclasses should override this to use their damage calculator
+            // Default: Can't get original default
+            // Subclasses MUST override this to use CsvMatrixReader
             return -1;
         }
 
-        /// <summary>
-        /// Get the current damage value from the game API.
-        /// Override in subclasses to provide the appropriate API call.
-        /// Returns true if successful, false if not supported.
-        /// </summary>
-        protected virtual bool TryGetCurrentValue(TAttacker attacker, TDefender defender, out int currentValue)
-        {
-            currentValue = 0;
-            return false; // Default: don't check current value (apply all)
-        }
+
 
         /// <summary>
         /// Parse attacker headers from CSV into entity types.
@@ -144,6 +172,7 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
         /// Return true if successful, false if skipped/failed.
         /// </summary>
         protected abstract bool ApplyDamageValue(TAttacker attacker, TDefender defender, int damage);
+
 
         /// <summary>
         /// Validate a damage value before applying.

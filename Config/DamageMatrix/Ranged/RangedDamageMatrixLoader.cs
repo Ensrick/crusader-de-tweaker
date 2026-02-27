@@ -1,6 +1,8 @@
 ﻿// Config/DamageMatrix/Ranged/RangedDamageMatrixLoader.cs
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using CrusaderDETweaker.Config.BepInEx;
 using CrusaderDETweaker.Config.DamageMatrix.Core;
 using CrusaderDETweaker.Data;
 using SHCDESE.Interop;
@@ -15,6 +17,16 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Ranged
     internal class RangedDamageMatrixLoader : MatrixLoader<ProjectileType, eChimps>
     {
         protected override string FilePath => MatrixPaths.RangedDamage;
+
+        /// <summary>
+        /// Post-load validation: Log damage anomalies by comparing current game state
+        /// against original CSV defaults.
+        /// </summary>
+        protected override void OnLoadComplete(int appliedCount, int skippedCount)
+        {
+            base.OnLoadComplete(appliedCount, skippedCount);
+            LogDamageAnomalies();
+        }
 
         /// <summary>
         /// Parse projectile type headers from CSV columns.
@@ -33,99 +45,129 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Ranged
         }
 
         /// <summary>
-        /// Apply a ranged damage value to the game.
+        /// Apply a ranged damage value to the game (from CSV override).
         /// Applies the BepInEx ranged damage multiplier if configured.
         /// </summary>
         protected override bool ApplyDamageValue(ProjectileType projectile, eChimps defender, int damage)
         {
-            // Skip non-modifiable units
-            if (ShouldSkipDefender(defender))
-                return false;
-
+            // Note: Skip checks are now done in base class Load() method before calling this
+            // This method assumes valid, modifiable entities
+            
             // Apply BepInEx ranged damage multiplier
-#pragma warning disable CS0618 // Type or member is obsolete
-            if (ConfigManagerBepinex.UnitRangedDamageTakenMultiplier != null && 
-                !Mathf.Approximately(ConfigManagerBepinex.UnitRangedDamageTakenMultiplier.Value, 1.0f))
+            var unitMultipliers = BepInExConfigManager.UnitMultipliers;
+            if (unitMultipliers?.RangedDamageTakenMultiplier != null && 
+                !Mathf.Approximately(unitMultipliers.RangedDamageTakenMultiplier.Value, 1.0f))
             {
-                damage = (int)(damage * ConfigManagerBepinex.UnitRangedDamageTakenMultiplier.Value);
+                damage = (int)(damage * unitMultipliers.RangedDamageTakenMultiplier.Value);
             }
-#pragma warning restore CS0618 // Type or member is obsolete
 
-            try
+            if (!ProjectileApiHelper.SetRangedDamage(projectile, defender, damage))
             {
-                switch (projectile)
-                {
-                    case ProjectileType.Arrow:
-                        Plugin.UnitApi.SetRangedArrowDamageTo(defender, damage);
-                        return true;
-
-                    case ProjectileType.Bolt:
-                        Plugin.UnitApi.SetRangedBoltDamageTo(defender, damage);
-                        return true;
-
-                    case ProjectileType.Slinger:
-                        Plugin.UnitApi.SetRangedSlingerDamageTo(defender, damage);
-                        return true;
-
-                    case ProjectileType.Javelin:
-                        Plugin.UnitApi.SetRangedJavelinDamageTo(defender, damage);
-                        return true;
-
-                    default:
-                        Plugin.Logger.LogWarning($"Unknown projectile type: {projectile}");
-                        return false;
-                }
-            }
-            catch (Exception ex)
-            {
-                Plugin.Logger.LogWarning($"Failed to set {projectile} damage for {defender}: {ex.Message}");
+                Plugin.Logger.LogWarning($"Failed to set {projectile} damage for {defender}");
                 return false;
             }
+
+
+            return true;
         }
+
 
         /// <summary>
         /// Check if a defender should be skipped.
         /// </summary>
         protected override bool ShouldSkipDefender(eChimps defender)
         {
-            return UnitCategories.NonModable.Contains(defender);
+            return UnitMatrixHelper.ShouldSkipUnit(defender);
         }
 
         /// <summary>
-        /// Get the current ranged damage value from the game API.
-        /// Used to determine if CSV value differs from current game state.
+        /// Get the ORIGINAL DEFAULT ranged damage value (from game before any mods).
+        /// This is used to determine if CSV value was modified by user.
         /// </summary>
-        protected override bool TryGetCurrentValue(ProjectileType projectile, eChimps defender, out int currentValue)
+        protected override int GetOriginalDefaultValue(ProjectileType projectile, eChimps defender)
         {
-            try
+            return Core.CsvMatrixReader.GetOriginalRangedDamage(projectile, defender);
+        }
+
+        /// <summary>
+        /// Log damage anomalies by comparing current game state against original CSV defaults.
+        ///
+        /// This helps identify:
+        /// - Units taking more/less ranged damage than the original CSV default
+        /// - Effects of ranged armor multiplier changes from TOML config
+        /// - Unexpected damage calculation issues
+        ///
+        /// Anomaly threshold: >10% deviation from original default
+        /// </summary>
+        private void LogDamageAnomalies()
+        {
+            Plugin.Logger.LogInfo("Analyzing ranged damage anomalies (current vs original CSV)...");
+
+            var anomalies = new List<string>();
+            int totalComparisons = 0;
+
+            foreach (ProjectileType projectile in Enum.GetValues(typeof(ProjectileType)))
             {
-                switch (projectile)
+                foreach (eChimps defender in Enum.GetValues(typeof(eChimps)))
                 {
-                    case ProjectileType.Arrow:
-                        currentValue = Plugin.UnitApi.GetRangedArrowDamageTo(defender);
-                        return true;
+                    if (UnitMatrixHelper.ShouldSkipUnit(defender))
+                        continue;
 
-                    case ProjectileType.Bolt:
-                        currentValue = Plugin.UnitApi.GetRangedBoltDamageTo(defender);
-                        return true;
+                    // Get original CSV default (unmodified game value)
+                    int originalDamage = Core.CsvMatrixReader.GetOriginalRangedDamage(projectile, defender);
+                    if (originalDamage < 0)
+                        continue; // No original default available
 
-                    case ProjectileType.Slinger:
-                        currentValue = Plugin.UnitApi.GetRangedSlingerDamageTo(defender);
-                        return true;
+                    // Skip non-combatant damage floor
+                    if (originalDamage <= 2)
+                        continue;
 
-                    case ProjectileType.Javelin:
-                        currentValue = Plugin.UnitApi.GetRangedJavelinDamageTo(defender);
-                        return true;
+                    // Get current game damage (after TOML armor multipliers applied)
+                    int currentDamage;
+                    try
+                    {
+                        currentDamage = ProjectileApiHelper.GetRangedDamage(projectile, defender);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
 
-                    default:
-                        currentValue = 0;
-                        return false;
+                    totalComparisons++;
+
+                    // Calculate deviation
+                    float deviation = Math.Abs(currentDamage - originalDamage);
+                    float deviationPercent = (deviation / originalDamage) * 100f;
+
+                    // Anomaly threshold: >10% deviation
+                    if (deviationPercent > 10f)
+                    {
+                        anomalies.Add(
+                            $"{projectile} → {defender}: " +
+                            $"Original={originalDamage}, Current={currentDamage}, " +
+                            $"Diff={currentDamage - originalDamage:+0;-0}, " +
+                            $"Deviation={deviationPercent:F1}%"
+                        );
+                    }
                 }
             }
-            catch
+
+            Plugin.Logger.LogInfo($"Ranged damage anomaly analysis complete: {anomalies.Count} anomalies found out of {totalComparisons} comparisons");
+
+            if (anomalies.Count > 0)
             {
-                currentValue = 0;
-                return false;
+                int maxLogs = Math.Min(50, anomalies.Count);
+                Plugin.Logger.LogWarning($"Showing first {maxLogs} of {anomalies.Count} ranged damage anomalies:");
+
+                for (int i = 0; i < maxLogs; i++)
+                {
+                    Plugin.Logger.LogWarning($"  [{i + 1}] {anomalies[i]}");
+                }
+
+                if (anomalies.Count > maxLogs)
+                {
+                    Plugin.Logger.LogWarning($"  ... and {anomalies.Count - maxLogs} more anomalies (suppressed to prevent log spam)");
+                }
             }
         }
     }

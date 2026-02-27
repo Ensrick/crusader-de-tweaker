@@ -12,11 +12,37 @@
     <TargetFrameworkVersion>v4.8.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>
+    <RuntimeIdentifier>win</RuntimeIdentifier>
   </PropertyGroup>
+  <!-- ============================================================================================
+       CRITICAL BUILD PATH CONFIGURATION
+       ============================================================================================
+       
+       BepInEx loads plugins from folders matching their plugin GUID. The plugin GUID is defined
+       in Plugin.cs as [BepInPlugin("CrusaderDETweaker", ...)].
+       
+       REQUIREMENTS:
+       - Plugin GUID: "CrusaderDETweaker" (defined in Plugin.cs)
+       - Plugin folder: BepInEx/plugins/CrusaderDETweaker/
+       - DLL location: BepInEx/plugins/CrusaderDETweaker/CrusaderDETweaker.dll
+       - Config file: BepInEx/config/CrusaderDETweaker.cfg
+       
+       BOTH Debug AND Release builds MUST output to the SAME folder:
+       GamePath\BepInEx\plugins\CrusaderDETweaker\
+       
+       DO NOT:
+       - Use different folders for Debug vs Release
+       - Change the GUID without updating ALL build paths
+       - Use "ensrick.crusaderdetweaker" (this was an old incorrect GUID)
+       
+       If you see a DLL in plugins/ensrick.crusaderdetweaker/, it's from an old build and should
+       be deleted. Only plugins/CrusaderDETweaker/ is the correct location.
+       ============================================================================================ -->
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
+    <!-- Debug OutputPath: MUST match plugin GUID "CrusaderDETweaker" -->
     <OutputPath>..\..\..\..\..\Program Files %28x86%29\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\CrusaderDETweaker\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
@@ -26,7 +52,9 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
+    <!-- Release OutputPath: MUST match plugin GUID "CrusaderDETweaker" (same as Debug) -->
+    <!-- CRITICAL: Both Debug and Release use the SAME folder. This is intentional. -->
+    <OutputPath>..\..\..\..\..\Program Files %28x86%29\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\CrusaderDETweaker\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -43,6 +71,14 @@
     <Reference Include="SHCDESE">
       <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath>
       <Private>False</Private>
+    </Reference>
+    <Reference Include="Zhuqiaomon">
+      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Zhuqiaomon.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="Tomlyn">
+      <HintPath>C:\Users\danjo\.nuget\packages\tomlyn\0.19.0\lib\netstandard2.0\Tomlyn.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -69,125 +105,131 @@
     <Compile Include="Config\DamageMatrix\Core\MatrixPaths.cs" />
     <Compile Include="Config\DamageMatrix\Core\CsvHelper.cs" />
     <Compile Include="Config\DamageMatrix\Core\CsvMatrixReader.cs" />
+    <Compile Include="Config\DamageMatrix\Core\CsvMatrixFallback.cs" />
+    <Compile Include="Config\DamageMatrix\Core\OriginalDefaultsCapture.cs" />
+    <Compile Include="Config\DamageMatrix\Core\MeleeDefaultsCapture.cs" />
+    <Compile Include="Config\DamageMatrix\Core\RangedDefaultsCapture.cs" />
+    <Compile Include="Config\DamageMatrix\Core\EunuchAoeDefaultsCapture.cs" />
+    <Compile Include="Config\DamageMatrix\Core\BallistaDefaultsCapture.cs" />
+    <Compile Include="Config\DamageMatrix\Core\MatrixApplicationLoop.cs" />
+    <Compile Include="Config\DamageMatrix\Core\ProjectileApiHelper.cs" />
+    <Compile Include="Config\DamageMatrix\Core\UnitMatrixHelper.cs" />
+    <Compile Include="Config\DamageMatrix\Core\BuildingMatrixHelper.cs" />
     <Compile Include="Config\DamageMatrix\DamageMatrixConfigSystem.cs" />
     <Compile Include="Config\DamageMatrix\DamageMatrixManager.cs" />
     <Compile Include="Config\DamageMatrix\EunuchAoe\EunuchAoeDamageMatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\EunuchAoe\EunuchAoeDamageMatrixLoader.cs" />
     <Compile Include="Config\DamageMatrix\EunuchAoe\EunuchAoeDamageMatrixModel.cs" />
+    <Compile Include="Config\DamageMatrix\Ballista\BallistaAttacker.cs" />
+    <Compile Include="Config\DamageMatrix\Ballista\BallistaDamageHelper.cs" />
+    <Compile Include="Config\DamageMatrix\Ballista\BallistaDamageMatrixGenerator.cs" />
+    <Compile Include="Config\DamageMatrix\Ballista\BallistaDamageMatrixLoader.cs" />
+    <Compile Include="Config\DamageMatrix\Ballista\BallistaDamageTarget.cs" />
     <Compile Include="Config\DamageMatrix\Melee\MeleeDamageMatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\Melee\MeleeDamageMatrixLoader.cs" />
     <Compile Include="Config\DamageMatrix\Ranged\RangedDamageMatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\Ranged\RangedDamageMatrixLoader.cs" />
-    <Compile Include="Config\Toml\Armor\ArmorConfig.cs" />
-    <Compile Include="Config\Toml\Armor\ArmorConfigConstants.cs" />
-    <Compile Include="Config\Toml\Armor\ArmorConfigGenerator.cs" />
-    <Compile Include="Config\Toml\Armor\ArmorConfigLoader.cs" />
-    <Compile Include="Config\Toml\Armor\ArmorConfigSystem.cs" />
+    <Compile Include="Config\DamageMatrix\UnitFireDamage\UnitFireDamageType.cs" />
+    <Compile Include="Config\DamageMatrix\UnitFireDamage\UnitFireDefaultsCapture.cs" />
+    <Compile Include="Config\DamageMatrix\UnitFireDamage\UnitFireDamageMatrixGenerator.cs" />
+    <Compile Include="Config\DamageMatrix\UnitFireDamage\UnitFireDamageMatrixLoader.cs" />
+    <Compile Include="Config\DamageMatrix\BedouinHeal\BedouinHealType.cs" />
+    <Compile Include="Config\DamageMatrix\BedouinHeal\BedouinHealDefaultsCapture.cs" />
+    <Compile Include="Config\DamageMatrix\BedouinHeal\BedouinHealMatrixGenerator.cs" />
+    <Compile Include="Config\DamageMatrix\BedouinHeal\BedouinHealMatrixLoader.cs" />
+    <Compile Include="Config\DamageMatrix\BuildingFireDamage\BuildingFireDamageType.cs" />
+    <Compile Include="Config\DamageMatrix\BuildingFireDamage\BuildingFireDefaultsCapture.cs" />
+    <Compile Include="Config\DamageMatrix\BuildingFireDamage\BuildingFireDamageMatrixGenerator.cs" />
+    <Compile Include="Config\DamageMatrix\BuildingFireDamage\BuildingFireDamageMatrixLoader.cs" />
     <Compile Include="Config\ConfigManager.cs" />
     <Compile Include="Config\Toml\ConfigGenerator.cs" />
     <Compile Include="Config\Toml\ConfigLoader.cs" />
     <Compile Include="Config\Toml\ConfigPaths.cs" />
+    <Compile Include="Config\Toml\Systems\BaseConfigSystem.cs" />
+    <Compile Include="Config\Toml\Systems\GlobalConfigSystem.cs" />
     <Compile Include="Config\Toml\Systems\StructureConfigSystem.cs" />
     <Compile Include="Config\Toml\Systems\UnitConfigSystem.cs" />
-    <Compile Include="Config\Toml\Core\ConfigFileHelper.cs" />
-    <Compile Include="Config\Toml\Core\ConfigHelpers.cs" />
-    <Compile Include="Config\Toml\Core\PropertyHandler.cs" />
-    <Compile Include="Config\Toml\Core\ErrorHandlingHelper.cs" />
-    <Compile Include="Config\Toml\Core\PropertyRegistry.cs" />
-    <Compile Include="Config\Toml\ProjectileDamage\ProjectileDamageConfig.cs" />
+    <Compile Include="Config\Toml\UnitTags\UnitTagsConfigSystem.cs" />
+    <Compile Include="Config\Toml\UnitTags\UnitTagsConfigGenerator.cs" />
+    <Compile Include="Config\Toml\UnitTags\UnitTagsConfigGenerator.Discovery.cs" />
+    <Compile Include="Config\Toml\UnitTags\UnitTagsConfigLoader.cs" />
+    <Compile Include="Config\Toml\UnitTags\AutoGenConfig.cs" />
+    <!-- Core/Helpers - Utility classes -->
+    <Compile Include="Config\Toml\Core\Helpers\ConfigFileHelper.cs" />
+    <Compile Include="Config\Toml\Core\Helpers\ConfigHelpers.cs" />
+    <Compile Include="Config\Toml\Core\Helpers\TomlFormatter.cs" />
+    <Compile Include="Config\Toml\Core\Helpers\TypeConverter.cs" />
+    <Compile Include="Config\Toml\Core\Helpers\ValueValidator.cs" />
+    <Compile Include="Config\Toml\Core\Helpers\ConfigFileHeaderWriter.cs" />
+    <Compile Include="Config\Toml\Core\Helpers\ErrorHandlingHelper.cs" />
+    <!-- Core/Logging - Logging utilities -->
+    <Compile Include="Config\Toml\Core\Logging\ErrorLogging.cs" />
+    <!-- Core/Handlers - Property and entity processing -->
+    <Compile Include="Config\Toml\Core\Handlers\EntityProcessor.cs" />
+    <Compile Include="Config\Toml\Core\Handlers\PropertyHandler.cs" />
+    <Compile Include="Config\Toml\Core\Handlers\PropertyRegistry.cs" />
     <Compile Include="Config\Toml\Structures\Properties\StructureCostProperties.cs" />
     <Compile Include="Config\Toml\Structures\Properties\StructureHealthProperty.cs" />
     <Compile Include="Config\Toml\Structures\Properties\StructureHousingPopulationSpaceProperty.cs" />
     <Compile Include="Config\Toml\Structures\StructurePropertyRegistry.cs" />
-    <Compile Include="Config\Toml\Units\Properties\ArmorValueProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BaseMeleeDamageProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\EunuchAoeDamageProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\GoldCostProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\HealthProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ResourceTypeProperties.cs" />
     <Compile Include="Config\Toml\Units\Properties\SpeedProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\TagsProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ShieldHealthProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\EunuchAoeBaseDamageProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\DiscoveredBaseDamageProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\DiscoveredArmorValueProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\WeaponProfileIdProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\ArmorProfileIdProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\KnightRunSpeedBonusProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\ArabHorsemanRunSpeedBonusProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\BedouinCamelLancerRunSpeedBonusProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\BedouinHeavyCamelRunSpeedBonusProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\ArmorMultiplierPropertyBase.cs" />
+    <Compile Include="Config\Toml\Units\Properties\MeleeArmorMultiplierProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\RangedArmorMultiplierProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\TagsProperty.cs" />
     <Compile Include="Config\Toml\Units\UnitPropertyRegistry.cs" />
-    <Compile Include="Config\Toml\Tags\TagConfig.cs" />
-    <Compile Include="Config\Toml\Tags\TagConfigGenerator.cs" />
-    <Compile Include="Config\Toml\Tags\TagConfigLoader.cs" />
-    <Compile Include="Config\Toml\Tags\TagConfigSystem.cs" />
-    <Compile Include="Data\ProjectileDamageData.cs" />
+    <Compile Include="Data\UnitTagInteraction.cs" />
+    <Compile Include="Tests\UnitTagInteractionTest.cs" />
+    <Compile Include="Tests\CoreTestRunner.cs" />
+    <Compile Include="Tests\PropertyHandlerTest.cs" />
+    <Compile Include="Tests\PropertyRegistryTest.cs" />
+    <Compile Include="Tests\EntityProcessorTest.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
+    <Compile Include="Data\StructureTypeHelpers.cs" />
     <Compile Include="Data\UnitCategories.cs" />
-    <Compile Include="Data\UnitDamageData.cs" />
-    <Compile Include="Systems\DamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\AxeDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\BaseWeaponDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\BeastDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\DamageConstants.cs" />
-    <Compile Include="Systems\DamageCalculation\DaggerDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\IWeaponDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\LanceDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\MaceDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\PolearmDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\RangedMeleeDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\SiegeDefenseHandler.cs" />
-    <Compile Include="Systems\DamageCalculation\StandardWeaponDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\SwordDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\TagVsTagModifierHelper.cs" />
-    <Compile Include="Systems\DamageCalculation\UnarmedDamageCalculator.cs" />
-    <Compile Include="Systems\DamageCalculation\WeaponDamageCalculatorFactory.cs" />
-    <Compile Include="Systems\DamageCalculation\WeaponVsArmorLookupTable.cs" />
-    <Compile Include="Systems\ProjectileDamageRegistry.cs" />
+    <Compile Include="Config\Toml\Projectiles\ProjectilePropertyRegistry.cs" />
+    <Compile Include="Config\Toml\Projectiles\Properties\ProjectileBaseDamageProperty.cs" />
     <Compile Include="Config\BepInEx\BepInExConfigManager.cs" />
+    <Compile Include="Config\BepInEx\Core\BepInExConfigHelper.cs" />
+    <Compile Include="Config\BepInEx\Core\ConfigSystemInitializer.cs" />
     <Compile Include="Config\BepInEx\Core\IBepInExConfigSystem.cs" />
-    <Compile Include="Config\BepInEx\Systems\UnitMultipliersConfig.cs" />
     <Compile Include="Config\BepInEx\Systems\StructureMultipliersConfig.cs" />
+    <Compile Include="Config\BepInEx\Systems\UnitMultipliersConfig.cs" />
     <Compile Include="Config\BepInEx\Systems\WallCostConfig.cs" />
-    <Compile Include="Config\BepInEx\ConfigManagerBepinex.cs" />
+    <Compile Include="Config\BepInEx\Systems\FireAndHealMultipliersConfig.cs" />
+    <Compile Include="Config\BepInEx\Systems\Handlers\HealthMultiplierHandler.cs" />
+    <Compile Include="Config\BepInEx\Systems\Handlers\MeleeDamageMultiplierHandler.cs" />
+    <Compile Include="Config\BepInEx\Systems\Handlers\RangedDamageMultiplierHandler.cs" />
+    <Compile Include="Config\BepInEx\Systems\Handlers\StructureDamageMultiplierHandler.cs" />
+    <Compile Include="Config\BepInEx\Systems\Handlers\StructureTypeDetector.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Systems\ArmorCategoryAnalyzer.cs" />
-    <Compile Include="Systems\ArmorValueCalculator.cs" />
-    <Compile Include="Systems\ArmorValueOptimizer.cs" />
-    <Compile Include="Systems\UnitStatsCalculator.cs" />
-    <Compile Include="Systems\DamageProfileClusterer.cs" />
-    <Compile Include="Systems\DamageMatrixSolver.cs" />
-    <Compile Include="Systems\ExceptionDetector.cs" />
-    <Compile Include="Systems\AutomatedDamageSystem.cs" />
-    <Compile Include="Systems\ModelDiscovery\MatrixFactorization.cs" />
-    <Compile Include="Systems\ModelDiscovery\FormulaDiscovery.cs" />
-    <Compile Include="Systems\ModelDiscovery\ConstraintEnforcer.cs" />
-    <Compile Include="Systems\ModelDiscovery\SystemIdentifier.cs" />
-    <Compile Include="Systems\ModelDiscovery\TomlOutputGenerator.cs" />
-    <Compile Include="Systems\ModelDiscovery\ModelValidator.cs" />
-    <Compile Include="Systems\ModelDiscovery\ModelDiscoveryTester.cs" />
-    <Compile Include="Systems\ModelDiscovery\DiscoveredPropertiesLoader.cs" />
-    <Compile Include="Systems\ModelDiscovery\DiscoveredDamageCalculator.cs" />
-    <Compile Include="Systems\ModelDiscovery\DiscoveredDamageExceptions.cs" />
-    <Compile Include="Systems\UnitDamageRegistry.cs" />
-    <Compile Include="Systems\UnitDamageRegistryInitializer.cs" />
-    <Compile Include="Systems\Verification\DamageVerificationManager.cs" />
-    <Compile Include="Systems\Verification\DamageVerifierBase.cs" />
-    <Compile Include="Systems\Verification\EunuchAoeDamageVerifier.cs" />
-    <Compile Include="Systems\Verification\IDamageVerifier.cs" />
-    <Compile Include="Systems\Verification\MeleeDamageVerifier.cs" />
-    <Compile Include="Systems\Verification\RangedDamageVerifier.cs" />
-    <Compile Include="Systems\Verification\VerificationResults.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
   </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="System.Memory">
-      <Version>4.6.3</Version>
-    </PackageReference>
-    <PackageReference Include="Tomlyn">
-      <Version>0.19.0</Version>
-    </PackageReference>
-  </ItemGroup>
+  <!-- Post-build cleanup: Remove unnecessary System.* DLLs that are already in .NET Framework runtime -->
+  <Target Name="CleanupUnnecessaryDlls" AfterTargets="Build">
+    <ItemGroup>
+      <FilesToDelete Include="$(OutputPath)System.Buffers.dll" />
+      <FilesToDelete Include="$(OutputPath)System.Memory.dll" />
+      <FilesToDelete Include="$(OutputPath)System.Numerics.Vectors.dll" />
+      <FilesToDelete Include="$(OutputPath)System.Runtime.CompilerServices.Unsafe.dll" />
+    </ItemGroup>
+    <Delete Files="@(FilesToDelete)" ContinueOnError="true" />
+    <Message Text="Cleaned up unnecessary System.* DLLs (these are part of .NET Framework runtime)" Importance="normal" />
+  </Target>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -1,15 +1,7 @@
 // Config/BepInEx/Systems/StructureMultipliersConfig.cs
-using System;
-using System.Linq;
 using BepInEx.Configuration;
 using CrusaderDETweaker.Config.BepInEx.Core;
-using CrusaderDETweaker.Data;
-using R3;
-using SHCDESE.API;
-using SHCDESE.EventAPI;
-using SHCDESE.Interop;
-using SHCDESE.Interop.Enums;
-using UnityEngine;
+using CrusaderDETweaker.Config.BepInEx.Systems.Handlers;
 
 namespace CrusaderDETweaker.Config.BepInEx.Systems
 {
@@ -34,28 +26,42 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 "Multipliers",
                 "StructureDamageTakenMultiplier",
                 1.0f,
-                "Global multiplier for damage taken by all structures"
+                "Global multiplier for damage taken by ALL structures (walls, towers, buildings, etc.).\n" +
+                "Example: Set to 1.5 to increase all structure damage by 50%, or 0.75 to reduce it by 25%.\n" +
+                "Note: More specific multipliers (walls, towers, etc.) are applied first, then this global multiplier.\n" +
+                "Tip: Changes apply in real-time (no restart needed)."
             );
 
             WallDamageTakenMultiplier = config.Bind(
                 "Multipliers",
                 "WallDamageTakenMultiplier",
                 1.0f,
-                "Multiplier for damage taken by walls (stone, crenel walls)"
+                "Multiplier for damage taken by walls (stone walls, crenel walls).\n" +
+                "Example: Set to 2.0 to make walls take double damage, or 0.5 to make them more durable.\n" +
+                "Note: Applied before the global StructureDamageTakenMultiplier.\n" +
+                "Tip: Use this to fine-tune wall durability without affecting other structures."
             );
 
             TowerDamageTakenMultiplier = config.Bind(
                 "Multipliers",
                 "TowerDamageTakenMultiplier",
                 1.0f,
-                "Multiplier for damage taken by towers (tower levels 1-5, destroyed tower remnants) and gatehouses"
+                "Multiplier for damage taken by towers and gatehouses.\n" +
+                "Affects: Tower levels 1-5, destroyed tower remnants, and gatehouses.\n" +
+                "Example: Set to 1.2 to make towers 20% more vulnerable, or 0.8 to make them 20% more durable.\n" +
+                "Note: Applied before the global StructureDamageTakenMultiplier.\n" +
+                "Tip: Useful for balancing siege gameplay."
             );
 
             CivilStructureDamageTakenMultiplier = config.Bind(
                 "Multipliers",
                 "CivilStructureDamageTakenMultiplier",
                 1.0f,
-                "Multiplier for damage taken by civilian structures (non-towers, non-gatehouses)"
+                "Multiplier for damage taken by civilian structures (buildings, houses, workshops, etc.).\n" +
+                "Does NOT affect: Walls, towers, or gatehouses.\n" +
+                "Example: Set to 0.5 to make buildings more resilient, or 1.5 to make them more vulnerable.\n" +
+                "Note: Applied before the global StructureDamageTakenMultiplier.\n" +
+                "Tip: Use this to balance economic structure durability."
             );
 
             ValidateMultipliers();
@@ -64,7 +70,11 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
 
         public void Apply()
         {
-            ApplyStructureDamageMultipliers();
+            StructureDamageMultiplierHandler.Subscribe(
+                GlobalDamageTakenMultiplier,
+                WallDamageTakenMultiplier,
+                TowerDamageTakenMultiplier,
+                CivilStructureDamageTakenMultiplier);
         }
 
         /// <summary>
@@ -72,128 +82,12 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         /// </summary>
         private void ValidateMultipliers()
         {
-            ValidateMultiplier("StructureDamageTakenMultiplier", GlobalDamageTakenMultiplier.Value);
-            ValidateMultiplier("WallDamageTakenMultiplier", WallDamageTakenMultiplier.Value);
-            ValidateMultiplier("TowerDamageTakenMultiplier", TowerDamageTakenMultiplier.Value);
-            ValidateMultiplier("CivilStructureDamageTakenMultiplier", CivilStructureDamageTakenMultiplier.Value);
-        }
-
-        /// <summary>
-        /// Validates a single multiplier value and logs a warning if invalid.
-        /// </summary>
-        private void ValidateMultiplier(string name, float value)
-        {
-            if (value < 0.0f)
-            {
-                Plugin.Logger.LogWarning($"{name} is negative ({value}). Negative multipliers may cause unexpected behavior. Consider using a positive value.");
-            }
-            else if (float.IsNaN(value) || float.IsInfinity(value))
-            {
-                Plugin.Logger.LogError($"{name} is invalid ({value}). Using default value of 1.0.");
-            }
-        }
-
-        /// <summary>
-        /// Subscribes to building tile damage event hook to apply structure damage multipliers in real-time.
-        /// </summary>
-        private void ApplyStructureDamageMultipliers()
-        {
-            Plugin.Logger.LogInfo("Subscribing to OnBuildingTileTakeDamage event hook...");
-            BuildingR3EventHooks.OnBuildingTileTakeDamage.Observable
-                .Where(args => args.Phase == EventHookPhase.Pre)
-                .Subscribe(args =>
-                {
-                    try
-                    {
-                        // Get building ID from tile ID
-                        ushort buildingId = GameTileManagerAPI.Instance.GetTileBuildingId(args.TileId);
-                        
-                        eStructs structureType = default(eStructs);
-                        bool isWall = false;
-                        bool isTower = false;
-                        bool isGatehouse = false;
-                        bool isCivilStructure = false;
-
-                        // Walls don't have building IDs - they're identified by tile property flags
-                        if (buildingId == 0)
-                        {
-                            // Check if this is a wall tile using tile property flags
-                            TilePropertyFlag tileFlags = GameTileManagerAPI.Instance.GetTilePropertyFlag(args.TileId);
-                            
-                            // Check if this tile is a wall
-                            if ((tileFlags & TilePropertyFlag.IsWall) == TilePropertyFlag.IsWall)
-                            {
-                                isWall = true;
-                                // Determine wall type based on crenelation flags
-                                bool hasCrenelation = (tileFlags & TilePropertyFlag.CrenelationComponent) == TilePropertyFlag.CrenelationComponent &&
-                                                      (tileFlags & TilePropertyFlag.CrenelationModifier) == TilePropertyFlag.CrenelationModifier;
-                                
-                                if (hasCrenelation)
-                                {
-                                    structureType = eStructs.STRUCT_CRENAL_WALL;
-                                }
-                                else
-                                {
-                                    structureType = eStructs.STRUCT_STONE_WALL;
-                                }
-                            }
-                            else
-                            {
-                                // Not a wall and no building ID - skip this tile
-                                return;
-                            }
-                        }
-                        else
-                        {
-                            // Regular building - get structure type from building API
-                            structureType = Plugin.BuildingApi.GetType(buildingId);
-
-                            // Check for walls, towers, gatehouses, and civil structures
-                            isWall = StructureCategories.IsWall(structureType);
-                            isTower = StructureCategories.IsTower(structureType);
-                            isGatehouse = StructureCategories.IsGatehouse(structureType);
-                            isCivilStructure = StructureCategories.IsCivilStructure(structureType);
-
-                            // Skip non-modifiable structures (except walls, which can take damage)
-                            if (!isWall && StructureCategories.NonModable.Contains(structureType))
-                            {
-                                return;
-                            }
-                        }
-
-                        float damageMultiplier = 1.0f;
-
-                        // Apply specific multipliers first (most specific to least specific)
-                        if (isWall)
-                        {
-                            damageMultiplier *= WallDamageTakenMultiplier.Value;
-                        }
-                        else if (isTower || isGatehouse)
-                        {
-                            // Towers and gatehouses use the same multiplier
-                            damageMultiplier *= TowerDamageTakenMultiplier.Value;
-                        }
-
-                        if (isCivilStructure)
-                        {
-                            damageMultiplier *= CivilStructureDamageTakenMultiplier.Value;
-                        }
-
-                        // Apply general structure multiplier last
-                        damageMultiplier *= GlobalDamageTakenMultiplier.Value;
-
-                        // Always apply multiplier (even if 1.0) to ensure we handle edge cases
-                        // IMPORTANT: Minimum damage must be 1. If damage is 0, the game detects this and uses
-                        // a default value from the damage matrix instead of our modified value.
-                        var modified = (int)Mathf.Clamp((float)args.Damage * damageMultiplier, 1, int.MaxValue);
-                        args.Damage = modified;
-                    }
-                    catch (Exception ex)
-                    {
-                        Plugin.Logger.LogError($"Failed to apply structure damage multiplier: {ex.Message}\n{ex.StackTrace}");
-                    }
-                });
-            Plugin.Logger.LogInfo("Successfully subscribed to OnBuildingTileTakeDamage event hook");
+            BepInExConfigHelper.ValidateMultipliers(
+                ("StructureDamageTakenMultiplier", GlobalDamageTakenMultiplier),
+                ("WallDamageTakenMultiplier", WallDamageTakenMultiplier),
+                ("TowerDamageTakenMultiplier", TowerDamageTakenMultiplier),
+                ("CivilStructureDamageTakenMultiplier", CivilStructureDamageTakenMultiplier)
+            );
         }
     }
 }

@@ -61,23 +61,10 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         /// </summary>
         private void ValidateMultipliers()
         {
-            ValidateMultiplier("LowWallCostMultiplier", LowWallCostMultiplier.Value);
-            ValidateMultiplier("HighWallCostMultiplier", HighWallCostMultiplier.Value);
-        }
-
-        /// <summary>
-        /// Validates a single multiplier value and logs a warning if invalid.
-        /// </summary>
-        private void ValidateMultiplier(string name, float value)
-        {
-            if (value < 0.0f)
-            {
-                Plugin.Logger.LogWarning($"{name} is negative ({value}). Negative multipliers may cause unexpected behavior. Consider using a positive value.");
-            }
-            else if (float.IsNaN(value) || float.IsInfinity(value))
-            {
-                Plugin.Logger.LogError($"{name} is invalid ({value}). Using default value of 1.0.");
-            }
+            BepInExConfigHelper.ValidateMultipliers(
+                ("LowWallCostMultiplier", LowWallCostMultiplier),
+                ("HighWallCostMultiplier", HighWallCostMultiplier)
+            );
         }
 
         /// <summary>

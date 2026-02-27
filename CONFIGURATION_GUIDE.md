@@ -2,271 +2,277 @@
 
 
 [size=5][b]Config Files Location[/b][/size]
-All files are in [b]BepInEx/config/[/b]
+
+All config files are in the [b]game directory[/b] (not %APPDATA%):
+[b]{GameDir}\BepInEx\config\CrusaderDETweaker\[/b]
+
+Example: [b]C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\config\CrusaderDETweaker\[/b]
+
+Files:
+[list]
+[*]CrusaderDETweaker_GlobalMultipliers.cfg - Real-time global multipliers
+[*]CrusaderDETweaker_GameplaySettings.toml - Gameplay flags, siege, stealth, trade prices, auto-trade
+[*]CrusaderDETweaker_Units.toml - Per-unit stats (health, speed, cost, weapon/armor requirements)
+[*]CrusaderDETweaker_Structures.toml - Per-structure stats (health, cost, housing)
+[*]DamageMatrices\CrusaderDETweaker_MeleeDamage.csv - Unit vs unit melee damage
+[*]DamageMatrices\CrusaderDETweaker_RangedDamage.csv - Projectile (arrow/bolt/slinger/javelin) damage per unit
+[*]DamageMatrices\CrusaderDETweaker_EunuchAoeDamage.csv - Eunuch AOE damage per unit
+[*]DamageMatrices\CrusaderDETweaker_BallistaDamage.csv - Ballista damage per unit
+[*]DamageMatrices\CrusaderDETweaker_UnitFireDamage.csv - Fire damage per unit
+[*]DamageMatrices\CrusaderDETweaker_BedouinHeal.csv - Bedouin healer amount per unit
+[*]DamageMatrices\CrusaderDETweaker_BuildingFireDamage.csv - Fire damage per building type
+[/list]
+
+[b]Note:[/b] Config files are only generated if they don't exist. Your changes are never overwritten. Delete a file to reset it to defaults.
 
 
-[size=5][b]1. ensrick.crusaderdetweaker.cfg[/b][/size]
-[b]Real-time global multipliers[/b] - affect all units/structures instantly
+[size=5][b]Load Order[/b][/size]
+[code]
+Game Defaults → TOML Configs → CSV Matrices → BepInEx Multipliers
+[/code]
+[list=1]
+[*][b]Game Defaults[/b] - Base values from the game engine
+[*][b]TOML Configs[/b] - Override unit/structure stats and gameplay settings (requires restart)
+[*][b]CSV Matrices[/b] - Override specific damage matchups (requires restart)
+[*][b]BepInEx Multipliers[/b] - Global scaling applied on top of everything else
+[/list]
+
+
+[size=5][b]1. CrusaderDETweaker_GlobalMultipliers.cfg[/b][/size]
+[b]Global multipliers[/b] - most apply in real-time without a game restart.
 
 [code]
 [Multipliers]
 # Unit Multipliers
-UnitHealthMultiplier = 1.0                    # Global multiplier for unit max health
-UnitMeleeDamageTakenMultiplier = 1.0          # Global multiplier for all melee damage taken by units (minimum damage is always 1)
-UnitRangedDamageTakenMultiplier = 1.0          # Global multiplier for all ranged damage taken by units (affects Arrow, Bolt, Slinger, Javelin; minimum damage is always 1)
+UnitHealthMultiplier = 1.0                    # All unit max health
+UnitMeleeDamageTakenMultiplier = 1.0          # All melee damage taken by units (min 1)
+UnitRangedDamageTakenMultiplier = 1.0         # Arrow/Bolt/Slinger/Javelin damage taken by units (min 1)
 
-# Structure Damage Multipliers
-StructureDamageTakenMultiplier = 1.0          # Global multiplier for damage taken by all structures
-WallDamageTakenMultiplier = 1.0               # Mu   # Multiplier for damage taken by towers (tower levels 1-5)
-CivilStructureDamageTakenMultiplier = 1.0     # Multiplier for damage taken by civilian structures (non-towers, non-gatehouses)
+# Structure Multipliers
+StructureDamageTakenMultiplier = 1.0          # All structure damage taken
+WallDamageTakenMultiplier = 1.0               # Stone wall damage taken (stacks with StructureDamageTakenMultiplier)
+CivilStructureDamageTakenMultiplier = 1.0     # Civilian structure damage taken (non-tower, non-gatehouse)
 
 # Wall Cost Multipliers
-LowWallCostMultiplier = 0.25                  # Cost multiplier for low/short walls (stone walls at low height, stairs). Game default: 0.25
-HighWallCostMultiplier = 0.5                  # Cost multiplier for high walls (stone walls at high height, crenel walls). Game default: 0.5
+LowWallCostMultiplier = 0.25                  # Cost multiplier for short walls. Game default: 0.25
+HighWallCostMultiplier = 0.5                  # Cost multiplier for high/crenel walls. Game default: 0.5
+
+# Fire, Heal & Disease Multipliers
+UnitFireDamageTakenMultiplier = 1.0           # Fire damage taken by all units
+StructureFireDamageTakenMultiplier = 1.0      # Fire damage taken by all structures
+BedouinHealMultiplier = 1.0                   # Healing amount from Bedouin healers
+DiseaseDamageMultiplier = 1.0                 # Scales all three disease damage tiers (stacks with [Disease] TOML values)
 [/code]
 
-[b]Note:[/b] Multipliers stack! For example, if a wall has `WallDamageTakenMultiplier = 0.5` and `StructureDamageTakenMultiplier = 2.0`, the final multiplier is `0.5 × 2.0 = 1.0`.
+[b]Multipliers stack.[/b] Example: WallDamageTakenMultiplier = 0.5 and StructureDamageTakenMultiplier = 2.0 → walls take 1.0× damage (0.5 × 2.0).
 
 
-[size=5][b]2. CrusaderDETweaker_Units.toml[/b][/size]
-[b]Per-unit stats[/b] - modify individual unit properties
+[size=5][b]2. CrusaderDETweaker_GameplaySettings.toml[/b][/size]
+[b]Gameplay-wide settings[/b] — covers siege engines, stealth, gates, flags, trade, and auto-trade.
+
+[b]Siege Engines[/b]
+[code]
+["Siege Engines"]
+SiegeEngineRestockStoneAmount = 20  # Stone units added per restock
+SiegeEngineRestockStoneCost = 10    # Gold cost per restock
+[/code]
+
+[b]Stealth[/b]
+[code]
+[Stealth]
+StealthDetectionRange = 160           # Range at which assassins are detected
+StealthTransparencyThreshold = 120    # Transparency level below which assassins are hidden
+[/code]
+
+[b]Stables[/b]
+[code]
+[Stables]
+StablesHorseRegenTickTarget = 550     # Ticks before a horse charge regenerates. Lower = faster regen.
+StablesHorsesCap = 4                  # Max horses tracked by the stable. WARNING: values above 4 break horse-link tracking.
+[/code]
+
+[b]Gatehouse[/b]
+[code]
+[Gatehouse]
+GateHouseCloseDistance = 200          # Distance at which gates close to enemies
+GateHouseReOpenDistance = 1200        # Distance at which gates re-open after threat passes
+[/code]
+
+[b]Disease[/b]
+[code]
+[Disease]
+DiseaseDamage1 = 150    # Damage tier 1 (lowest)
+DiseaseDamage2 = 200    # Damage tier 2
+DiseaseDamage3 = 400    # Damage tier 3 (highest)
+[/code]
+
+[b]Gameplay Options[/b]
+[code]
+["Gameplay Options"]
+BetterHealers = false           # Improve healer unit effectiveness
+FasterPeasants = false          # Increase peasant movement speed
+ImprovedArabSwordsman = false   # Buff Arab Swordsman
+ImprovedFletchers = false       # Buff Fletcher units
+ImprovedLadderman = false       # Buff Ladderman
+ImprovedSpearman = false        # Buff Spearman
+NerfEunuchs = false             # Reduce Eunuch effectiveness
+NoKnockdownWalls = false        # Walls cannot be knocked down (re-applied on each map load)
+RebalancedHorseArchers = false  # Rebalance Horse Archer stats
+UncappedPeasants = false        # Remove peasant population cap
+# Override map restrictions — only takes effect when set to true
+AllBuildingsAvailable = false
+AllUnitsAllowed = false
+AllTradeGoodsAllowed = false
+AllProductionGoodsAllowed = false
+[/code]
+
+[b]Trade Prices[/b]
+
+Set the base buy/sell price for each good at the market. Set to 0 to leave unchanged.
+[code]
+["Trade Prices"]
+STORED_WOOD_PLANKS = 20      # default: 20
+STORED_STONE_BLOCKS = 70     # default: 70
+STORED_IRON_INGOTS = 225     # default: 225
+STORED_RAW_HOPS = 75         # default: 75
+STORED_PITCH_REFINED = 100   # default: 100
+STORED_RAW_WHEAT = 115       # default: 115
+STORED_FLOUR = 160           # default: 160
+STORED_FOOD_BREAD = 40       # default: 40
+STORED_FOOD_CHEESE = 40      # default: 40
+STORED_FOOD_MEAT = 40        # default: 40
+STORED_FOOD_FRUIT = 40       # default: 40
+STORED_FOOD_ALE = 100        # default: 100
+STORED_SWORDS = 290          # default: 290
+STORED_BOWS = 155            # default: 155
+STORED_CROSSBOWS = 290       # default: 290
+STORED_SPEARS = 100          # default: 100
+STORED_PIKES = 180           # default: 180
+STORED_MACES = 290           # default: 290
+STORED_LEATHER_ARMOUR = 125  # default: 125
+STORED_METAL_ARMOUR = 290    # default: 290
+[/code]
+
+[b]Auto Trade[/b]
+
+Automatically buy/sell goods via the market at map start. Requires a Trade Post.
+[list]
+[*][b]BuyLevel[/b] — auto-buy when stock falls BELOW this amount (0 = disabled)
+[*][b]SellLevel[/b] — auto-sell when stock rises ABOVE this amount (0 = disabled)
+[/list]
+[code]
+["Auto Trade".STORED_WOOD_PLANKS]
+Enabled = false
+BuyLevel = 0
+SellLevel = 0
+
+["Auto Trade".STORED_SWORDS]
+Enabled = true
+BuyLevel = 10   # buy swords when you have fewer than 10
+SellLevel = 0
+[/code]
+
+
+[size=5][b]3. CrusaderDETweaker_Units.toml[/b][/size]
+[b]Per-unit stats[/b] — one section per unit type. Values are read from the game on first launch and written as defaults.
 
 [code]
 [CHIMP_TYPE_KNIGHT]
-Health = 20000              # Default: 20000
-Speed = 1                   # Default: 1
-BaseMeleeDamage = 50        # Default: 50
-ArmorValue = 3              # Default: 3
-GoldCost = 40               # Default: 40
-Tags = ["Armor_Heavy", "Weapon_Sword", "Ranged_None"]
-# Default: ["Armor_Heavy", "Weapon_Sword", "Ranged_None"]
-Resource1Type = "STORED_SWORDS"
-Resource1Amount = 1
-Resource2Type = "STORED_METAL_ARMOUR"
-Resource2Amount = 1
-Resource4Type = "_SE_REQUIRE_HORSE"
-Resource4Amount = 1
+Health = 20000                    # Max health
+Speed = 1                         # Movement speed
+GoldCost = 40                     # Recruitment gold cost (Crusader units only)
+WeaponType = "STORED_SWORDS"      # Required weapon resource
+ArmorType = "STORED_METAL_ARMOUR" # Required armor resource
+RequiresHorse = true              # Links unit to a stable slot on spawn
 
 [CHIMP_TYPE_ARCHER]
-Health = 2500               # Default: 2500
-Speed = 1                  # Default: 1
-BaseMeleeDamage = 10       # Default: 10
-ArmorValue = 1             # Default: 1
-GoldCost = 12              # Default: 12
-Tags = ["Armor_Light", "Weapon_Unarmed", "Ranged_Bow"]
-# Default: ["Armor_Light", "Weapon_Unarmed", "Ranged_Bow"]
-Resource1Type = "STORED_BOWS"
-Resource1Amount = 1
+Health = 2500
+Speed = 1
+GoldCost = 12
+WeaponType = "STORED_BOWS"
 [/code]
 
-[b]Available Properties:[/b] Health, Speed, BaseMeleeDamage, ArmorValue, GoldCost, Tags, Resource1-4Type, Resource1-4Amount
-
-[b]Note:[/b] Not all units have GoldCost (only recruitable units). 
-
-[b]Tags Property:[/b] Tags are arrays of strings that define unit properties:
+[b]Available Properties:[/b]
 [list]
-[*]Armor tags (`Armor_Heavy`, `Armor_Light`, etc.) - Determine armor category for damage calculation
-[*]Weapon tags (`Weapon_Sword`, `Weapon_Mace`, etc.) - Determine weapon category for damage calculation
-[*]Ranged tags (`Ranged_Bow`, `Ranged_Crossbow`, etc.) - Automatically assigned based on unit's ranged weapon (reference-only)
-[*]Special tags (`Cavalry`, `Beast`, `Hunter`, etc.) - Enable special interactions via tag vs tag modifiers
-[*]Custom tags - Create your own tags and use them in `CrusaderDETweaker_Tags.toml` for custom modifiers
+[*][b]Health[/b] — Unit max health
+[*][b]Speed[/b] — Movement speed (some special units cannot be modified)
+[*][b]GoldCost[/b] — Recruitment cost (Crusader recruitable units only)
+[*][b]WeaponType[/b] — Weapon resource: STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS, STORED_PIKES, STORED_MACES, STORED_SPEARS
+[*][b]ArmorType[/b] — Armor resource: STORED_METAL_ARMOUR, STORED_LEATHER_ARMOUR
+[*][b]RequiresHorse[/b] — Cavalry units only. When true, hooks unit spawn to link it to a stable slot.
 [/list]
 
-See section 4 (Tags Config) for more details on tag vs tag modifiers.
+[b]Note:[/b] Damage values are not set here. All combat damage is controlled by the CSV matrices below.
 
 
-[size=5][b]3. CrusaderDETweaker_Structures.toml[/b][/size]
-[b]Per-structure stats[/b] - modify building properties
+[size=5][b]4. CrusaderDETweaker_Structures.toml[/b][/size]
+[b]Per-structure stats[/b] — one section per building type.
 
 [code]
 [STRUCT_BARRACKS]
-Health = 400                # Default: 400
-GoldCost = 15               # Default: 15
-WoodCost = 0                # Default: 0
-StoneCost = 0              # Default: 0
-IronCost = 0                # Default: 0
-PitchCost = 0               # Default: 0
-HousingPopulationSpace = 0  # Default: 0
+Health = 400
+GoldCost = 15
+WoodCost = 0
+StoneCost = 0
+IronCost = 0
+PitchCost = 0
+HousingPopulationSpace = 0
 
 [STRUCT_HOVEL]
-Health = 100                # Default: 100
-GoldCost = 0                # Default: 0
-WoodCost = 6                # Default: 6
-StoneCost = 0               # Default: 0
-IronCost = 0                # Default: 0
-PitchCost = 0               # Default: 0
-HousingPopulationSpace = 8  # Default: 8 (population capacity)
-
-[STRUCT_ARMOURY]
-Health = 300                # Default: 300
-GoldCost = 100              # Default: 100
-WoodCost = 0                # Default: 0
-StoneCost = 0               # Default: 0
-IronCost = 5                # Default: 5
-PitchCost = 0               # Default: 0
-HousingPopulationSpace = 0  # Default: 0
+Health = 100
+GoldCost = 0
+WoodCost = 6
+StoneCost = 0
+IronCost = 0
+PitchCost = 0
+HousingPopulationSpace = 8
 [/code]
 
 [b]Available Properties:[/b] Health, GoldCost, WoodCost, StoneCost, IronCost, PitchCost, HousingPopulationSpace
 
-[b]Note:[/b] Walls are not included in this file - their costs are controlled by `LowWallCostMultiplier` and `HighWallCostMultiplier` in the BepInEx config file.
+[b]Note:[/b] Wall costs are controlled by [b]LowWallCostMultiplier[/b] and [b]HighWallCostMultiplier[/b] in the CFG file, not here.
 
 
-[size=5][b]4. CrusaderDETweaker_Tags.toml[/b][/size]
-[b]Tag vs Tag Modifiers[/b] - custom damage multipliers for specific tag combinations
+[size=5][b]5. CSV Damage Matrices[/b][/size]
+[b]Surgical damage overrides[/b] — override specific attacker vs. defender pairs.
 
-[code]
-# Tag vs Tag Modifiers define damage multipliers when specific tags interact
-# Format: [TagVsTag.AttackerTag_DefenderTag]
-#   AttackerTag = "<tag name>"
-#   DefenderTag = "<tag name>"
-#   Multiplier = <value>
+[b]Tip:[/b] Open CSV files in Excel or Google Sheets — they're hard to read as plain text.
 
-# Example: Polearm vs Ladderman = 5.0x damage
-[TagVsTag.Weapon_Polearm_Ladderman]
-AttackerTag = "Weapon_Polearm"
-DefenderTag = "Ladderman"
-Multiplier = 5.0
-
-# Example: Hunter vs Beast = 2.0x damage
-[TagVsTag.Hunter_Beast]
-AttackerTag = "Hunter"
-DefenderTag = "Beast"
-Multiplier = 2.0
-
-# Example: Ranged_Bow vs Armor_Heavy = 0.06x damage (arrows stopped by heavy armor)
-[TagVsTag.Ranged_Bow_Armor_Heavy]
-AttackerTag = "Ranged_Bow"
-DefenderTag = "Armor_Heavy"
-Multiplier = 0.06
-[/code]
-
-[b]Understanding Tags:[/b]
-
-Tags are just strings - no definitions needed. They're used in two places:
-[list=1]
-[*][b]Unit TOML Config[/b] - Assign tags to units (e.g., `Tags = ["Armor_Heavy", "Weapon_Sword", "Cavalry"]`)
-[*][b]Tags TOML Config[/b] - Define tag vs tag modifiers (e.g., `Weapon_Polearm vs Ladderman = 5.0x`)
-[/list]
-
-[b]Tag Categories:[/b]
-
-[list]
-[*][b]Reference-Only Tags[/b] (used for lookups, can't be arbitrarily assigned):
-    [list]
-    [*]`Armor_*` tags (`Armor_None`, `Armor_Light`, `Armor_Medium`, `Armor_Heavy`, `Armor_Siege`) - Determine armor category in damage calculation
-    [*]`Weapon_*` tags (`Weapon_Sword`, `Weapon_Mace`, etc.) - Determine weapon category in damage calculation
-    [/list]
-[*][b]Internal Tags[/b] (system-managed, removing them breaks things):
-    [list]
-    [*]`Ranged_*` tags (`Ranged_Bow`, `Ranged_Crossbow`, `Ranged_Sling`, `Ranged_Javelin`) - Automatically assigned based on unit's actual ranged weapon type. You cannot give a non-ranged unit a `Ranged_Bow` tag - it won't work. These are only used for ranged damage calculations, not melee.
-    [*]`EunuchAOE` - Used for Eunuch AOE damage calculations. Removing this from the Eunuch unit would break AOE damage.
-    [/list]
-[*][b]User-Modifiable Tags[/b] (can be assigned/removed from units):
-    [list]
-    [*]`Cavalry`, `Beast`, `Ladderman`, `Hunter`, `Predator`, `SmallPrey`, `SiegeDefense`, `Armor_Piercing`
-    [*]These can be assigned to units in the unit TOML config to enable special interactions
-    [/list]
-[*][b]Custom Tags[/b] (create your own):
-    [list]
-    [*]Simply use them in tag vs tag modifiers (e.g., `CustomTag_Elite vs Armor_Heavy = 1.5`)
-    [*]Then assign them to units in `CrusaderDETweaker_Units.toml` (e.g., `Tags = ["Weapon_Sword", "CustomTag_Elite"]`)
-    [/list]
-[/list]
-
-[b]How Tag vs Tag Modifiers Work:[/b]
-
-When a unit attacks another unit, the system checks all tag combinations:
-[list=1]
-[*]Attacker has tags: `["Weapon_Polearm", "Cavalry"]`
-[*]Defender has tags: `["Armor_Heavy", "Ladderman"]`
-[*]System checks modifiers:
-    [list]
-    [*]`Weapon_Polearm vs Ladderman` = 5.0x (found in config)
-    [*]`Weapon_Polearm vs Armor_Heavy` = 1.0x (not found, default)
-    [*]`Cavalry vs Ladderman` = 1.0x (not found, default)
-    [*]`Cavalry vs Armor_Heavy` = 1.0x (not found, default)
-    [/list]
-[*]All modifiers are multiplied together: `5.0 × 1.0 × 1.0 × 1.0 = 5.0x` final multiplier
-[/list]
-
-[b]Ranged Weapon Tags:[/b]
-
-Ranged tags (`Ranged_Bow`, `Ranged_Crossbow`, etc.) are [b]excluded from melee tag modifiers[/b]. They're only used for ranged damage calculations. The modifiers in the Tags config define how different projectile types interact with armor categories (e.g., `Ranged_Bow vs Armor_Heavy = 0.06` means arrows are mostly stopped by heavy armor).
-
-[b]Note:[/b] The Tags config file contains helpful comments explaining all available tags and their purposes. You don't need to define tags - just use them in modifiers and assign them to units.
-
-
-[size=5][b]5. Damage Matrix CSV Files[/b][/size]
-[b]Surgical damage overrides[/b] - only edit specific matchups you want to change. These are difficult to read unless you use a spreadsheet editor like Excel or Google Sheets. You'll import them and export them as CSV files.
-
-[b]CrusaderDETweaker_MeleeDamage.csv[/b] - Unit vs Unit melee damage
+[b]MeleeDamage.csv[/b] — Melee damage: rows = defender, columns = attacker
 [code]
 ,CHIMP_TYPE_KNIGHT,CHIMP_TYPE_SWORDSMAN,CHIMP_TYPE_ARCHER
 CHIMP_TYPE_KNIGHT,50,80,80
 CHIMP_TYPE_SWORDSMAN,50,100,100
 CHIMP_TYPE_ARCHER,25,25,25
 [/code]
-[i]Row = Defender, Column = Attacker. Change specific values to override damage.[/i]
 
-[b]CrusaderDETweaker_RangedDamage.csv[/b] - Projectile damage by unit
+[b]RangedDamage.csv[/b] — Projectile damage: rows = defender, columns = projectile type (Arrow, Bolt, Slinger, Javelin)
 [code]
 ,Arrow,Bolt,Slinger,Javelin
 CHIMP_TYPE_KNIGHT,150,2500,150,200
 CHIMP_TYPE_ARCHER,2500,2500,2500,2500
-CHIMP_TYPE_PEASANT,2500,2500,2500,2500
-[/code]
-[i]Change values to modify how much damage each unit takes from projectiles. Base projectile damage is 2500.[/i]
-
-[b]CrusaderDETweaker_EunuchAoeDamage.csv[/b] - Eunuch AOE damage matrix
-[i]Controls area-of-effect damage for eunuch units.[/i]
-
-[b]Note:[/b] CSV files only apply values that [b]differ from current game state[/b]. Unchanged values won't override TOML configs.
-
-
-[size=5][b]Load Order[/b][/size]
-[code]
-Game Defaults → TOML Configs (Units, Structures, Tags) → CSV Overrides → Real-time Multipliers
 [/code]
 
-[b]Detailed Flow:[/b]
-[list=1]
-[*][b]Game Defaults[/b] - Base values from the game engine
-[*][b]TOML Configs[/b] - Override defaults:
-    [list]
-    [*]`CrusaderDETweaker_Units.toml` - Sets unit stats (health, damage, armor, tags)
-    [*]`CrusaderDETweaker_Structures.toml` - Sets structure stats (health, cost, housing)
-    [*]`CrusaderDETweaker_Tags.toml` - Defines tag vs tag modifiers (used during damage calculation)
-    [/list]
-[*][b]CSV Overrides[/b] - Surgical overrides for specific matchups (only applies values that differ from TOML)
-[*][b]Real-time Multipliers[/b] - Final layer, applied via event hooks during gameplay
+[b]Other matrices[/b] follow the same row/column format:
+[list]
+[*][b]EunuchAoeDamage.csv[/b] — Eunuch AOE damage per defender unit
+[*][b]BallistaDamage.csv[/b] — Ballista projectile damage per defender unit
+[*][b]UnitFireDamage.csv[/b] — Fire damage per unit type
+[*][b]BedouinHeal.csv[/b] — Heal amount from Bedouin healers per unit type
+[*][b]BuildingFireDamage.csv[/b] — Fire damage per building type
 [/list]
 
-[b]Example:[/b]
-[list=1]
-[*]Set Knight health to 25000 in TOML
-[*]Set UnitHealthMultiplier = 2.0 in CFG
-[*]Result: Knight has 50000 health (25000 × 2.0)
-[/list]
-
-[b]Structure Damage Example:[/b]
-[list=1]
-[*]Set WallDamageTakenMultiplier = 0.5 in CFG (walls take half damage)
-[*]Set StructureDamageTakenMultiplier = 2.0 in CFG (all structures take double damage)
-[*]Result: Walls take 1.0× damage (0.5 × 2.0), other structures take 2.0× damage
-[/list]
+[b]Note:[/b] CSV files are only generated if missing. Existing files are never overwritten — your edits are safe.
 
 
 [size=5][b]Quick Tips[/b][/size]
 [list]
-[*][b]Requires game restart[/b] for TOML/CSV changes
-[*][b]Real-time multipliers[/b] (CFG file) work during gameplay - no restart needed
-[*][b]Delete configs to reset[/b] - they regenerate with vanilla values
-[*][b]Check BepInEx/LogOutput.log[/b] for errors
-[*][b]Minimum damage is always 1[/b] - setting multipliers to 0 will result in 1 damage (game uses default values if damage is 0)
-[*][b]Wall costs[/b] are controlled by multipliers in CFG, not TOML (walls are treated as tiles, not buildings)
-[*][b]Tags are just strings[/b] - no definitions needed. Create custom tags by using them in tag vs tag modifiers, then assign them to units
-[*][b]Ranged tags are internal[/b] - you can't assign `Ranged_Bow` to a non-ranged unit. They're automatically set based on the unit's actual ranged weapon type
+[*][b]TOML and CSV changes require a game restart[/b]
+[*][b]Most CFG multipliers apply in real-time[/b] — no restart needed (fire/heal multipliers are the exception)
+[*][b]Delete a config file to reset it[/b] — it will be regenerated with defaults on next launch
+[*][b]Multipliers stack[/b] — UnitMeleeDamageTakenMultiplier and StructureDamageTakenMultiplier both apply independently
+[*][b]Minimum damage is always 1[/b] — setting multipliers to 0 still results in 1 damage
+[*][b]Wall costs[/b] use multipliers in the CFG, not values in the TOML
+[*][b]Auto Trade[/b] requires a Trade Post and is re-applied on each map load
+[*][b]Check BepInEx\LogOutput.log[/b] in the game directory for errors
 [/list]
-ltiplier for damage taken by walls (stone, crenel walls)
-TowerDamageTakenMultiplier = 1.0            
