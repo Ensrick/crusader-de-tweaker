@@ -1,3 +1,23 @@
+2.1.3 - GoldCost fix, Sapper/Demolisher logging, release tooling (2026-03-02):
+
+       - **Fix: GoldCost now applies to Barracks units** — `GoldCostProperty` was writing to the managed `_unitGoldCostsDict` cache via reflection instead of calling `SetUnitGoldCost`. The cache is what the GUI tooltip and mercenary (Mercenary Post) recruitment read from, so Arab/Bedouin costs appeared to work. However, Barracks recruitment reads from a separate native cost table that only `SetUnitGoldCost` updates — so Swordsman, Pikeman, Maceman, Crossbowman, Knight, Archer, and Spearman gold costs were silently ignored in-game. Fixed by replacing the reflection approach with a direct `SetUnitGoldCost` call.
+       - **Debug: Sapper/Demolisher hit logging** — `StructureDamageMultiplierHandler` now logs `[Info]` messages when a Demolisher or Sapper hits a structure, showing raw damage before the hook, the multiplier applied, and the final damage value. Only fires for these two unit types; no spam for normal hits.
+       - **New script: `backup_configs.ps1`** — copies all config and damage matrix files to `{GameDir}\BepInEx\config\CrusaderDETweaker\Backups\<name>`. Defaults to a timestamp name; pass `-Name "label"` for a named backup.
+       - **New script: `restore_configs.ps1`** — run without arguments to list available backups; pass `-Name "label"` to restore.
+       - **New script: `package_release.ps1`** — copies the live plugin and config folders into the staging directory (`D:\Game Mods\Stronghold\Crusader DE Tweaker\BepInEx\`), excludes the `Backups` subfolder, and repacks `Crusader DE Tweaker.zip`.
+
+2.1.2 - Trade prices re-enabled, Demolisher/Sapper unit filtering (2026-02-28):
+
+       - **Fix: Trade Prices re-enabled** — SHCDE-SE 1.20.0 fixed the `GetTradeBasePrice` API. The getter now returns a `PackedGoodPrice` struct with separate `BuyPrice` and `SellPrice` fields. The setter is now correctly named `SetTradeBasePrice`. The `[Trade Prices]` section is re-enabled in the generated config; each good has `BuyPrice` and `SellPrice` sub-keys (0 = use game default, no override).
+       - **Fix: Demolisher/Sapper filtering by unit type** — `OnBuildingTileTakeDamage` exposes `AttackingUnitId`. The handler now calls `GameUnitManagerAPI.GetType(attackingUnitId)` and filters for `eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER` / `CHIMP_TYPE_BEDOUIN_SAPPER` instead of matching known base damage values.
+       - **Updated docs**: `GamePlayerManagerAPI.md` — updated Trade Prices section for SHCDE-SE 1.20.0 API.
+       - **Updated docs**: `CONFIGURATION_GUIDE.md` — Trade Prices section re-enabled; added `TowerDamageTakenMultiplier`, `DemolisherBuildingDamageMultiplier`, `SapperBuildingDamageMultiplier` to cfg reference.
+
+2.1.1 - Trade price bugfixes, gameplay option fix (2026-02-27):
+
+       - **Fix: Trade Prices disabled** — `[Trade Prices]` section removed from generated config pending a Script Extender fix. The `GetTradeBasePrice` getter truncates its return value to 32 bits, making it impossible to read back the sell price; calling the setter would silently zero the sell price for any changed good. The loader code is retained and will be re-enabled once the API is corrected.
+       - **Fix: Gameplay options** — All `[Gameplay Options]` flags (`BetterHealers`, `FasterPeasants`, `NerfEunuchs`, etc.) now only call the API when set to `true`. Previously `false` was actively applied, which could override in-game settings with the wrong value.
+
 2.1.0 - Stables, Disease, Shield Health API (2026-02-27):
 
        - **New: Stables config** - `[Stables]` section in `CrusaderDETweaker_GameplaySettings.toml` exposes `StablesHorseRegenTickTarget` (default: 550) and `StablesHorsesCap` (default: 4, max safe value). Warning: cap above 4 breaks horse-link tracking.
