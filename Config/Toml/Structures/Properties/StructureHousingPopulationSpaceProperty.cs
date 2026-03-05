@@ -24,7 +24,13 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
                 defaultValue: 0
             );
             value = (ushort)housingValue;
-            return housingValue >= 0;
+            // Skip 0-housing structures — user can add manually if needed
+            return housingValue > 0;
+        }
+
+        protected override bool TryGetOriginalValue(eStructs entity, out ushort defaultValue)
+        {
+            return TryGetFromAPI(entity, out defaultValue);
         }
 
         protected override void SetToAPI(eStructs structure, ushort value)
@@ -38,15 +44,7 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
 
         internal override bool CanApplyTo(eStructs structure)
         {
-            // Housing space can be 0 and allowed on all structures
-            // Only apply to housing structures
-            // Check if structure has any housing capacity
-            if (!TryGetFromAPI(structure, out _))
-                return false;
-
-            // If it has 0 housing capacity, it's not a housing structure
-            // But we still want to allow it in config in case user wants to add housing
-            // So we'll return true for all structures that don't throw an exception
+            // Allow loading for any structure (user can manually add housing to non-housing structures)
             return true;
         }
 

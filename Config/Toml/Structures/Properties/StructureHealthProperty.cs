@@ -27,6 +27,11 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
             return healthValue > 0;
         }
 
+        protected override bool TryGetOriginalValue(eStructs entity, out uint defaultValue)
+        {
+            return TryGetFromAPI(entity, out defaultValue);
+        }
+
         protected override void SetToAPI(eStructs structure, uint value)
         {
             ErrorHandlingHelper.TryExecute(

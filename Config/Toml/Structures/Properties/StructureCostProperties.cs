@@ -33,7 +33,13 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
             );
 
             value = GetCost(cost);
-            return true;
+            // Skip 0-cost entries — user can add them manually if needed
+            return value > 0;
+        }
+
+        protected override bool TryGetOriginalValue(eStructs entity, out int defaultValue)
+        {
+            return TryGetFromAPI(entity, out defaultValue);
         }
 
         protected override void SetToAPI(eStructs structure, int value)

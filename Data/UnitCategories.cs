@@ -201,6 +201,9 @@ namespace CrusaderDETweaker.Data
             eChimps.CHIMP_TYPE_ENGINEER,
             eChimps.CHIMP_TYPE_LADDERMAN,
             eChimps.CHIMP_TYPE_TUNNELER,
+            // NOTE: CHIMP_TYPE_BALLISTA and CHIMP_TYPE_MANGONEL are NOT here.
+            // GetUnitGoldCost returns 0 for both — their placement cost is stored outside _unitGoldCostsDict.
+            // They appear in Units TOML with Health only (HealthProperty applies to all non-NonModable units).
         };
 
         /// <summary>

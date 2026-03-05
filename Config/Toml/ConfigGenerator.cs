@@ -193,41 +193,6 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine("AllProductionGoodsAllowed = false");
                 sb.AppendLine();
 
-                sb.AppendLine("# ========================================");
-                sb.AppendLine("# Crusader DE Tweaker - Trade Prices Configuration");
-                sb.AppendLine("# ========================================");
-                sb.AppendLine("# Base prices for goods at the market.");
-                sb.AppendLine("# Values are the game defaults read at startup. Edit to override.");
-                sb.AppendLine();
-
-                // Known default prices captured from API at session start (OnStartMap).
-                // Goods not in this table will show 0 (unknown default).
-                var tradePriceDefaults = new System.Collections.Generic.Dictionary<string, long>
-                {
-                    { "STORED_WOOD_PLANKS",    20  },
-                    { "STORED_STONE_BLOCKS",   70  },
-                    { "STORED_IRON_INGOTS",    225 },
-                    { "STORED_RAW_HOPS",       75  },
-                    { "STORED_PITCH_REFINED",  100 },
-                    { "STORED_RAW_WHEAT",      115 },
-                    { "STORED_FLOUR",          160 },
-                    { "STORED_FOOD_BREAD",     40  },
-                    { "STORED_FOOD_CHEESE",    40  },
-                    { "STORED_FOOD_MEAT",      40  },
-                    { "STORED_FOOD_FRUIT",     40  },
-                    { "STORED_FOOD_ALE",       100 },
-                    { "STORED_SWORDS",         290 },
-                    { "STORED_BOWS",           155 },
-                    { "STORED_CROSSBOWS",      290 },
-                    { "STORED_SPEARS",         100 },
-                    { "STORED_PIKES",          180 },
-                    { "STORED_MACES",          290 },
-                    { "STORED_LEATHER_ARMOUR", 125 },
-                    { "STORED_METAL_ARMOUR",   290 },
-                };
-
-                // Goods that exist in the enum but are not player-tradeable at the market.
-                // Gold is map/difficulty-dependent; raw materials are intermediate goods.
                 var nonTradeableGoods = new System.Collections.Generic.HashSet<string>
                 {
                     "STORED_NULL",        // null/empty good sentinel — not a real good
@@ -237,18 +202,52 @@ namespace CrusaderDETweaker.Config.Toml
                     "STORED_GOLD",        // starting gold — map/difficulty setting, not a trade price
                 };
 
-                sb.AppendLine("# Override the game's base buy/sell price for each good.");
-                sb.AppendLine("# Set to 0 to leave the game's built-in default unchanged.");
-                sb.AppendLine("[\"Trade Prices\"]");
+                sb.AppendLine("# ========================================");
+                sb.AppendLine("# Crusader DE Tweaker - Trade Prices Configuration");
+                sb.AppendLine("# ========================================");
+                sb.AppendLine("# BuyPrice:  gold paid per unit when buying at the market. 0 = use game default (no override).");
+                sb.AppendLine("# SellPrice: gold received per unit when selling at the market. 0 = use game default (no override).");
+                sb.AppendLine("# Requires a Trade Post. Re-applied on each map load.");
+                sb.AppendLine();
+
+                // Hardcoded defaults captured from live game session via LogTradePriceDefaults().
+                var tradePriceDefaults = new System.Collections.Generic.Dictionary<string, (int Buy, int Sell)>
+                {
+                    { "STORED_WOOD_PLANKS",    (Buy:  20, Sell:   5) },
+                    { "STORED_RAW_HOPS",       (Buy:  75, Sell:  40) },
+                    { "STORED_STONE_BLOCKS",   (Buy:  70, Sell:  35) },
+                    { "STORED_IRON_INGOTS",    (Buy: 225, Sell: 115) },
+                    { "STORED_PITCH_REFINED",  (Buy: 100, Sell:  50) },
+                    { "STORED_RAW_WHEAT",      (Buy: 115, Sell:  40) },
+                    { "STORED_FOOD_BREAD",     (Buy:  40, Sell:  20) },
+                    { "STORED_FOOD_CHEESE",    (Buy:  40, Sell:  20) },
+                    { "STORED_FOOD_MEAT",      (Buy:  40, Sell:  20) },
+                    { "STORED_FOOD_FRUIT",     (Buy:  40, Sell:  20) },
+                    { "STORED_FOOD_ALE",       (Buy: 100, Sell:  50) },
+                    { "STORED_FLOUR",          (Buy: 160, Sell:  50) },
+                    { "STORED_BOWS",           (Buy: 155, Sell:  75) },
+                    { "STORED_CROSSBOWS",      (Buy: 290, Sell: 150) },
+                    { "STORED_SPEARS",         (Buy: 100, Sell:  50) },
+                    { "STORED_PIKES",          (Buy: 180, Sell:  90) },
+                    { "STORED_MACES",          (Buy: 290, Sell: 150) },
+                    { "STORED_SWORDS",         (Buy: 290, Sell: 150) },
+                    { "STORED_LEATHER_ARMOUR", (Buy: 125, Sell:  60) },
+                    { "STORED_METAL_ARMOUR",   (Buy: 290, Sell: 150) },
+                };
+
                 foreach (eGoods good in Enum.GetValues(typeof(eGoods)))
                 {
                     string goodName = good.ToString();
-                    if (!goodName.StartsWith("STORED_")) continue; // skip STORED_NULL, _SE_* specials, Count sentinel
+                    if (!goodName.StartsWith("STORED_")) continue;
                     if (nonTradeableGoods.Contains(goodName)) continue;
-                    long def = tradePriceDefaults.TryGetValue(goodName, out var d) ? d : 0;
-                    sb.AppendLine($"{goodName} = {def}  # default: {def}");
+
+                    tradePriceDefaults.TryGetValue(goodName, out var defaults);
+
+                    sb.AppendLine($"[\"Trade Prices\".{goodName}]");
+                    sb.AppendLine($"BuyPrice = 0  # default: {defaults.Buy}");
+                    sb.AppendLine($"SellPrice = 0  # default: {defaults.Sell}");
+                    sb.AppendLine();
                 }
-                sb.AppendLine();
 
                 sb.AppendLine("# ========================================");
                 sb.AppendLine("# Crusader DE Tweaker - Auto Trade Configuration");

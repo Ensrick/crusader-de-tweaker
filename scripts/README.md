@@ -1,166 +1,109 @@
-# Scripts Directory - AI Agent Reference
+# Scripts — CrusaderDETweaker
 
-> **Purpose**: Development automation scripts for building, launching, and testing.
-> **Primary Audience**: AI coding agents and developers.
-
-## Quick Reference
-
-| Script | Status | Purpose |
-|--------|--------|---------|
-| `build.ps1` | **ACTIVE** | Build the plugin DLL |
-| `launch_game.ps1` | **ACTIVE** | Build and launch game via Steam |
-| `check_game_running.ps1` | **ACTIVE** | Check if Stronghold is running |
-| `test_initialization_order.ps1` | **ACTIVE** | Test config system init order |
-| `test_reload_tracking.ps1` | **ACTIVE** | Test reload tracking system |
+Development and release automation scripts.
 
 ---
 
-## Core Scripts (ACTIVE)
+## Release Pipeline
 
-### build.ps1
-**Purpose**: Compiles the CrusaderDETweaker plugin using MSBuild.
+### `release.ps1` ⭐
+**The main script. Runs the full release pipeline end-to-end.**
 
-**Usage**:
 ```powershell
-.\scripts\build.ps1
+.\scripts\release.ps1                        # auto-named backup
+.\scripts\release.ps1 -BackupName "pre-v2.2" # named backup
 ```
 
-**Behavior**:
-- Locates MSBuild via vswhere
-- Builds in Release configuration
-- Copies DLL to BepInEx plugins folder
-- Returns exit code 0 on success, 1 on failure
+**Steps (in order):**
+1. `build.ps1` — compile plugin DLL
+2. `backup_configs.ps1` — save your current configs
+3. `reset_configs.ps1` — delete live configs
+4. `launch_game.ps1` — start game, wait for init, kill it (generates fresh default configs)
+5. `package_release.ps1` — copy plugin + fresh configs to staging dir, create zip
+6. `restore_configs.ps1` — put your personal configs back
 
-**Exit Codes**:
-| Code | Meaning |
-|------|---------|
-| 0 | Build successful |
-| 1 | Build failed |
+Aborts at any step on failure. Your configs are always safe in the backup before they're deleted.
 
 ---
 
-### launch_game.ps1
-**Purpose**: Builds the plugin and launches Stronghold: Crusader DE via Steam.
+## Individual Scripts
 
-**Usage**:
+### `build.ps1`
+Compiles the plugin DLL using MSBuild (falls back to `dotnet build`).
+
+```powershell
+.\scripts\build.ps1
+.\scripts\build.ps1 -Configuration Debug
+```
+
+Output: `{GamePath}\BepInEx\plugins\CrusaderDETweaker\CrusaderDETweaker.dll`
+
+---
+
+### `backup_configs.ps1`
+Copies all config files and damage matrices to a named backup folder.
+
+```powershell
+.\scripts\backup_configs.ps1                  # timestamp name
+.\scripts\backup_configs.ps1 -Name "pre-v2.2" # named backup
+```
+
+Backs up: `GlobalMultipliers.cfg`, `GameplaySettings.toml`, `Structures.toml`, `Units.toml`, `DamageMatrices\*.csv` (11 files total).
+
+Destination: `{GamePath}\BepInEx\config\CrusaderDETweaker\Backups\<name>\`
+
+---
+
+### `reset_configs.ps1`
+Deletes all live config files so the game regenerates defaults on next launch.
+
+```powershell
+.\scripts\reset_configs.ps1
+```
+
+---
+
+### `restore_configs.ps1`
+Restores configs from a previous backup.
+
+```powershell
+.\scripts\restore_configs.ps1                  # list available backups
+.\scripts\restore_configs.ps1 -Name "pre-v2.2" # restore named backup
+```
+
+---
+
+### `launch_game.ps1`
+Launches Stronghold Crusader DE via Steam, forces windowed mode, waits for plugin initialization, then kills the game.
+
 ```powershell
 .\scripts\launch_game.ps1
 ```
 
-**Behavior**:
-1. Calls `build.ps1`
-2. If build succeeds, launches `steam://run/3024040`
-3. Waits 3 seconds for Steam to start the game
-
-**Dependencies**: `build.ps1`, Steam
+Used by `release.ps1` to generate fresh default config files. Also shared with CrusaderDEHandicap's release pipeline (both mods load in the same session).
 
 ---
 
-### check_game_running.ps1
-**Purpose**: Checks if Stronghold Crusader DE is currently running.
+### `package_release.ps1`
+Copies the live plugin folder and config folder (excluding `Backups/`) to the staging directory and repacks the release zip.
 
-**Usage**:
 ```powershell
-.\scripts\check_game_running.ps1
+.\scripts\package_release.ps1
 ```
 
-**Exit Codes**:
-| Code | Meaning |
-|------|---------|
-| 0 | Game is running |
-| 1 | Game is not running |
+Output: `D:\Game Mods\Stronghold\Crusader DE Tweaker\Crusader DE Tweaker.zip`
 
 ---
 
-## Test Scripts (ACTIVE)
-
-### test_initialization_order.ps1
-**Purpose**: Verifies config system initialization order is correct.
-
-**Usage**:
-```powershell
-.\scripts\test_initialization_order.ps1
-```
-
-**What It Tests**:
-- BepInEx config initialized before TOML
-- Damage matrix initialized before property handlers
-- All systems initialize without errors
+### `check_game_running.ps1`
+Checks whether Stronghold Crusader DE is currently running. Exit 0 = running, Exit 1 = not.
 
 ---
 
-### test_reload_tracking.ps1
-**Purpose**: Tests that reload tracking correctly detects config changes.
-
-**Usage**:
-```powershell
-.\scripts\test_reload_tracking.ps1
-```
-
-**What It Tests**:
-- Change detection works for modified values
-- Unchanged values are not flagged
-- Reset detection works correctly
+### `test_initialization_order.ps1`
+Verifies config system initialization order (BepInEx cfg before TOML, damage matrix before property handlers).
 
 ---
 
-## AI Agent Usage Guide
-
-### Common Workflows
-
-**Building the Plugin**:
-```powershell
-.\scripts\build.ps1
-# Check exit code: $LASTEXITCODE -eq 0 means success
-```
-
-**Build and Test in Game**:
-```powershell
-.\scripts\launch_game.ps1
-# Then check game logs for test output
-```
-
-**Running Unit Tests**:
-```powershell
-# Unit tests are currently DISABLED in Plugin.cs
-# To re-enable for development: uncomment CoreTestRunner.RunAllTests() in Plugin.cs
-# Then check BepInEx console for: "ALL 4 TEST SUITES PASSED"
-```
-
-**Verifying Game State**:
-```powershell
-if (.\scripts\check_game_running.ps1) {
-    Write-Host "Game is running"
-} else {
-    Write-Host "Game is not running"
-}
-```
-
-### Exit Code Convention
-
-All active scripts follow this convention:
-- **Exit 0**: Success / Condition true
-- **Exit 1**: Failure / Condition false
-
-### Script Dependencies
-
-```
-launch_game.ps1
-    └── build.ps1
-            └── MSBuild (via vswhere)
-
-check_game_running.ps1
-    └── (standalone)
-
-test_*.ps1
-    └── Requires game running with plugin loaded
-```
-
----
-
-## Related Documentation
-
-- [CLAUDE.MD](../CLAUDE.MD) - AI agent instructions
-- [DEVELOPER_NOTES.md](../DEVELOPER_NOTES.md) - Architecture overview
-- [CONTRIBUTING.md](../CONTRIBUTING.md) - Contribution guidelines
-- [DAMAGE_NOTES.md](../DAMAGE_NOTES.md) - Damage system research notes
+### `test_reload_tracking.ps1`
+Tests that reload tracking correctly detects config changes (change detection, unchanged values, reset detection).

@@ -575,36 +575,42 @@ public void SetAutoTrade(eGoods goods, bool enabled, ushort buyLevel, ushort sel
 
 ### `GetTradeBasePrice`
 
-Gets the base trade price of a good at the market.
+Gets the base trade price of a good at the market as a `PackedGoodPrice` struct containing separate buy and sell prices.
 
 ```csharp
 [LuaApiExport("Player_GetTradeBasePrice")]
-public Int64 GetTradeBasePrice(eGoods good)
+public PackedGoodPrice GetTradeBasePrice(eGoods good)
 ```
 
-**Returns:** The base price (lower 32 bits are the effective value). `-1` on error.
+**Returns:** A `PackedGoodPrice` struct with `BuyPrice` and `SellPrice` fields. Returns a default struct on error.
+
+> **Note (SHCDE-SE 1.20.0):** The previous API returned `Int64` with the buy price truncated to the lower 32 bits, making it impossible to read the sell price. This was fixed in 1.20.0 with the `PackedGoodPrice` struct.
 
 **Example:**
 ```csharp
-long price = Plugin.PlayerApi.GetTradeBasePrice(eGoods.STORED_WOOD_PLANKS);
+var price = Plugin.PlayerApi.GetTradeBasePrice(eGoods.STORED_WOOD_PLANKS);
+int buy  = price.BuyPrice;
+int sell = price.SellPrice;
 ```
 
 ---
 
-### `GetTradeBasePrice` (setter overload)
+### `SetTradeBasePrice`
 
 Sets the base trade price of a good at the market.
 
 ```csharp
 [LuaApiExport("Player_SetTradeBasePrice")]
-public void GetTradeBasePrice(eGoods good, Int64 price)
+public void SetTradeBasePrice(eGoods good, PackedGoodPrice price)
 ```
 
-> **Note:** The SHCDE-SE source has a naming typo — both the getter and setter are named `GetTradeBasePrice`. They are distinguished by parameter count. The Lua export is `Player_SetTradeBasePrice` but the C# name is `GetTradeBasePrice(eGoods, long)`.
+> **Note (SHCDE-SE 1.20.0):** Previously this was a misnamed overload of `GetTradeBasePrice(eGoods, long)`. Corrected to `SetTradeBasePrice` in 1.20.0.
 
 **Example:**
 ```csharp
-Plugin.PlayerApi.GetTradeBasePrice(eGoods.STORED_WOOD_PLANKS, 150); // setter overload
+var current = Plugin.PlayerApi.GetTradeBasePrice(eGoods.STORED_WOOD_PLANKS);
+current.BuyPrice = 150;
+Plugin.PlayerApi.SetTradeBasePrice(eGoods.STORED_WOOD_PLANKS, current);
 ```
 
 ---

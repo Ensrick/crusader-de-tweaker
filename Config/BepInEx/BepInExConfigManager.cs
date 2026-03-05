@@ -39,6 +39,12 @@ namespace CrusaderDETweaker.Config.BepInEx
     /// </summary>
     internal static class BepInExConfigManager
     {
+        /// <summary>
+        /// Gets the debug logging toggle. When true, all event hooks log step-by-step details.
+        /// WARNING: Generates very high log volume during gameplay. Use only when diagnosing hook issues.
+        /// </summary>
+        internal static ConfigEntry<bool> DebugLogging { get; private set; }
+
         private static readonly IBepInExConfigSystem[] ConfigSystems = new IBepInExConfigSystem[]
         {
             new UnitMultipliersConfig(),
@@ -90,6 +96,16 @@ namespace CrusaderDETweaker.Config.BepInEx
         internal static void Initialize(ConfigFile config)
         {
             Plugin.Logger.LogInfo($"Initializing {ConfigSystems.Length} BepInEx config systems...");
+
+            // Bind debug toggle first so handlers can read it during Apply()
+            DebugLogging = config.Bind(
+                "Debug",
+                "DebugLogging",
+                false,
+                "Enable step-by-step debug logging for all event hooks.\n" +
+                "WARNING: Very high log volume during gameplay. Use only when diagnosing hook issues.\n" +
+                "Tip: Changes apply in real-time (no restart needed)."
+            );
 
             // PHASE 1: Initialize all systems (bind ConfigEntry properties)
             ConfigSystemInitializer.InitializeAll(ConfigSystems, config);

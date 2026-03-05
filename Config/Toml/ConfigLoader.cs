@@ -325,28 +325,28 @@ namespace CrusaderDETweaker.Config.Toml
                 return false;
             }
 
-            if (ParseBool("BetterHealers", out var bh))
-                Plugin.PlayerApi?.SetBetterHealers(bh);
-            if (ParseBool("FasterPeasants", out var fp))
-                Plugin.PlayerApi?.SetFasterPeasants(fp);
-            if (ParseBool("ImprovedArabSwordsman", out var ias))
-                Plugin.PlayerApi?.SetImprovedArabSwordsman(ias);
-            if (ParseBool("ImprovedFletchers", out var inf))
-                Plugin.PlayerApi?.SetImprovedFletchers(inf);
-            if (ParseBool("ImprovedLadderman", out var il))
-                Plugin.PlayerApi?.SetImprovedLadderman(il);
-            if (ParseBool("ImprovedSpearman", out var isp))
-                Plugin.PlayerApi?.SetImprovedSpearman(isp);
-            if (ParseBool("NerfEunuchs", out var ne))
-                Plugin.PlayerApi?.SetNerfEunuchs(ne);
-            if (ParseBool("NoKnockdownWalls", out var nkw))
-                Plugin.PlayerApi?.SetNoKnockdownWalls(nkw);
-            if (ParseBool("RebalancedHorseArchers", out var rha))
-                Plugin.PlayerApi?.SetRebalancedHorseArchers(rha);
-            if (ParseBool("UncappedPeasants", out var ucp))
-                Plugin.PlayerApi?.SetUncappedPeasants(ucp);
-            // These are map-restriction overrides. Only call the API when the value is true.
-            // false = "don't override" (leave map restrictions as-is), not "disable everything".
+            // All gameplay options only override when true.
+            // false = "don't override" (leave game default as-is), not "explicitly disable".
+            if (ParseBool("BetterHealers", out var bh) && bh)
+                Plugin.PlayerApi?.SetBetterHealers(true);
+            if (ParseBool("FasterPeasants", out var fp) && fp)
+                Plugin.PlayerApi?.SetFasterPeasants(true);
+            if (ParseBool("ImprovedArabSwordsman", out var ias) && ias)
+                Plugin.PlayerApi?.SetImprovedArabSwordsman(true);
+            if (ParseBool("ImprovedFletchers", out var inf) && inf)
+                Plugin.PlayerApi?.SetImprovedFletchers(true);
+            if (ParseBool("ImprovedLadderman", out var il) && il)
+                Plugin.PlayerApi?.SetImprovedLadderman(true);
+            if (ParseBool("ImprovedSpearman", out var isp) && isp)
+                Plugin.PlayerApi?.SetImprovedSpearman(true);
+            if (ParseBool("NerfEunuchs", out var ne) && ne)
+                Plugin.PlayerApi?.SetNerfEunuchs(true);
+            if (ParseBool("NoKnockdownWalls", out var nkw) && nkw)
+                Plugin.PlayerApi?.SetNoKnockdownWalls(true);
+            if (ParseBool("RebalancedHorseArchers", out var rha) && rha)
+                Plugin.PlayerApi?.SetRebalancedHorseArchers(true);
+            if (ParseBool("UncappedPeasants", out var ucp) && ucp)
+                Plugin.PlayerApi?.SetUncappedPeasants(true);
             if (ParseBool("AllBuildingsAvailable", out var aba) && aba)
                 Plugin.PlayerApi?.SetAllBuildingAvailability(true);
             if (ParseBool("AllUnitsAllowed", out var aua) && aua)
@@ -405,16 +405,43 @@ namespace CrusaderDETweaker.Config.Toml
 
             foreach (var kvp in tpTable)
             {
+                if (!(kvp.Value is TomlTable goodTable))
+                    continue;
+
                 if (!Enum.TryParse<eGoods>(kvp.Key, out var good))
                 {
                     Plugin.Logger.LogWarning($"[Trade Prices] Unknown good: '{kvp.Key}'");
                     continue;
                 }
 
-                if (kvp.Value is long price)
+                // Get current prices — preserves whichever price is not configured.
+                var currentPriceOpt = Plugin.PlayerApi?.GetTradeBasePrice(good);
+                if (!currentPriceOpt.HasValue) continue;
+
+                var currentPrice = currentPriceOpt.Value;
+                bool changed = false;
+
+                if (goodTable.TryGetValue("BuyPrice", out var buyVal) && buyVal is long buyLong && buyLong > 0)
                 {
-                    if (price == 0) continue; // 0 = use game default, do not override
-                    Plugin.PlayerApi?.GetTradeBasePrice(good, price);
+                    if ((int)buyLong != currentPrice.BuyPrice)
+                    {
+                        currentPrice.BuyPrice = (int)buyLong;
+                        changed = true;
+                    }
+                }
+
+                if (goodTable.TryGetValue("SellPrice", out var sellVal) && sellVal is long sellLong && sellLong > 0)
+                {
+                    if ((int)sellLong != currentPrice.SellPrice)
+                    {
+                        currentPrice.SellPrice = (int)sellLong;
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                {
+                    Plugin.PlayerApi?.SetTradeBasePrice(good, currentPrice);
                     applied++;
                 }
             }

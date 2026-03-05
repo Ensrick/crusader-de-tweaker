@@ -78,6 +78,9 @@ Global multipliers applied during gameplay (no restart needed):
 - **`LowWallCostMultiplier`**: Cost multiplier for low/short walls (default: 0.25)
 - **`HighWallCostMultiplier`**: Cost multiplier for high walls and crenel walls (default: 0.5)
 
+**Debugging:**
+- **`DebugLogging`** (`[Debug]` section, default: `false`): Enable step-by-step logging for all event hooks. Applies in real-time. Warning: very high log volume during gameplay — only enable when diagnosing hook issues.
+
 **When to use:** For quick balance adjustments during gameplay. Changes apply immediately without restarting.
 
 ### Load Order

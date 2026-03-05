@@ -171,6 +171,7 @@
     <Compile Include="Config\Toml\Structures\Properties\StructureCostProperties.cs" />
     <Compile Include="Config\Toml\Structures\Properties\StructureHealthProperty.cs" />
     <Compile Include="Config\Toml\Structures\Properties\StructureHousingPopulationSpaceProperty.cs" />
+    <Compile Include="Config\Toml\Structures\Properties\KillingPitDamageProperty.cs" />
     <Compile Include="Config\Toml\Structures\StructurePropertyRegistry.cs" />
     <Compile Include="Config\Toml\Units\Properties\BaseMeleeDamageProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\EunuchAoeDamageProperty.cs" />

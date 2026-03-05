@@ -9,7 +9,8 @@
 // IMPORTANT FOR AI AGENTS:
 // - NonModable determines which structures are skipped during config loading
 // - Structure type helpers (delegated to StructureTypeHelpers) are used for BepInEx multiplier logic
-// - Walls are in NonModable because they use BepInEx cost multipliers, not TOML properties
+// - Walls are in NonModable: GetDefaultHealth returns 0 (not in health table); costs use BepInEx multipliers
+// - Ballista/Mangonel are in NonModable: GetDefaultCost returns garbage (not in building cost table)
 //
 using SHCDESE.Interop;
 
@@ -22,7 +23,9 @@ namespace CrusaderDETweaker.Data
     /// - NonModable: Lists structures that should be skipped during config loading (UI placeholders, ruins, etc.)
     /// - Structure type queries: Delegated to StructureTypeHelpers for BepInEx multiplier logic
     /// 
-    /// Note: Walls are in NonModable because they use BepInEx cost multipliers, not TOML properties.
+    /// Note: Walls are in NonModable — wall health is not in the building health table (GetDefaultHealth = 0).
+    ///       Use WallDamageTakenMultiplier in BepInEx CFG to affect wall durability.
+    ///       Ballista/Mangonel are in NonModable — their costs are not in the building cost table.
     /// </summary>
     internal static class StructureCategories
     {
@@ -53,15 +56,15 @@ namespace CrusaderDETweaker.Data
             eStructs.STRUCT_TUNNEL_CONSTRUCTION,
             eStructs.STRUCT_DOCK,
             eStructs.STRUCT_MAX, // UI probably
-            eStructs.STRUCT_STONE_WALL, // Walls use global cost multipliers (BepInEx config), not regular properties
-            eStructs.STRUCT_CRENAL_WALL, // Walls use global cost multipliers (BepInEx config), not regular properties
+            eStructs.STRUCT_STONE_WALL, // Wall health not in building health table (GetDefaultHealth returns 0); use WallDamageTakenMultiplier in BepInEx CFG
+            eStructs.STRUCT_CRENAL_WALL, // Same as STONE_WALL
             eStructs.STRUCT_WOOD_WALL, // Deprecated from old Stronghold, not used in Crusader
             eStructs.STRUCT_WAS_WALL,
             eStructs.STRUCT_BEE_HIVE,
             eStructs.STRUCT_STAIRS,
             eStructs.STRUCT_BRAZIER,
-            eStructs.STRUCT_MANGONEL,
-            eStructs.STRUCT_BALLISTA,
+            eStructs.STRUCT_MANGONEL, // Not in building cost table — GetDefaultCost returns garbage memory; not modifiable
+            eStructs.STRUCT_BALLISTA, // Same as MANGONEL
             eStructs.STRUCT_HEAD_ON_SPIKE,
             eStructs.STRUCT_GARDEN_SMALL,
             eStructs.STRUCT_GARDEN_MED,

@@ -19,6 +19,8 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         public ConfigEntry<float> WallDamageTakenMultiplier { get; private set; }
         public ConfigEntry<float> TowerDamageTakenMultiplier { get; private set; }
         public ConfigEntry<float> CivilStructureDamageTakenMultiplier { get; private set; }
+        public ConfigEntry<float> DemolisherBuildingDamageMultiplier { get; private set; }
+        public ConfigEntry<float> SapperBuildingDamageMultiplier { get; private set; }
 
         public void Initialize(ConfigFile config)
         {
@@ -64,6 +66,26 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 "Tip: Use this to balance economic structure durability."
             );
 
+            DemolisherBuildingDamageMultiplier = config.Bind(
+                "Multipliers",
+                "DemolisherBuildingDamageMultiplier",
+                1.0f,
+                "Multiplier for building damage dealt by Bedouin Demolishers.\n" +
+                "Identified via the AttackingUnitId on the building damage event (eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER).\n" +
+                "Stacks with StructureDamageTakenMultiplier.\n" +
+                "Tip: Changes apply in real-time (no restart needed)."
+            );
+
+            SapperBuildingDamageMultiplier = config.Bind(
+                "Multipliers",
+                "SapperBuildingDamageMultiplier",
+                1.0f,
+                "Multiplier for building damage dealt by Bedouin Sappers.\n" +
+                "Identified via the AttackingUnitId on the building damage event (eChimps.CHIMP_TYPE_BEDOUIN_SAPPER).\n" +
+                "Stacks with StructureDamageTakenMultiplier.\n" +
+                "Tip: Changes apply in real-time (no restart needed)."
+            );
+
             ValidateMultipliers();
             IsInitialized = true;
         }
@@ -74,7 +96,9 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 GlobalDamageTakenMultiplier,
                 WallDamageTakenMultiplier,
                 TowerDamageTakenMultiplier,
-                CivilStructureDamageTakenMultiplier);
+                CivilStructureDamageTakenMultiplier,
+                DemolisherBuildingDamageMultiplier,
+                SapperBuildingDamageMultiplier);
         }
 
         /// <summary>
@@ -86,7 +110,9 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 ("StructureDamageTakenMultiplier", GlobalDamageTakenMultiplier),
                 ("WallDamageTakenMultiplier", WallDamageTakenMultiplier),
                 ("TowerDamageTakenMultiplier", TowerDamageTakenMultiplier),
-                ("CivilStructureDamageTakenMultiplier", CivilStructureDamageTakenMultiplier)
+                ("CivilStructureDamageTakenMultiplier", CivilStructureDamageTakenMultiplier),
+                ("DemolisherBuildingDamageMultiplier", DemolisherBuildingDamageMultiplier),
+                ("SapperBuildingDamageMultiplier", SapperBuildingDamageMultiplier)
             );
         }
     }

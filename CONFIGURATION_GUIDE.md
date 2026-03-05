@@ -42,26 +42,32 @@ Game Defaults → TOML Configs → CSV Matrices → BepInEx Multipliers
 [b]Global multipliers[/b] - most apply in real-time without a game restart.
 
 [code]
+[Debug]
+DebugLogging = false   # Enable step-by-step logging for all event hooks. Real-time. High log volume — use only when diagnosing issues.
+
 [Multipliers]
 # Unit Multipliers
-UnitHealthMultiplier = 1.0                    # All unit max health
-UnitMeleeDamageTakenMultiplier = 1.0          # All melee damage taken by units (min 1)
-UnitRangedDamageTakenMultiplier = 1.0         # Arrow/Bolt/Slinger/Javelin damage taken by units (min 1)
+UnitHealthMultiplier = 1.0                 # All unit max health
+UnitMeleeDamageTakenMultiplier = 1.0       # All melee damage taken by units (min 1)
+UnitRangedDamageTakenMultiplier = 1.0      # Arrow/Bolt/Slinger/Javelin damage taken by units (min 1)
 
 # Structure Multipliers
-StructureDamageTakenMultiplier = 1.0          # All structure damage taken
-WallDamageTakenMultiplier = 1.0               # Stone wall damage taken (stacks with StructureDamageTakenMultiplier)
-CivilStructureDamageTakenMultiplier = 1.0     # Civilian structure damage taken (non-tower, non-gatehouse)
+StructureDamageTakenMultiplier = 1.0       # All structure damage taken
+WallDamageTakenMultiplier = 1.0            # Stone wall damage taken (stacks with StructureDamageTakenMultiplier)
+TowerDamageTakenMultiplier = 1.0           # Tower and gatehouse damage taken (stacks with StructureDamageTakenMultiplier)
+CivilStructureDamageTakenMultiplier = 1.0  # Civilian structure damage taken (non-tower, non-gatehouse)
+DemolisherBuildingDamageMultiplier = 1.0   # Damage dealt by Bedouin Demolishers to structures
+SapperBuildingDamageMultiplier = 1.0       # Damage dealt by Bedouin Sappers to structures
 
 # Wall Cost Multipliers
-LowWallCostMultiplier = 0.25                  # Cost multiplier for short walls. Game default: 0.25
-HighWallCostMultiplier = 0.5                  # Cost multiplier for high/crenel walls. Game default: 0.5
+LowWallCostMultiplier = 0.25               # Cost multiplier for short walls. Game default: 0.25
+HighWallCostMultiplier = 0.5               # Cost multiplier for high/crenel walls. Game default: 0.5
 
 # Fire, Heal & Disease Multipliers
-UnitFireDamageTakenMultiplier = 1.0           # Fire damage taken by all units
-StructureFireDamageTakenMultiplier = 1.0      # Fire damage taken by all structures
-BedouinHealMultiplier = 1.0                   # Healing amount from Bedouin healers
-DiseaseDamageMultiplier = 1.0                 # Scales all three disease damage tiers (stacks with [Disease] TOML values)
+UnitFireDamageTakenMultiplier = 1.0        # Fire damage taken by all units
+StructureFireDamageTakenMultiplier = 1.0   # Fire damage taken by all structures
+BedouinHealMultiplier = 1.0                # Healing amount from Bedouin healers
+DiseaseDamageMultiplier = 1.0              # Scales all three disease damage tiers (stacks with [Disease] TOML values)
 [/code]
 
 [b]Multipliers stack.[/b] Example: WallDamageTakenMultiplier = 0.5 and StructureDamageTakenMultiplier = 2.0 → walls take 1.0× damage (0.5 × 2.0).
@@ -107,6 +113,8 @@ DiseaseDamage3 = 400    # Damage tier 3 (highest)
 [/code]
 
 [b]Gameplay Options[/b]
+
+[b]All options only take effect when set to true.[/b] false means "leave the game default unchanged" — it does not actively disable anything.
 [code]
 ["Gameplay Options"]
 BetterHealers = false           # Improve healer unit effectiveness
@@ -128,29 +136,37 @@ AllProductionGoodsAllowed = false
 
 [b]Trade Prices[/b]
 
-Set the base buy/sell price for each good at the market. Set to 0 to leave unchanged.
+Override the market buy/sell price for individual goods. [b]0 = use the game's default price[/b] (no override). Requires a Trade Post. Re-applied on each map load.
 [code]
-["Trade Prices"]
-STORED_WOOD_PLANKS = 20      # default: 20
-STORED_STONE_BLOCKS = 70     # default: 70
-STORED_IRON_INGOTS = 225     # default: 225
-STORED_RAW_HOPS = 75         # default: 75
-STORED_PITCH_REFINED = 100   # default: 100
-STORED_RAW_WHEAT = 115       # default: 115
-STORED_FLOUR = 160           # default: 160
-STORED_FOOD_BREAD = 40       # default: 40
-STORED_FOOD_CHEESE = 40      # default: 40
-STORED_FOOD_MEAT = 40        # default: 40
-STORED_FOOD_FRUIT = 40       # default: 40
-STORED_FOOD_ALE = 100        # default: 100
-STORED_SWORDS = 290          # default: 290
-STORED_BOWS = 155            # default: 155
-STORED_CROSSBOWS = 290       # default: 290
-STORED_SPEARS = 100          # default: 100
-STORED_PIKES = 180           # default: 180
-STORED_MACES = 290           # default: 290
-STORED_LEATHER_ARMOUR = 125  # default: 125
-STORED_METAL_ARMOUR = 290    # default: 290
+["Trade Prices".STORED_WOOD_PLANKS]
+BuyPrice = 0   # default: 20  — gold paid when buying
+SellPrice = 0  # default: 5   — gold received when selling
+[/code]
+Buy and sell prices are configured independently. Setting only one leaves the other at the game default.
+
+[b]Game default prices:[/b]
+[code]
+Good                   Buy   Sell
+STORED_WOOD_PLANKS      20      5
+STORED_RAW_HOPS         75     40
+STORED_STONE_BLOCKS     70     35
+STORED_IRON_INGOTS     225    115
+STORED_PITCH_REFINED   100     50
+STORED_RAW_WHEAT       115     40
+STORED_FOOD_BREAD       40     20
+STORED_FOOD_CHEESE      40     20
+STORED_FOOD_MEAT        40     20
+STORED_FOOD_FRUIT       40     20
+STORED_FOOD_ALE        100     50
+STORED_FLOUR           160     50
+STORED_BOWS            155     75
+STORED_CROSSBOWS       290    150
+STORED_SPEARS          100     50
+STORED_PIKES           180     90
+STORED_MACES           290    150
+STORED_SWORDS          290    150
+STORED_LEATHER_ARMOUR  125     60
+STORED_METAL_ARMOUR    290    150
 [/code]
 
 [b]Auto Trade[/b]
