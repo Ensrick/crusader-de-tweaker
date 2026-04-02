@@ -1,3 +1,14 @@
+// Config/Toml/ConfigGenerator.cs
+//
+// PURPOSE: Generates default TOML config files on first run.
+//
+// WARNING: GenerateDefault* methods run during LibraryLoaded init — NO game session exists.
+// If a config file is missing, GenerateDefaultConfig calls TryGetFromAPI for every entity,
+// which writes/reads native game memory and causes a native ACCESS_VIOLATION crash.
+// Fix: Each Generate method returns early if the file already exists.
+// If you add a new GenerateDefault* method, you MUST add the same early-return guard:
+//   if (ConfigFileHelper.ConfigFileExists(ConfigPaths.YourPath)) return;
+//
 using System;
 using System.Collections.Generic;
 using System.IO;

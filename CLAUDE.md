@@ -1,7 +1,7 @@
 # CLAUDE.MD - AI Agent Reference
 
 > **Purpose**: Primary reference for AI coding agents working on this codebase.
-> **Last Updated**: February 2026
+> **Last Updated**: April 2026
 
 ---
 
@@ -41,6 +41,7 @@
 - Add complex lookup tables or ML systems
 - Skip error handling
 - Change Plugin GUID without updating all paths
+- **Call any game API during `LibraryLoaded` / `ConfigManager.Initialize()`** — this causes a native ACCESS_VIOLATION crash. No game session exists yet. All API calls that read or write game state must be deferred to `OnStartMap` or `OnLoadMap` hooks.
 
 ---
 
@@ -134,15 +135,28 @@ Plugin.Awake()
 CrusaderLibrary_LibraryLoaded()  ← SHCDE-SE API available
     ↓
 ConfigManager.Initialize()
-    ├─ OriginalDefaultsCapture.CaptureAll()  ← BEFORE any configs
-    ├─ TOML systems load (Unit Tags DEACTIVATED)
-    └─ CSV damage matrices load
+    ├─ GenerateDefaults() for each system  ← FILE I/O ONLY, no API calls
+    ├─ Load() for each system              ← Registers hooks, reads TOML/CSV
+    └─ (no direct API calls here)
     ↓
 BepInExConfigManager.Initialize()  ← Real-time hooks
+    ↓
+OnStartMap / OnLoadMap hooks fire  ← SAFE to call game APIs here
 // CoreTestRunner.RunAllTests()  ← DISABLED (re-enable for dev verification)
 ```
 
-**Critical Order**: Capture defaults → TOML → CSV
+### CRITICAL: No Game API Calls During Init
+
+**LibraryLoaded fires before any game session exists.** Calling game APIs at this point (writing to native memory via `GameGlobalsManager`, reading unit/structure properties, etc.) causes a native `ACCESS_VIOLATION` crash. The crash appears inside SHCDE-SE's own init sequence in the log — this is misleading. The actual cause is our code corrupting native state on the background init thread.
+
+**Safe during init**: File I/O, TOML parsing, registering event hooks, BepInEx config binding.
+
+**NOT safe during init**: Anything on `Plugin.UnitApi`, `Plugin.BuildingApi`, `Plugin.GlobalsApi`, `Plugin.PlayerApi`. Defer these to `OnStartMap`/`OnLoadMap`.
+
+Past crashes caused by this:
+- `GenerateDefaultConfigUnits/Structures` calling `TryGetFromAPI` for missing entries
+- `CaptureOriginalDefaults` calling `GetMeleeDamageFromTo` for every unit pair
+- `ApplyAllGlobalConfigs` calling `GameGlobalsManager.SetValue()` at load time
 
 ---
 
