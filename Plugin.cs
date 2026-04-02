@@ -133,23 +133,16 @@ namespace CrusaderDETweaker
         /// </summary>
         private void CrusaderLibrary_LibraryLoaded()
         {
-            Logger.LogInfo("[DIAG] LibraryLoaded callback entered");
-
             // Prevent double initialization
             if (_isInitialized) return;
 
-            Logger.LogInfo("[DIAG] Acquiring API instances...");
             try
             {
                 // Acquire game API instances - these provide access to unit/structure properties
                 UnitApi = GameUnitManagerAPI.Instance;
-                Logger.LogInfo("[DIAG] UnitApi acquired");
                 BuildingApi = GameBuildingManagerAPI.Instance;
-                Logger.LogInfo("[DIAG] BuildingApi acquired");
                 GlobalsApi = GameGlobalsManager.Instance;
-                Logger.LogInfo("[DIAG] GlobalsApi acquired");
                 PlayerApi = GamePlayerManagerAPI.Instance;
-                Logger.LogInfo("[DIAG] PlayerApi acquired");
 
                 if (UnitApi == null || BuildingApi == null)
                 {
