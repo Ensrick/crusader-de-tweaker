@@ -79,63 +79,6 @@
        - **Initialization Order** - Fixed race condition by ensuring semantic tags are registered before discovery runs
        - **100% Accuracy Renewed** - Fixed 250+ mismatches caused by previous namespace disconnect
        - **Modular Architecture** - Refactored config systems into focused single-responsibility classes
-1.1.1 - Bugfix for structure cost.
-1.2.0 - Added additional BepInEx multipliers:
-       - WallDamageTakenMultiplier: Multiplier for damage to walls
-       - TowerDamageTakenMultiplier: Multiplier for damage to towers
-       - WoodenStructureDamageTakenMultiplier: Multiplier for damage to wooden structures
-       - Improved error handling and validation for all multipliers
-       - Added structure type helper methods (IsWall, IsTower, IsWoodenStructure)
-1.2.1 - Added wall cost modification support:
-       - Walls (stone, crenel, wood) can now have their costs modified via TOML
-       - Walls are cost-only structures (health and other properties cannot be modified)
-       - Added CostOnlyStructures list to handle structures with limited modifiable properties
-1.3.0 - Major update with new multipliers and improvements:
-       - Added UnitRangedDamageTakenMultiplier: Global multiplier for all ranged damage (Arrow, Bolt, Slinger, Javelin)
-       - Fixed WallDamageTakenMultiplier: Now properly detects and applies to walls using tile property flags
-       - Replaced WoodenStructureDamageTakenMultiplier with CivilStructureDamageTakenMultiplier
-       - Added wall cost multipliers: LowWallCostMultiplier and HighWallCostMultiplier (moved from TOML to BepInEx config)
-       - Refactored BepInEx config system into modular structure (UnitMultipliersConfig, StructureMultipliersConfig, WallCostConfig)
-       - **MAJOR REFACTORING: Damage Calculator** - Completely refactored using Strategy pattern:
-         * Reduced main CalculateMeleeDamage method from ~500 lines to ~100 lines
-         * Created 9 weapon-specific calculator classes (Sword, Mace, Lance, Axe, Dagger, Ranged, Unarmed, Beast, Polearm)
-         * Extracted all constants to DamageConstants class
-         * Added helper classes: WeaponVsArmorLookupTable, TagVsTagModifierHelper, SiegeDefenseHandler
-         * Much easier to maintain, test, and extend
-         * Maintained 100% test pass rate (all existing functionality preserved)
-       - Improved structure categorization and detection
-       - Better error handling and validation for all multipliers
-       - Fixed Speed property: Now writes to config for all units (some units have API limitations - see known issues)
-       - Known Issue: Some units (animals, special units) cannot have Speed modified due to SHCDE-SE API limitation
-1.3.1 - Fixed verification system to work correctly with modified TOML configs:
-       - **CRITICAL FIX: Verification System** - Verification now uses original game defaults instead of modified TOML values
-       - Added original registry snapshot mechanism: Captures hardcoded defaults before TOML loads
-       - Added CalculateMeleeDamageWithOriginalData(): Uses original defaults for verification calculations
-       - Added CsvMatrixReader.CaptureOriginalDefaults(): Captures original damage values from game API before TOML loads
-       - Verification now correctly validates calculation logic against original game defaults, regardless of user TOML modifications
-       - This ensures verification always passes at 100% when calculation logic is correct, even if TOML files are modified
-
-1.3.2 - Code quality improvements and documentation enhancements:
-       - **Fixed all critical code issues** - ArmorCategory tag removal, exception handling, TODO comments
-       - **Enhanced README** - Added "What is This?", "Quick Start", and "Configuration Methods" sections
-       - **Added system status documentation** - Created SYSTEMS_STATUS.md to clarify active vs. development systems
-       - **Improved code documentation** - Added clear documentation to development systems (AutomatedDamageSystem, ExceptionDetector, DamageMatrixSolver)
-       - **Enhanced tag system documentation** - Improved UnitDamageData.cs with tag category explanations
-       - **Better error handling** - All empty catch blocks now log exceptions at Debug level
-       - **Cleaned up code** - Removed commented-out debug code, improved obsolete code documentation
-       - **Project clarity improvements** - Better documentation for users and contributors
-
-1.5.0 - Major Code Cleanup and Optimization:
-       - **REMOVED: Tag System** - Tag-based damage modifiers completely removed
-       - **REMOVED: Weapon/Armor Detection** - Category-based damage calculation removed
-       - **REMOVED: Special Modifiers** - Unit-specific damage modifiers removed (unused dead code)
-       - **REMOVED: Damage Calculator** - All damage calculation logic removed (CSV-only system)
-       - **CSV-Only Damage System** - Damage values are now exclusively loaded from CSV matrices
-       - **Performance Optimizations** - Optimized NonModable lookups (HashSet for O(1) performance)
-       - **Code Cleanup** - Removed ~400+ lines of dead code, unused methods, and obsolete systems
-       - **Documentation Updates** - Updated all documentation to reflect simplified architecture
-       - **DLL Size Reduction** - Reduced from ~95KB to ~91KB through code removal
-       - **Simplified Architecture** - Damage system is now purely CSV-based with no calculation logic
 
 1.6.0 - Major Refactoring: Modular Architecture:
        - **Damage Matrix Refactoring** - Split large classes into focused components:
@@ -179,3 +122,56 @@
          * Better modularity and maintainability
          * Cleaner log output (removed excessive debug logging)
        - **Documentation Updates** - Updated all documentation to reflect new modular architecture
+
+1.5.0 - Major Code Cleanup and Optimization:
+       - **REMOVED: Tag System** - Tag-based damage modifiers completely removed
+       - **REMOVED: Weapon/Armor Detection** - Category-based damage calculation removed
+       - **REMOVED: Special Modifiers** - Unit-specific damage modifiers removed (unused dead code)
+       - **REMOVED: Damage Calculator** - All damage calculation logic removed (CSV-only system)
+       - **CSV-Only Damage System** - Damage values are now exclusively loaded from CSV matrices
+       - **Performance Optimizations** - Optimized NonModable lookups (HashSet for O(1) performance)
+       - **Code Cleanup** - Removed ~400+ lines of dead code, unused methods, and obsolete systems
+       - **Documentation Updates** - Updated all documentation to reflect simplified architecture
+       - **DLL Size Reduction** - Reduced from ~95KB to ~91KB through code removal
+       - **Simplified Architecture** - Damage system is now purely CSV-based with no calculation logic
+
+1.3.2 - Code quality improvements and documentation enhancements:
+       - **Fixed all critical code issues** - ArmorCategory tag removal, exception handling, TODO comments
+       - **Enhanced README** - Added "What is This?", "Quick Start", and "Configuration Methods" sections
+       - **Added system status documentation** - Created SYSTEMS_STATUS.md to clarify active vs. development systems
+       - **Improved code documentation** - Added clear documentation to development systems (AutomatedDamageSystem, ExceptionDetector, DamageMatrixSolver)
+       - **Enhanced tag system documentation** - Improved UnitDamageData.cs with tag category explanations
+       - **Better error handling** - All empty catch blocks now log exceptions at Debug level
+       - **Cleaned up code** - Removed commented-out debug code, improved obsolete code documentation
+       - **Project clarity improvements** - Better documentation for users and contributors
+
+1.3.1 - Fixed verification system to work correctly with modified TOML configs:
+       - **CRITICAL FIX: Verification System** - Verification now uses original game defaults instead of modified TOML values
+       - Added original registry snapshot mechanism: Captures hardcoded defaults before TOML loads
+       - Added CalculateMeleeDamageWithOriginalData(): Uses original defaults for verification calculations
+       - Verification now correctly validates calculation logic against original game defaults, regardless of user TOML modifications
+       - This ensures verification always passes at 100% when calculation logic is correct, even if TOML files are modified
+
+1.3.0 - Major update with new multipliers and improvements:
+       - Added UnitRangedDamageTakenMultiplier: Global multiplier for all ranged damage (Arrow, Bolt, Slinger, Javelin)
+       - Fixed WallDamageTakenMultiplier: Now properly detects and applies to walls using tile property flags
+       - Replaced WoodenStructureDamageTakenMultiplier with CivilStructureDamageTakenMultiplier
+       - Added wall cost multipliers: LowWallCostMultiplier and HighWallCostMultiplier (moved from TOML to BepInEx config)
+       - Refactored BepInEx config system into modular structure (UnitMultipliersConfig, StructureMultipliersConfig, WallCostConfig)
+       - **MAJOR REFACTORING: Damage Calculator** - Completely refactored using Strategy pattern
+       - Improved structure categorization and detection
+       - Better error handling and validation for all multipliers
+
+1.2.1 - Added wall cost modification support:
+       - Walls (stone, crenel, wood) can now have their costs modified via TOML
+       - Walls are cost-only structures (health and other properties cannot be modified)
+       - Added CostOnlyStructures list to handle structures with limited modifiable properties
+
+1.2.0 - Added additional BepInEx multipliers:
+       - WallDamageTakenMultiplier: Multiplier for damage to walls
+       - TowerDamageTakenMultiplier: Multiplier for damage to towers
+       - WoodenStructureDamageTakenMultiplier: Multiplier for damage to wooden structures
+       - Improved error handling and validation for all multipliers
+       - Added structure type helper methods (IsWall, IsTower, IsWoodenStructure)
+
+1.1.1 - Bugfix for structure cost.

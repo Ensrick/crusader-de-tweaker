@@ -72,20 +72,6 @@ namespace CrusaderDETweaker
         {
             Plugin.Logger.LogInfo($"Initializing {ConfigSystems.Length} config systems...");
 
-            // STEP 1: Capture original game defaults BEFORE any TOML configs are loaded.
-            // This ensures CSV comparison logic can compare against the true original game values,
-            // regardless of user modifications to TOML files.
-            // 
-            // CRITICAL: This MUST happen before TOML configs are loaded, otherwise the
-            // "original" defaults will include user modifications. This breaks CSV comparison logic.
-            // 
-            // DO NOT change this order - original defaults MUST be captured first.
-            Plugin.Logger.LogInfo("Capturing original game defaults...");
-            
-            // Capture original damage values from game API (for CSV matrix comparison)
-            // Safe to call multiple times if needed
-            Config.DamageMatrix.Core.CsvMatrixReader.CaptureOriginalDefaults();
-
             // STEP 3: Generate default config files for all systems (if they don't exist)
             // This creates template files that users can edit to customize game behavior
             Plugin.Logger.LogInfo("Generating default config files...");
