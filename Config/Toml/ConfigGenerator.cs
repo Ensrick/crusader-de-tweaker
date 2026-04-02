@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Tomlyn.Model;
 using CrusaderDETweaker.Config.Toml;
 using CrusaderDETweaker.Config.Toml.Core;
 using CrusaderDETweaker.Config.Toml.Units;
@@ -36,7 +37,7 @@ namespace CrusaderDETweaker.Config.Toml
     {
         /// <summary>
         /// Generate default unit configuration file.
-        /// Includes projectiles at the bottom of the file.
+        /// Only generates if the file does not already exist — avoids calling game API during init.
         /// </summary>
         internal static void GenerateDefaultConfigUnits()
         {
@@ -45,17 +46,14 @@ namespace CrusaderDETweaker.Config.Toml
             try
             {
                 var sb = new StringBuilder();
-                
-                // Add file header
                 ConfigFileHeaderWriter.WriteHeader(sb, "unit");
-                
+
                 int processedCount = 0;
                 int skippedCount = 0;
 
                 var nonModifiableSet = new HashSet<eChimps>(UnitCategories.NonModable);
                 var allUnits = Enum.GetValues(typeof(eChimps)).Cast<eChimps>().ToArray();
 
-                // Generate unit sections
                 foreach (var unit in allUnits)
                 {
                     if (nonModifiableSet.Contains(unit))
@@ -86,7 +84,7 @@ namespace CrusaderDETweaker.Config.Toml
                 int projectileCount = 0;
 
                 ConfigFileHelper.WriteConfigFile(ConfigPaths.Units, sb.ToString());
-                Plugin.Logger.LogInfo($"Generated default unit config: Units={processedCount}, Skipped={skippedCount}, Projectiles={projectileCount}");
+                Plugin.Logger.LogInfo($"Generated unit config: Units={processedCount}, Skipped={skippedCount}, Projectiles={projectileCount}");
             }
             catch (Exception ex)
             {
@@ -96,9 +94,12 @@ namespace CrusaderDETweaker.Config.Toml
 
         /// <summary>
         /// Generate default structure configuration file.
+        /// Only generates if the file does not already exist — avoids calling game API during init.
         /// </summary>
         internal static void GenerateDefaultConfigStructures()
         {
+            if (ConfigFileHelper.ConfigFileExists(ConfigPaths.Structures)) return;
+
             GenerateDefaultConfig(
                 filePath: ConfigPaths.Structures,
                 registry: StructurePropertyRegistry.Instance,
@@ -110,26 +111,66 @@ namespace CrusaderDETweaker.Config.Toml
 
         /// <summary>
         /// Generate default global configuration file.
+        /// If the file already exists, migrates it: preserves user values, adds new entries, removes deprecated ones.
         /// </summary>
         internal static void GenerateDefaultConfigGlobals()
         {
-            if (ConfigFileHelper.ConfigFileExists(ConfigPaths.Globals)) return;
+            // Load existing values for migration if file already exists
+            TomlTable existingToml = null;
+            if (ConfigFileHelper.ConfigFileExists(ConfigPaths.Globals))
+            {
+                try
+                {
+                    existingToml = Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(ConfigPaths.Globals));
+                    Plugin.Logger.LogInfo($"Migrating existing global config: {ConfigPaths.Globals}");
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Logger.LogWarning($"Could not parse existing global config for migration, leaving unchanged: {ex.Message}");
+                    return;
+                }
+            }
 
             try
             {
                 var sb = new StringBuilder();
 
-                var restockAmount = Plugin.GlobalsApi?.CatapultRestockStoneAmount?.GetValue() ?? 20;
-                var restockCost = Plugin.GlobalsApi?.CatapultRestockStoneCost?.GetValue() ?? 10;
-                var stealthDetection = Plugin.GlobalsApi?.AssassinDetectionRange?.GetValue() ?? 160;
-                var stealthTransparency = Plugin.GlobalsApi?.AssassinTransparencyThreshold?.GetValue() ?? 120;
-                var stablesRegenTick = Plugin.GlobalsApi?.StablesHorseRegenTickTarget?.GetValue() ?? 550;
-                var stablesHorsesCap = Plugin.GlobalsApi?.StablesHorsesCap?.GetValue() ?? 4;
-                var gateClose = Plugin.GlobalsApi?.GateHouseCloseDistance?.GetValue() ?? 200;
-                var gateReOpen = Plugin.GlobalsApi?.GateHouseReOpenDistance?.GetValue() ?? 1200;
-                var diseaseDamage1 = Plugin.GlobalsApi?.DiseaseDamage1?.GetValue() ?? 150;
-                var diseaseDamage2 = Plugin.GlobalsApi?.DiseaseDamage2?.GetValue() ?? 200;
-                var diseaseDamage3 = Plugin.GlobalsApi?.DiseaseDamage3?.GetValue() ?? 400;
+                // True game defaults — hardcoded because the API already reflects user settings by the
+                // time the generator runs (config was already loaded before generation). Never read these
+                // from GetValue() here, as that would show the user's value in the # default comment.
+                const int DefaultRestockStoneAmount = 20;
+                const int DefaultRestockStoneCost = 10;
+                const int DefaultInitialStoneAmount = 20;
+                const int DefaultStealthDetectionRange = 160;
+                const int DefaultStealthTransparencyThreshold = 120;
+                const int DefaultStablesHorseRegenTickTarget = 550;
+                const int DefaultStablesHorsesCap = 4;
+                const int DefaultGateHouseCloseDistance = 200;
+                const int DefaultGateHouseReOpenDistance = 1200;
+                const int DefaultDiseaseDamage1 = 150;
+                const int DefaultDiseaseDamage2 = 200;
+                const int DefaultDiseaseDamage3 = 400;
+                const int DefaultPathfindingMaxTilesConstraint = 2000;
+                const int DefaultFoodConsumptionTickThreshold = 15000;
+                const int DefaultFoodConsumptionRate = 3;
+                const int DefaultPeasantRespawnTickTargetValue = 4000;
+                const int DefaultPeasantRespawnTickResetValue = 2000;
+
+                var restockAmount = ExistingOrDefault(existingToml, "Siege Engines", "SiegeEngineRestockStoneAmount", DefaultRestockStoneAmount);
+                var restockCost = ExistingOrDefault(existingToml, "Siege Engines", "SiegeEngineRestockStoneCost", DefaultRestockStoneCost);
+                var initialStone = ExistingOrDefault(existingToml, "Siege Engines", "SiegeEngineInitialStoneAmount", DefaultInitialStoneAmount);
+                var pathfindingMaxTiles = ExistingOrDefault(existingToml, "Pathfinding", "PathfindingMaxTilesConstraint", DefaultPathfindingMaxTilesConstraint);
+                var fccThreshold = ExistingOrDefault(existingToml, "Food Consumption", "FoodConsumptionTickThreshold", DefaultFoodConsumptionTickThreshold);
+                var fccRate = ExistingOrDefault(existingToml, "Food Consumption", "FoodConsumptionRate", DefaultFoodConsumptionRate);
+                var stealthDetection = ExistingOrDefault(existingToml, "Stealth", "StealthDetectionRange", DefaultStealthDetectionRange);
+                var stealthTransparency = ExistingOrDefault(existingToml, "Stealth", "StealthTransparencyThreshold", DefaultStealthTransparencyThreshold);
+                var stablesRegenTick = ExistingOrDefault(existingToml, "Stables", "StablesHorseRegenTickTarget", DefaultStablesHorseRegenTickTarget);
+                var stablesHorsesCap = ExistingOrDefault(existingToml, "Stables", "StablesHorsesCap", DefaultStablesHorsesCap);
+                var gateClose = ExistingOrDefault(existingToml, "Gatehouse", "GateHouseCloseDistance", DefaultGateHouseCloseDistance);
+                var gateReOpen = ExistingOrDefault(existingToml, "Gatehouse", "GateHouseReOpenDistance", DefaultGateHouseReOpenDistance);
+                var diseaseDamage1 = ExistingOrDefault(existingToml, "Disease", "DiseaseDamage1", DefaultDiseaseDamage1);
+                var diseaseDamage2 = ExistingOrDefault(existingToml, "Disease", "DiseaseDamage2", DefaultDiseaseDamage2);
+                var diseaseDamage3 = ExistingOrDefault(existingToml, "Disease", "DiseaseDamage3", DefaultDiseaseDamage3);
 
                 sb.AppendLine("# ========================================");
                 sb.AppendLine("# Crusader DE Tweaker - Globals Configuration");
@@ -137,37 +178,51 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine();
 
                 sb.AppendLine("[\"Siege Engines\"]");
-                sb.AppendLine($"SiegeEngineRestockStoneAmount = {restockAmount}  # default: {restockAmount}");
-                sb.AppendLine($"SiegeEngineRestockStoneCost = {restockCost}  # default: {restockCost}");
+                sb.AppendLine($"SiegeEngineRestockStoneAmount = {restockAmount}  # default: {DefaultRestockStoneAmount}");
+                sb.AppendLine($"SiegeEngineRestockStoneCost = {restockCost}  # default: {DefaultRestockStoneCost}");
+                sb.AppendLine($"SiegeEngineInitialStoneAmount = {initialStone}  # default: {DefaultInitialStoneAmount}");
                 sb.AppendLine();
 
                 sb.AppendLine("[Stealth]");
-                sb.AppendLine($"StealthDetectionRange = {stealthDetection}  # default: {stealthDetection}");
-                sb.AppendLine($"StealthTransparencyThreshold = {stealthTransparency}  # default: {stealthTransparency}");
+                sb.AppendLine($"StealthDetectionRange = {stealthDetection}  # default: {DefaultStealthDetectionRange}");
+                sb.AppendLine($"StealthTransparencyThreshold = {stealthTransparency}  # default: {DefaultStealthTransparencyThreshold}");
                 sb.AppendLine();
 
                 sb.AppendLine("[Stables]");
-                sb.AppendLine($"StablesHorseRegenTickTarget = {stablesRegenTick}  # default: {stablesRegenTick} — ticks before a horse charge regenerates");
-                sb.AppendLine($"StablesHorsesCap = {stablesHorsesCap}  # default: {stablesHorsesCap} — WARNING: values above 4 break stable horse-link tracking");
+                sb.AppendLine($"StablesHorseRegenTickTarget = {stablesRegenTick}  # default: {DefaultStablesHorseRegenTickTarget} — ticks before a horse charge regenerates");
+                sb.AppendLine($"StablesHorsesCap = {stablesHorsesCap}  # default: {DefaultStablesHorsesCap} — WARNING: values above 4 break stable horse-link tracking");
                 sb.AppendLine();
 
                 sb.AppendLine("[Gatehouse]");
-                sb.AppendLine($"GateHouseCloseDistance = {gateClose}  # default: {gateClose}");
-                sb.AppendLine($"GateHouseReOpenDistance = {gateReOpen}  # default: {gateReOpen}");
+                sb.AppendLine($"GateHouseCloseDistance = {gateClose}  # default: {DefaultGateHouseCloseDistance}");
+                sb.AppendLine($"GateHouseReOpenDistance = {gateReOpen}  # default: {DefaultGateHouseReOpenDistance}");
                 sb.AppendLine();
 
                 sb.AppendLine("[Disease]");
-                sb.AppendLine($"DiseaseDamage1 = {diseaseDamage1}  # default: {diseaseDamage1} — damage tier 1 (from c_game_unit_takedamage_projectile)");
-                sb.AppendLine($"DiseaseDamage2 = {diseaseDamage2}  # default: {diseaseDamage2} — damage tier 2");
-                sb.AppendLine($"DiseaseDamage3 = {diseaseDamage3}  # default: {diseaseDamage3} — damage tier 3");
+                sb.AppendLine($"DiseaseDamage1 = {diseaseDamage1}  # default: {DefaultDiseaseDamage1} — damage tier 1 (from c_game_unit_takedamage_projectile)");
+                sb.AppendLine($"DiseaseDamage2 = {diseaseDamage2}  # default: {DefaultDiseaseDamage2} — damage tier 2");
+                sb.AppendLine($"DiseaseDamage3 = {diseaseDamage3}  # default: {DefaultDiseaseDamage3} — damage tier 3");
                 sb.AppendLine();
 
+                sb.AppendLine("[Pathfinding]");
+                sb.AppendLine($"PathfindingMaxTilesConstraint = {pathfindingMaxTiles}  # default: {DefaultPathfindingMaxTilesConstraint}");
+                sb.AppendLine();
+
+                sb.AppendLine("[\"Food Consumption\"]");
+                sb.AppendLine("# Modifies how often the food consumption evaluation ticks. Higher values delay the ticks (slower eating).");
+                sb.AppendLine($"FoodConsumptionTickThreshold = {fccThreshold}  # default: {DefaultFoodConsumptionTickThreshold}");
+                sb.AppendLine("# Base rate (%) multiplier for food consumption during a tick calculation.");
+                sb.AppendLine($"FoodConsumptionRate = {fccRate}  # default: {DefaultFoodConsumptionRate}");
+                sb.AppendLine();
+
+                var peasantTickTarget = ExistingOrDefault(existingToml, "Peasant Spawning", "PeasantRespawnTickTargetValue", DefaultPeasantRespawnTickTargetValue);
+                var peasantTickReset = ExistingOrDefault(existingToml, "Peasant Spawning", "PeasantRespawnTickResetValue", DefaultPeasantRespawnTickResetValue);
+
                 sb.AppendLine("[\"Peasant Spawning\"]");
-                sb.AppendLine("# PeasantRespawnTickResetValue = 0  # ManagedAssemblyMultiImmediate<ushort> - not yet implemented");
-                sb.AppendLine("# PeasantRespawnTickTargetValue = 0  # ManagedAssemblyMultiImmediate<ushort> - not yet implemented");
-                sb.AppendLine("# PeasantSpawnRateIncrementsDefaultsRVA - RVA-based, not yet implemented");
-                sb.AppendLine("# PeasantSpawnRateIncrementsHighPopRVA - RVA-based, not yet implemented");
-                sb.AppendLine("# PeasantSpawnRateIncrementsLowPopRVA - RVA-based, not yet implemented");
+                sb.AppendLine($"# How many ticks must elapse before a new peasant spawns. Lower = faster spawning.");
+                sb.AppendLine($"PeasantRespawnTickTargetValue = {peasantTickTarget}  # default: {DefaultPeasantRespawnTickTargetValue}");
+                sb.AppendLine($"# Tick counter reset value after a spawn. Lower = fewer ticks wasted on reset.");
+                sb.AppendLine($"PeasantRespawnTickResetValue = {peasantTickReset}  # default: {DefaultPeasantRespawnTickResetValue}");
                 sb.AppendLine();
 
                 sb.AppendLine("# ========================================");
@@ -176,21 +231,21 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine();
 
                 sb.AppendLine("[\"Gameplay Options\"]");
-                sb.AppendLine("BetterHealers = false");
-                sb.AppendLine("FasterPeasants = false");
-                sb.AppendLine("ImprovedArabSwordsman = false");
-                sb.AppendLine("ImprovedFletchers = false");
-                sb.AppendLine("ImprovedLadderman = false");
-                sb.AppendLine("ImprovedSpearman = false");
-                sb.AppendLine("NerfEunuchs = false");
-                sb.AppendLine("NoKnockdownWalls = false");
-                sb.AppendLine("RebalancedHorseArchers = false");
-                sb.AppendLine("UncappedPeasants = false");
+                sb.AppendLine($"BetterHealers = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "BetterHealers", false))}");
+                sb.AppendLine($"FasterPeasants = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "FasterPeasants", false))}");
+                sb.AppendLine($"ImprovedArabSwordsman = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "ImprovedArabSwordsman", false))}");
+                sb.AppendLine($"ImprovedFletchers = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "ImprovedFletchers", false))}");
+                sb.AppendLine($"ImprovedLadderman = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "ImprovedLadderman", false))}");
+                sb.AppendLine($"ImprovedSpearman = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "ImprovedSpearman", false))}");
+                sb.AppendLine($"NerfEunuchs = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "NerfEunuchs", false))}");
+                sb.AppendLine($"NoKnockdownWalls = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "NoKnockdownWalls", false))}");
+                sb.AppendLine($"RebalancedHorseArchers = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "RebalancedHorseArchers", false))}");
+                sb.AppendLine($"UncappedPeasants = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "UncappedPeasants", false))}");
                 sb.AppendLine("# Override map restrictions — set true to unlock everything regardless of map settings");
-                sb.AppendLine("AllBuildingsAvailable = false");
-                sb.AppendLine("AllUnitsAllowed = false");
-                sb.AppendLine("AllTradeGoodsAllowed = false");
-                sb.AppendLine("AllProductionGoodsAllowed = false");
+                sb.AppendLine($"AllBuildingsAvailable = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "AllBuildingsAvailable", false))}");
+                sb.AppendLine($"AllUnitsAllowed = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "AllUnitsAllowed", false))}");
+                sb.AppendLine($"AllTradeGoodsAllowed = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "AllTradeGoodsAllowed", false))}");
+                sb.AppendLine($"AllProductionGoodsAllowed = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "AllProductionGoodsAllowed", false))}");
                 sb.AppendLine();
 
                 var nonTradeableGoods = new System.Collections.Generic.HashSet<string>
@@ -243,9 +298,12 @@ namespace CrusaderDETweaker.Config.Toml
 
                     tradePriceDefaults.TryGetValue(goodName, out var defaults);
 
+                    var buyPrice = ExistingOrDefaultNested(existingToml, "Trade Prices", goodName, "BuyPrice", 0);
+                    var sellPrice = ExistingOrDefaultNested(existingToml, "Trade Prices", goodName, "SellPrice", 0);
+
                     sb.AppendLine($"[\"Trade Prices\".{goodName}]");
-                    sb.AppendLine($"BuyPrice = 0  # default: {defaults.Buy}");
-                    sb.AppendLine($"SellPrice = 0  # default: {defaults.Sell}");
+                    sb.AppendLine($"BuyPrice = {buyPrice}  # default: {defaults.Buy}");
+                    sb.AppendLine($"SellPrice = {sellPrice}  # default: {defaults.Sell}");
                     sb.AppendLine();
                 }
 
@@ -260,17 +318,23 @@ namespace CrusaderDETweaker.Config.Toml
                 foreach (eGoods good in Enum.GetValues(typeof(eGoods)))
                 {
                     string goodName = good.ToString();
-                    if (!goodName.StartsWith("STORED_")) continue; // skip STORED_NULL, _SE_* specials, Count sentinel
+                    if (!goodName.StartsWith("STORED_")) continue;
                     if (nonTradeableGoods.Contains(goodName)) continue;
+
+                    var atEnabled = ExistingOrDefaultNested(existingToml, "Auto Trade", goodName, "Enabled", false);
+                    var atBuyLevel = ExistingOrDefaultNested(existingToml, "Auto Trade", goodName, "BuyLevel", 0);
+                    var atSellLevel = ExistingOrDefaultNested(existingToml, "Auto Trade", goodName, "SellLevel", 0);
+
                     sb.AppendLine($"[\"Auto Trade\".{goodName}]");
-                    sb.AppendLine("Enabled = false");
-                    sb.AppendLine("BuyLevel = 0");
-                    sb.AppendLine("SellLevel = 0");
+                    sb.AppendLine($"Enabled = {FormatBool(atEnabled)}");
+                    sb.AppendLine($"BuyLevel = {atBuyLevel}");
+                    sb.AppendLine($"SellLevel = {atSellLevel}");
                     sb.AppendLine();
                 }
 
                 ConfigFileHelper.WriteConfigFile(ConfigPaths.Globals, sb.ToString());
-                Plugin.Logger.LogInfo($"Generated default global config");
+                string globalsAction = existingToml != null ? "Migrated" : "Generated";
+                Plugin.Logger.LogInfo($"{globalsAction} global config");
             }
             catch (Exception ex)
             {
@@ -280,13 +344,8 @@ namespace CrusaderDETweaker.Config.Toml
 
         /// <summary>
         /// Generic method to generate default configuration files for any entity type.
+        /// If the file already exists, migrates it: preserves user values, adds new entries, removes deprecated ones.
         /// </summary>
-        /// <typeparam name="TEntity">The entity type (eChimps or eStructs)</typeparam>
-        /// <param name="filePath">Path where the config file should be written</param>
-        /// <param name="registry">Property registry for this entity type</param>
-        /// <param name="allEntities">All entities of this type to process</param>
-        /// <param name="nonModifiableEntities">Entities that should be skipped</param>
-        /// <param name="entityTypeName">Name of the entity type for logging (e.g., "unit", "structure")</param>
         private static void GenerateDefaultConfig<TEntity>(
             string filePath,
             PropertyRegistry<TEntity> registry,
@@ -294,24 +353,34 @@ namespace CrusaderDETweaker.Config.Toml
             TEntity[] nonModifiableEntities,
             string entityTypeName)
         {
-            if (ConfigFileHelper.ConfigFileExists(filePath)) return;
+            // Load existing values for migration if file already exists
+            TomlTable existingToml = null;
+            if (ConfigFileHelper.ConfigFileExists(filePath))
+            {
+                try
+                {
+                    existingToml = Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(filePath));
+                    Plugin.Logger.LogInfo($"Migrating existing {entityTypeName} config: {filePath}");
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Logger.LogWarning($"Could not parse existing {entityTypeName} config for migration, leaving unchanged: {ex.Message}");
+                    return;
+                }
+            }
 
             try
             {
                 var sb = new StringBuilder();
-                
-                // Add file header with explanation
                 ConfigFileHeaderWriter.WriteHeader(sb, entityTypeName);
-                
+
                 int processedCount = 0;
                 int skippedCount = 0;
 
-                // Convert array to HashSet for O(1) lookup performance
                 var nonModifiableSet = new HashSet<TEntity>(nonModifiableEntities);
 
                 foreach (var entity in allEntities)
                 {
-                    // Skip non-modifiable entities (O(1) lookup)
                     if (nonModifiableSet.Contains(entity))
                     {
                         skippedCount++;
@@ -320,13 +389,18 @@ namespace CrusaderDETweaker.Config.Toml
 
                     sb.AppendLine($"[{entity}]");
 
-                    // Get all applicable property handlers for this entity
                     var handlers = registry.GetApplicable(entity);
                     bool hasAnyProperty = false;
 
+                    IDictionary<string, object> existingSection = null;
+                    if (existingToml != null && existingToml.TryGetValue(entity.ToString(), out var rawSection))
+                        existingSection = rawSection as IDictionary<string, object>;
+
                     foreach (var handler in handlers)
                     {
-                        hasAnyProperty |= handler.TryGenerate(entity, sb);
+                        hasAnyProperty |= existingSection != null
+                            ? handler.TryGenerateWithOverride(entity, sb, existingSection)
+                            : handler.TryGenerate(entity, sb);
                     }
 
                     if (!hasAnyProperty)
@@ -337,7 +411,8 @@ namespace CrusaderDETweaker.Config.Toml
                 }
 
                 ConfigFileHelper.WriteConfigFile(filePath, sb.ToString());
-                Plugin.Logger.LogInfo($"Generated default {entityTypeName} config: Processed={processedCount}, Skipped={skippedCount}");
+                string action = existingToml != null ? "Migrated" : "Generated";
+                Plugin.Logger.LogInfo($"{action} {entityTypeName} config: Processed={processedCount}, Skipped={skippedCount}");
             }
             catch (Exception ex)
             {
@@ -345,5 +420,41 @@ namespace CrusaderDETweaker.Config.Toml
             }
         }
 
+        /// <summary>
+        /// Formats a bool as TOML-required lowercase "true"/"false".
+        /// </summary>
+        private static string FormatBool(bool value) => value ? "true" : "false";
+
+        /// <summary>
+        /// Returns the user's existing value from a parsed globals TOML if present,
+        /// otherwise returns the provided game default.
+        /// </summary>
+        private static T ExistingOrDefault<T>(TomlTable existing, string section, string key, T gameDefault)
+        {
+            if (existing == null) return gameDefault;
+            if (!existing.TryGetValue(section, out var sectionObj) || !(sectionObj is TomlTable sectionTable))
+                return gameDefault;
+            if (!sectionTable.TryGetValue(key, out var raw))
+                return gameDefault;
+            try { return (T)Convert.ChangeType(raw, typeof(T)); }
+            catch { return gameDefault; }
+        }
+
+        /// <summary>
+        /// Returns the user's existing value from a two-level nested section (e.g. ["Trade Prices".STORED_X])
+        /// if present, otherwise returns the provided game default.
+        /// </summary>
+        private static T ExistingOrDefaultNested<T>(TomlTable existing, string section, string subsection, string key, T gameDefault)
+        {
+            if (existing == null) return gameDefault;
+            if (!existing.TryGetValue(section, out var sectionObj) || !(sectionObj is TomlTable sectionTable))
+                return gameDefault;
+            if (!sectionTable.TryGetValue(subsection, out var subObj) || !(subObj is TomlTable subTable))
+                return gameDefault;
+            if (!subTable.TryGetValue(key, out var raw))
+                return gameDefault;
+            try { return (T)Convert.ChangeType(raw, typeof(T)); }
+            catch { return gameDefault; }
+        }
     }
 }

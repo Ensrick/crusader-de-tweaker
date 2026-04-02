@@ -1,7 +1,6 @@
 ﻿// Config/DamageMatrix/Core/MatrixLoader.cs
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace CrusaderDETweaker.Config.DamageMatrix.Core
 {
@@ -66,9 +65,6 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
 
                 Plugin.Logger.LogInfo($"Matrix loaded: Applied={appliedCount}, Skipped={skippedCount}");
 
-                // Step 5: Post-load validation hook (optional - for anomaly logging, etc.)
-                OnLoadComplete(appliedCount, skippedCount);
-
                 return true;
             }
             catch (Exception ex)
@@ -76,15 +72,6 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
                 Plugin.Logger.LogError($"Failed to load matrix {FilePath}: {ex}");
                 return false;
             }
-        }
-
-        /// <summary>
-        /// Optional hook called after matrix loading completes successfully.
-        /// Override in subclasses to add post-load validation, anomaly logging, etc.
-        /// </summary>
-        protected virtual void OnLoadComplete(int appliedCount, int skippedCount)
-        {
-            // Base implementation does nothing - override in subclasses if needed
         }
 
         /// <summary>

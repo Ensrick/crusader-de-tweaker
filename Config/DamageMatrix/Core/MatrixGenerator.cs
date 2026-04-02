@@ -46,11 +46,12 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
         {
             try
             {
-                // Step 1: Check if file already exists
+                // Step 1: If file already exists, reformat it in place (preserves user values)
                 if (System.IO.File.Exists(FilePath))
                 {
-                    Plugin.Logger.LogInfo($"Matrix already exists: {FilePath}");
-                    return false; // Don't overwrite existing config
+                    Plugin.Logger.LogInfo($"Matrix already exists, reformatting: {FilePath}");
+                    CsvHelper.ReformatMatrix(FilePath);
+                    return false;
                 }
 
                 Plugin.Logger.LogInfo($"Generating damage matrix: {FilePath}");

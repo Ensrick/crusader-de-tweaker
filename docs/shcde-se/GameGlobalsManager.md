@@ -2,6 +2,7 @@
 
 **Namespace:** `SHCDESE.GameGlobals`
 **Assembly:** `SHCDESE.dll`
+**Version documented:** 1.23.1
 
 Provides access to global game constants and session-wide settings. Modifications here typically affect all relevant units/buildings immediately or upon their next spawn.
 
@@ -36,6 +37,47 @@ public ManagedAssemblyStateManager GetManagedAssemblyStateManager()
 ```
 
 **Returns:** `ManagedAssemblyStateManager`
+
+---
+
+## Fields — Damage Tables (Raw RVAs)
+
+| Field | Type |
+|-------|------|
+| `MeleeDamageTableRVA` | `ulong` |
+| `MeleeEunuchAOEDamageTableRVA` | `ulong` |
+| `RangedArrowDamageTableRVA` | `ulong` |
+| `RangedBoltDamageTableRVA` | `ulong` |
+| `RangedJavelinDamageTableRVA` | `ulong` |
+| `RangedSlingerDamageTableRVA` | `ulong` |
+
+---
+
+## Fields — Unit & Building Tables (Raw RVAs)
+
+| Field | Type |
+|-------|------|
+| `UnitHealthTableRVA` | `ulong` |
+| `BuildingHealthTableRVA` | `ulong` |
+| `BuildingHousingPopulatonSpaceTableRVA` | `ulong` |
+| `SpeedTableRVA` | `ulong` |
+| `UnitEUGoldCostTableRVA` | `ulong` |
+| `UnitEUGoodTypeCostsTableRVA` | `ulong` |
+
+---
+
+## Fields — Building Costs (Raw RVAs/VAs)
+
+| Field | Type |
+|-------|------|
+| `BuildingDefaultCostsTableVA` | `ulong` |
+| `BuildingDefaultCostsTableEndVA` | `ulong` |
+| `BuildingGoldCostsTableRVA` | `ulong` |
+| `BuildingIronIngotsCostsTableRVA` | `ulong` |
+| `BuildingRawPitchCostsTableRVA` | `ulong` |
+| `BuildingStoneCostsTableRVA` | `ulong` |
+| `BuildingWoodCostsTableRVA` | `ulong` |
+| `BuildingAvailabilityManager` | `ulong` |
 
 ---
 
@@ -106,23 +148,6 @@ GameGlobalsManager.Instance.BedouinDemolisherShieldHealth.SetValue(50000);
 
 ---
 
-## Fields — Building Tables & Costs
-
-| Field | Type |
-|-------|------|
-| `BuildingAvailabilityManager` | `ulong` |
-| `BuildingDefaultCostsTableVA` | `ulong` |
-| `BuildingDefaultCostsTableEndVA` | `ulong` |
-| `BuildingGoldCostsTableRVA` | `ulong` |
-| `BuildingHealthTableRVA` | `ulong` |
-| `BuildingHousingPopulatonSpaceTableRVA` | `ulong` |
-| `BuildingIronIngotsCostsTableRVA` | `ulong` |
-| `BuildingRawPitchCostsTableRVA` | `ulong` |
-| `BuildingStoneCostsTableRVA` | `ulong` |
-| `BuildingWoodCostsTableRVA` | `ulong` |
-
----
-
 ## Fields — Building Repair
 
 | Field | Type |
@@ -132,12 +157,24 @@ GameGlobalsManager.Instance.BedouinDemolisherShieldHealth.SetValue(50000);
 
 ---
 
-## Fields — Catapult
+## Fields — Building Limits
 
 | Field | Type |
 |-------|------|
-| `CatapultRestockStoneAmount` | `ManagedAssemblyImmediate<ushort>?` |
-| `CatapultRestockStoneCost` | `ManagedAssemblyImmediate<ushort>?` |
+| `MaxArmories` | `ManagedAssemblyImmediate<ushort>?` |
+| `MaxGoodYards` | `ManagedAssemblyImmediate<ushort>?` |
+| `MaxGranaries` | `ManagedAssemblyImmediate<ushort>?` |
+| `MaxRandomLions` | `ManagedAssemblyImmediate<uint>?` |
+
+---
+
+## Fields — Catapult
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `CatapultInitialStoneAmount` | `ManagedAssemblyImmediate<byte>?` | Stone loaded when a catapult first spawns |
+| `CatapultRestockStoneAmount` | `ManagedAssemblyImmediate<ushort>?` | Stone received per restock |
+| `CatapultRestockStoneCost` | `ManagedAssemblyImmediate<ushort>?` | Stone consumed from stockpile per restock |
 
 ---
 
@@ -153,6 +190,14 @@ Damage values used in `c_game_unit_takedamage_projectile`. Three tiers applied d
 
 ---
 
+## Fields — Food Consumption
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `FoodConsumptionTickThreshold` | `ManagedAssemblyMultiImmediate<int>?` | How often the food tick fires. Higher = slower eating. |
+
+---
+
 ## Fields — Stables
 
 | Field | Type | Default | Notes |
@@ -162,41 +207,16 @@ Damage values used in `c_game_unit_takedamage_projectile`. Three tiers applied d
 
 ---
 
-## Fields — Date/Time
-
-| Field | Type |
-|-------|------|
-| `DateTimeCurrentDayRVA` | `ManagedAssemblyDisplacement<uint>?` |
-| `DateTimeCurrentMonthRVA` | `ManagedAssemblyDisplacement<uint>?` |
-| `DateTimeCurrentYearRVA` | `ManagedAssemblyDisplacement<uint>?` |
-| `DateTimeDaysInMonthRVA` | `ManagedAssemblyImmediate<short>?` |
-| `DateTimeMonthsInYearRVA` | `ManagedAssemblyImmediate<short>?` |
-
----
-
-## Fields — Damage Tables
-
-| Field | Type |
-|-------|------|
-| `MeleeDamageTableRVA` | `ulong` |
-| `MeleeEunuchAOEDamageTableRVA` | `ulong` |
-| `RangedArrowDamageTableRVA` | `ulong` |
-| `RangedBoltDamageTableRVA` | `ulong` |
-| `RangedJavelinDamageTableRVA` | `ulong` |
-| `RangedSlingerDamageTableRVA` | `ulong` |
-
----
-
 ## Fields — Gatehouse
 
 | Field | Type |
 |-------|------|
-| `GameGatehouseFunctionsVA` | `ulong` |
-| `GameGatehouseFunctionsVTable` | `NativePointer<GatehouseFunctionsVTable>` |
-| `GameGatehouseManagerRVA` | `ulong` |
 | `GateHouseCloseDistance` | `ManagedAssemblyImmediate<ushort>?` |
 | `GateHouseReOpenDistance` | `ManagedAssemblyImmediate<ushort>?` |
 | `GateHouseUnkDistance` | `ManagedAssemblyImmediate<ushort>?` |
+| `GameGatehouseFunctionsVA` | `ulong` |
+| `GameGatehouseFunctionsVTable` | `NativePointer<GatehouseFunctionsVTable>` |
+| `GameGatehouseManagerRVA` | `ulong` |
 
 ---
 
@@ -223,6 +243,78 @@ Damage values used in `c_game_unit_takedamage_projectile`. Three tiers applied d
 | `GoldCostBedouinHeavyCamel` | `ManagedAssemblyDisplacement<short>?` |
 | `GoldCostBedouinSapper` | `ManagedAssemblyDisplacement<short>?` |
 | `GoldCostBedouinSkirmisher` | `ManagedAssemblyDisplacement<short>?` |
+
+---
+
+## Fields — Date/Time
+
+| Field | Type |
+|-------|------|
+| `DateTimeCurrentDayRVA` | `ManagedAssemblyDisplacement<uint>?` |
+| `DateTimeCurrentMonthRVA` | `ManagedAssemblyDisplacement<uint>?` |
+| `DateTimeCurrentYearRVA` | `ManagedAssemblyDisplacement<uint>?` |
+| `DateTimeDaysInMonthRVA` | `ManagedAssemblyImmediate<short>?` |
+| `DateTimeMonthsInYearRVA` | `ManagedAssemblyImmediate<short>?` |
+
+---
+
+## Fields — Ox / Stone Economy
+
+| Field | Type |
+|-------|------|
+| `OxStoneReceiveAmount` | `ManagedAssemblyDisplacement<ushort>?` |
+| `OxStoneRequiredAmount` | `ManagedAssemblyMultiImmediate<ushort>?` |
+
+---
+
+## Fields — Peasant Spawning
+
+| Field | Type | Notes |
+|-------|------|---------|
+| `PeasantRespawnTickTargetValue` | `ManagedAssemblyMultiImmediate<ushort>?` | Ticks before a new peasant spawns. Lower = faster. **Configurable via `[Peasant Spawning]` in Globals TOML.** |
+| `PeasantRespawnTickResetValue` | `ManagedAssemblyMultiImmediate<ushort>?` | Tick counter reset value after a spawn. **Configurable via `[Peasant Spawning]` in Globals TOML.** |
+| `PeasantSpawnRateIncrementsDefaultsRVA` | `ulong` | Raw table — default population bracket (RVA, not directly settable) |
+| `PeasantSpawnRateIncrementsHighPopRVA` | `ulong` | Raw table — high population bracket (RVA, not directly settable) |
+| `PeasantSpawnRateIncrementsLowPopRVA` | `ulong` | Raw table — low population bracket (RVA, not directly settable) |
+
+---
+
+## Fields — Pathfinding
+
+| Field | Type |
+|-------|------|
+| `PathfindingMaxTilesConstraint` | `ManagedAssemblyImmediate<ushort>?` |
+
+---
+
+## Fields — Rabbit
+
+| Field | Type |
+|-------|------|
+| `RabbitDespawnTickTime` | `ManagedAssemblyImmediate<short>?` |
+
+---
+
+## Fields — Walls & Proximity
+
+| Field | Type |
+|-------|------|
+| `FriendlyWallToEnemyWallProximityDistAllowance` | `ManagedAssemblyImmediate<uint>?` |
+| `NoKnockdownWallsVA` | `ulong` |
+
+---
+
+## Fields — Player & Skirmish
+
+| Field | Type |
+|-------|------|
+| `LocalPlayerIdVA` | `ulong` |
+| `LocalPlayerArmyCountsVA` | `ulong` |
+| `PlayerDefaultSkirmishResourcesVA` | `ulong` |
+| `PlayerDefaultSkirmishSettingsTableRVA` | `ulong` |
+| `PlayerDefaultSkirmishSpawnGoldTable` | `ulong` |
+| `PlayerExtremePowersEnabledVA` | `ulong` |
+| `PlayerKeepIsEnclosedVA` | `ulong` |
 
 ---
 
@@ -260,52 +352,6 @@ Damage values used in `c_game_unit_takedamage_projectile`. Three tiers applied d
 
 ---
 
-## Fields — Building Limits
-
-| Field | Type |
-|-------|------|
-| `MaxArmories` | `ManagedAssemblyImmediate<ushort>?` |
-| `MaxGoodYards` | `ManagedAssemblyImmediate<ushort>?` |
-| `MaxGranaries` | `ManagedAssemblyImmediate<ushort>?` |
-| `MaxRandomLions` | `ManagedAssemblyImmediate<uint>?` |
-
----
-
-## Fields — Ox / Stone Economy
-
-| Field | Type |
-|-------|------|
-| `OxStoneReceiveAmount` | `ManagedAssemblyDisplacement<ushort>?` |
-| `OxStoneRequiredAmount` | `ManagedAssemblyMultiImmediate<ushort>?` |
-
----
-
-## Fields — Peasant Spawning
-
-| Field | Type |
-|-------|------|
-| `PeasantRespawnTickResetValue` | `ManagedAssemblyMultiImmediate<ushort>?` |
-| `PeasantRespawnTickTargetValue` | `ManagedAssemblyMultiImmediate<ushort>?` |
-| `PeasantSpawnRateIncrementsDefaultsRVA` | `ulong` |
-| `PeasantSpawnRateIncrementsHighPopRVA` | `ulong` |
-| `PeasantSpawnRateIncrementsLowPopRVA` | `ulong` |
-
----
-
-## Fields — Player & Skirmish
-
-| Field | Type |
-|-------|------|
-| `LocalPlayerIdVA` | `ulong` |
-| `LocalPlayerArmyCountsVA` | `ulong` |
-| `PlayerDefaultSkirmishResourcesVA` | `ulong` |
-| `PlayerDefaultSkirmishSettingsTableRVA` | `ulong` |
-| `PlayerDefaultSkirmishSpawnGoldTable` | `ulong` |
-| `PlayerExtremePowersEnabledVA` | `ulong` |
-| `PlayerKeepIsEnclosedVA` | `ulong` |
-
----
-
 ## Fields — Speed & Unit Tables
 
 | Field | Type |
@@ -317,35 +363,26 @@ Damage values used in `c_game_unit_takedamage_projectile`. Three tiers applied d
 
 ---
 
-## Fields — Walls & Proximity
-
-| Field | Type |
-|-------|------|
-| `FriendlyWallToEnemyWallProximityDistAllowance` | `ManagedAssemblyImmediate<uint>?` |
-| `NoKnockdownWallsVA` | `ulong` |
-
----
-
 ## Fields — Miscellaneous
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `CrusaderLibraryHandle` | `IntPtr` | Handle to the game library |
-| `CrusaderLibrarySize` | `uint` | Size of the game library |
+| `CurrentContextAttackingUnitIdVA` | `ulong` | VA pointing to the attacking unit ID in damage hooks |
 | `CurrentContextMapperValueVA` | `ulong` | |
 | `CurrentContextUnitValueVA` | `ulong` | Points to the currently processed Unit ID |
 | `CurrentlySelectedBuildingIdVA` | `ulong` | |
 | `EngineerAvailableVA` | `ulong` | |
 | `GamePausedVA` | `ulong` | |
 | `GlobalAdvancedOptionsVA` | `ulong` | |
+| `GlobalIdsUsedVA` | `ulong` | |
 | `GlobalImprovedSiegingBehaviourVA` | `ulong` | |
 | `IsInMapEditorVA` | `ulong` | |
 | `LaddermanAvailableVA` | `ulong` | |
 | `MonkAvailableVA` | `ulong` | |
+| `p_PathfindingContextVA` | `ulong` | |
 | `TeamsListRVA` | `ulong` | |
 | `TreeGrowthProgressionTableRVA` | `ulong` | |
 | `TreeProximityAreaLevelTableRVA` | `ulong` | |
-| `p_PathfindingContextVA` | `ulong` | |
 
 ---
 

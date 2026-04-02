@@ -1,7 +1,5 @@
 ﻿// Config/DamageMatrix/Ranged/RangedDamageMatrixLoader.cs
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using CrusaderDETweaker.Config.BepInEx;
 using CrusaderDETweaker.Config.DamageMatrix.Core;
 using CrusaderDETweaker.Data;
@@ -17,16 +15,6 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Ranged
     internal class RangedDamageMatrixLoader : MatrixLoader<ProjectileType, eChimps>
     {
         protected override string FilePath => MatrixPaths.RangedDamage;
-
-        /// <summary>
-        /// Post-load validation: Log damage anomalies by comparing current game state
-        /// against original CSV defaults.
-        /// </summary>
-        protected override void OnLoadComplete(int appliedCount, int skippedCount)
-        {
-            base.OnLoadComplete(appliedCount, skippedCount);
-            LogDamageAnomalies();
-        }
 
         /// <summary>
         /// Parse projectile type headers from CSV columns.
@@ -87,88 +75,6 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Ranged
         protected override int GetOriginalDefaultValue(ProjectileType projectile, eChimps defender)
         {
             return Core.CsvMatrixReader.GetOriginalRangedDamage(projectile, defender);
-        }
-
-        /// <summary>
-        /// Log damage anomalies by comparing current game state against original CSV defaults.
-        ///
-        /// This helps identify:
-        /// - Units taking more/less ranged damage than the original CSV default
-        /// - Effects of ranged armor multiplier changes from TOML config
-        /// - Unexpected damage calculation issues
-        ///
-        /// Anomaly threshold: >10% deviation from original default
-        /// </summary>
-        private void LogDamageAnomalies()
-        {
-            Plugin.Logger.LogInfo("Analyzing ranged damage anomalies (current vs original CSV)...");
-
-            var anomalies = new List<string>();
-            int totalComparisons = 0;
-
-            foreach (ProjectileType projectile in Enum.GetValues(typeof(ProjectileType)))
-            {
-                foreach (eChimps defender in Enum.GetValues(typeof(eChimps)))
-                {
-                    if (UnitMatrixHelper.ShouldSkipUnit(defender))
-                        continue;
-
-                    // Get original CSV default (unmodified game value)
-                    int originalDamage = Core.CsvMatrixReader.GetOriginalRangedDamage(projectile, defender);
-                    if (originalDamage < 0)
-                        continue; // No original default available
-
-                    // Skip non-combatant damage floor
-                    if (originalDamage <= 2)
-                        continue;
-
-                    // Get current game damage (after TOML armor multipliers applied)
-                    int currentDamage;
-                    try
-                    {
-                        currentDamage = ProjectileApiHelper.GetRangedDamage(projectile, defender);
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-
-                    totalComparisons++;
-
-                    // Calculate deviation
-                    float deviation = Math.Abs(currentDamage - originalDamage);
-                    float deviationPercent = (deviation / originalDamage) * 100f;
-
-                    // Anomaly threshold: >10% deviation
-                    if (deviationPercent > 10f)
-                    {
-                        anomalies.Add(
-                            $"{projectile} → {defender}: " +
-                            $"Original={originalDamage}, Current={currentDamage}, " +
-                            $"Diff={currentDamage - originalDamage:+0;-0}, " +
-                            $"Deviation={deviationPercent:F1}%"
-                        );
-                    }
-                }
-            }
-
-            Plugin.Logger.LogInfo($"Ranged damage anomaly analysis complete: {anomalies.Count} anomalies found out of {totalComparisons} comparisons");
-
-            if (anomalies.Count > 0)
-            {
-                int maxLogs = Math.Min(50, anomalies.Count);
-                Plugin.Logger.LogWarning($"Showing first {maxLogs} of {anomalies.Count} ranged damage anomalies:");
-
-                for (int i = 0; i < maxLogs; i++)
-                {
-                    Plugin.Logger.LogWarning($"  [{i + 1}] {anomalies[i]}");
-                }
-
-                if (anomalies.Count > maxLogs)
-                {
-                    Plugin.Logger.LogWarning($"  ... and {anomalies.Count - maxLogs} more anomalies (suppressed to prevent log spam)");
-                }
-            }
         }
     }
 }

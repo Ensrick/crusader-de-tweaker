@@ -35,8 +35,9 @@ namespace CrusaderDETweaker.Data
 
         /// <summary>
         /// Structures that cannot or should not be modified.
+        /// Using HashSet for O(1) lookup performance.
         /// </summary>
-        internal static readonly eStructs[] NonModable =
+        private static readonly System.Collections.Generic.HashSet<eStructs> _nonModableSet = new System.Collections.Generic.HashSet<eStructs>
         {
             eStructs.STRUCT_NULL,
             eStructs.STRUCT_QUARRYPILE, // Can't see any modifiable property this would have yet
@@ -198,6 +199,20 @@ namespace CrusaderDETweaker.Data
             eStructs.STRUCT_GOODS_YARD, // no modable properties, unless I guess someone wants to add a cost or something
             // add structures that aren't fully supported by SHCDE-SE or modifaible
         };
+
+        /// <summary>
+        /// Structures that cannot or should not be modified.
+        /// Array version for backward compatibility (if needed for iteration).
+        /// </summary>
+        internal static readonly eStructs[] NonModable = System.Linq.Enumerable.ToArray(_nonModableSet);
+
+        /// <summary>
+        /// Check if a structure is non-modifiable (O(1) lookup).
+        /// </summary>
+        internal static bool IsNonModifiable(eStructs structure)
+        {
+            return _nonModableSet.Contains(structure);
+        }
 
         // ========================================
         // STRUCTURE TYPE QUERIES

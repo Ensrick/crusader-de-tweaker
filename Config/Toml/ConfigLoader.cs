@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
+using CrusaderDETweaker.Config.BepInEx;
 using CrusaderDETweaker.Config.Toml;
 using CrusaderDETweaker.Config.Toml.Core;
 using CrusaderDETweaker.Config.Toml.Projectiles;
@@ -144,6 +145,7 @@ namespace CrusaderDETweaker.Config.Toml
         }
 
         private static bool _sessionHooksRegistered = false;
+        private static List<int> _reusableStableList = new List<int>();
 
         /// <summary>
         /// Register an OnStartMap hook to re-apply session-specific global settings.
@@ -158,9 +160,20 @@ namespace CrusaderDETweaker.Config.Toml
             _sessionHooksRegistered = true;
 
             MapLoaderR3EventHooks.OnStartMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ =>
                 {
-                    Plugin.Logger.LogInfo("[GlobalConfig] OnStartMap fired — re-applying session-specific global settings...");
+                    Plugin.Logger.LogInfo("[GlobalConfig] OnStartMap (Post) fired — re-applying session-specific global settings...");
+                    ApplyAllGlobalConfigs();
+                });
+
+            // For trail/campaign missions, DLL_LoadMapToPlay fires AFTER OnStartMap and applies
+            // map-specific unit/building restrictions that override our settings. Re-apply on Post.
+            MapLoaderR3EventHooks.OnLoadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ =>
+                {
+                    Plugin.Logger.LogInfo("[GlobalConfig] OnLoadMap (Post) fired — re-applying gameplay options after map rules...");
                     ApplyAllGlobalConfigs();
                 });
 
@@ -194,11 +207,13 @@ namespace CrusaderDETweaker.Config.Toml
                         if (Plugin.UnitApi?.GetOwner(unitId) != localPlayerId)
                             return;
 
-                        // Find the local player's stable building
-                        var stableList = new List<int>();
-                        Plugin.BuildingApi?.GetAllBuildings(stableList, null, eStructs.STRUCT_STABLES);
+                        // Reuse static list to prevent garbage collection allocation on every unit spawn
+                        if (_reusableStableList == null) _reusableStableList = new List<int>();
+                        _reusableStableList.Clear();
+                        
+                        Plugin.BuildingApi?.GetAllBuildings(_reusableStableList, null, eStructs.STRUCT_STABLES);
                         int stableId = -1;
-                        foreach (int bid in stableList)
+                        foreach (int bid in _reusableStableList)
                         {
                             if (Plugin.BuildingApi.GetOwner(bid) == localPlayerId)
                             {
@@ -232,7 +247,7 @@ namespace CrusaderDETweaker.Config.Toml
                     }
                 });
 
-            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnStartMap + OnBuildingSpawn + OnUnitCreate hooks.");
+            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnStartMap + OnLoadMap + OnBuildingSpawn + OnUnitCreate hooks.");
         }
 
         /// <summary>
@@ -242,15 +257,24 @@ namespace CrusaderDETweaker.Config.Toml
         {
             if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Globals)) return;
 
+            bool dbg = BepInExConfigManager.DebugLogging?.Value ?? false;
+
             try
             {
                 var tomlString = ConfigFileHelper.ReadConfigFile(ConfigPaths.Globals);
                 var tomlModel = Tomlyn.Toml.ToModel(tomlString);
-                
+
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadGameGlobals...");
                 LoadGameGlobals(tomlModel);
-                LoadPlayerOptions(tomlModel);
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadPeasantSpawning...");
+                LoadPeasantSpawning(tomlModel);
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadPlayerOptions...");
+                LoadPlayerOptions(tomlModel, dbg);
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadTradePrices...");
                 LoadTradePrices(tomlModel);
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadAutoTrade...");
                 LoadAutoTrade(tomlModel);
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] All sections applied.");
             }
             catch (Exception ex)
             {
@@ -267,6 +291,9 @@ namespace CrusaderDETweaker.Config.Toml
 
                 if (siegeTable.TryGetValue("SiegeEngineRestockStoneCost", out var crcValue) && crcValue is long crc)
                     Plugin.GlobalsApi?.CatapultRestockStoneCost?.SetValue((ushort)crc);
+
+                if (siegeTable.TryGetValue("SiegeEngineInitialStoneAmount", out var cisValue) && cisValue is long cis)
+                    Plugin.GlobalsApi?.CatapultInitialStoneAmount?.SetValue((byte)Math.Max(0, Math.Min(255, cis)));
             }
 
             if (tomlModel.TryGetValue("Stealth", out var stealthObj) && stealthObj is TomlTable stealthTable)
@@ -296,6 +323,21 @@ namespace CrusaderDETweaker.Config.Toml
                     Plugin.GlobalsApi?.GateHouseReOpenDistance?.SetValue((ushort)ghr);
             }
 
+            if (tomlModel.TryGetValue("Pathfinding", out var pfObj) && pfObj is TomlTable pfTable)
+            {
+                if (pfTable.TryGetValue("PathfindingMaxTilesConstraint", out var pfValue) && pfValue is long pfConstraint)
+                    Plugin.GlobalsApi?.PathfindingMaxTilesConstraint?.SetValue((ushort)pfConstraint);
+            }
+
+            if (tomlModel.TryGetValue("Food Consumption", out var fcObj) && fcObj is TomlTable fcTable)
+            {
+                if (fcTable.TryGetValue("FoodConsumptionTickThreshold", out var fctValue) && fctValue is long fct)
+                    Plugin.GlobalsApi?.FoodConsumptionTickThreshold?.SetValue((int)fct);
+
+                if (fcTable.TryGetValue("FoodConsumptionRate", out var fcrValue) && fcrValue is long fcr)
+                    Plugin.PlayerApi?.FoodConsumptionRate?.SetValue((int)fcr);
+            }
+
             if (tomlModel.TryGetValue("Disease", out var diseaseObj) && diseaseObj is TomlTable diseaseTable)
             {
                 if (diseaseTable.TryGetValue("DiseaseDamage1", out var dd1Value) && dd1Value is long dd1)
@@ -309,7 +351,19 @@ namespace CrusaderDETweaker.Config.Toml
             }
         }
 
-        private static void LoadPlayerOptions(TomlTable tomlModel)
+        private static void LoadPeasantSpawning(TomlTable tomlModel)
+        {
+            if (!tomlModel.TryGetValue("Peasant Spawning", out var psObj) || !(psObj is TomlTable psTable))
+                return;
+
+            if (psTable.TryGetValue("PeasantRespawnTickTargetValue", out var targetVal) && targetVal is long target)
+                Plugin.GlobalsApi?.PeasantRespawnTickTargetValue?.SetValue((ushort)target);
+
+            if (psTable.TryGetValue("PeasantRespawnTickResetValue", out var resetVal) && resetVal is long reset)
+                Plugin.GlobalsApi?.PeasantRespawnTickResetValue?.SetValue((ushort)reset);
+        }
+
+        private static void LoadPlayerOptions(TomlTable tomlModel, bool dbg = false)
         {
             if (!tomlModel.TryGetValue("Gameplay Options", out var settingsObj) || !(settingsObj is TomlTable settingsTable))
                 return;
@@ -327,34 +381,53 @@ namespace CrusaderDETweaker.Config.Toml
 
             // All gameplay options only override when true.
             // false = "don't override" (leave game default as-is), not "explicitly disable".
-            if (ParseBool("BetterHealers", out var bh) && bh)
-                Plugin.PlayerApi?.SetBetterHealers(true);
-            if (ParseBool("FasterPeasants", out var fp) && fp)
-                Plugin.PlayerApi?.SetFasterPeasants(true);
-            if (ParseBool("ImprovedArabSwordsman", out var ias) && ias)
-                Plugin.PlayerApi?.SetImprovedArabSwordsman(true);
-            if (ParseBool("ImprovedFletchers", out var inf) && inf)
-                Plugin.PlayerApi?.SetImprovedFletchers(true);
-            if (ParseBool("ImprovedLadderman", out var il) && il)
-                Plugin.PlayerApi?.SetImprovedLadderman(true);
-            if (ParseBool("ImprovedSpearman", out var isp) && isp)
-                Plugin.PlayerApi?.SetImprovedSpearman(true);
-            if (ParseBool("NerfEunuchs", out var ne) && ne)
-                Plugin.PlayerApi?.SetNerfEunuchs(true);
-            if (ParseBool("NoKnockdownWalls", out var nkw) && nkw)
-                Plugin.PlayerApi?.SetNoKnockdownWalls(true);
-            if (ParseBool("RebalancedHorseArchers", out var rha) && rha)
-                Plugin.PlayerApi?.SetRebalancedHorseArchers(true);
-            if (ParseBool("UncappedPeasants", out var ucp) && ucp)
-                Plugin.PlayerApi?.SetUncappedPeasants(true);
-            if (ParseBool("AllBuildingsAvailable", out var aba) && aba)
-                Plugin.PlayerApi?.SetAllBuildingAvailability(true);
-            if (ParseBool("AllUnitsAllowed", out var aua) && aua)
-                Plugin.PlayerApi?.SetAllUnitsAllowed(true);
-            if (ParseBool("AllTradeGoodsAllowed", out var atga) && atga)
-                Plugin.PlayerApi?.SetAllTradeGoodsAllowed(true);
-            if (ParseBool("AllProductionGoodsAllowed", out var apga) && apga)
-                Plugin.PlayerApi?.SetAllProductionGoodAllowed(true);
+            // Each call is individually guarded — some options rely on map-load-time structures.
+            // Getter is optional: if provided, the result is read back to confirm the setting took effect.
+            TryApply("BetterHealers",             () => Plugin.PlayerApi?.SetBetterHealers(true),            () => Plugin.PlayerApi?.IsBetterHealers());
+            TryApply("FasterPeasants",            () => Plugin.PlayerApi?.SetFasterPeasants(true),           () => Plugin.PlayerApi?.IsFasterPeasants());
+            TryApply("ImprovedArabSwordsman",     () => Plugin.PlayerApi?.SetImprovedArabSwordsman(true),    () => Plugin.PlayerApi?.IsImprovedArabSwordsman());
+            TryApply("ImprovedFletchers",         () => Plugin.PlayerApi?.SetImprovedFletchers(true),        () => Plugin.PlayerApi?.IsImprovedFletchers());
+            TryApply("ImprovedLadderman",         () => Plugin.PlayerApi?.SetImprovedLadderman(true),        () => Plugin.PlayerApi?.IsImprovedLadderman());
+            TryApply("ImprovedSpearman",          () => Plugin.PlayerApi?.SetImprovedSpearman(true),         () => Plugin.PlayerApi?.IsImprovedSpearman());
+            TryApply("NerfEunuchs",               () => Plugin.PlayerApi?.SetNerfEunuchs(true),              () => Plugin.PlayerApi?.IsNerfEunuchs());
+            TryApply("NoKnockdownWalls",          () => Plugin.PlayerApi?.SetNoKnockdownWalls(true),         () => Plugin.PlayerApi?.IsNoKnockdownWalls());
+            TryApply("RebalancedHorseArchers",    () => Plugin.PlayerApi?.SetRebalancedHorseArchers(true),   () => Plugin.PlayerApi?.IsRebalancedHorseArchers());
+            TryApply("UncappedPeasants",          () => Plugin.PlayerApi?.SetUncappedPeasants(true),         () => Plugin.PlayerApi?.IsUncappedPeasants());
+            // Map-rules options: no single getter for "all", so no read-back — failure is logged via exception
+            TryApply("AllBuildingsAvailable",     () => Plugin.PlayerApi?.SetAllBuildingAvailability(true),  null);
+            TryApply("AllUnitsAllowed",           () => Plugin.PlayerApi?.SetAllUnitsAllowed(true),          null);
+            TryApply("AllTradeGoodsAllowed",      () => Plugin.PlayerApi?.SetAllTradeGoodsAllowed(true),     null);
+            TryApply("AllProductionGoodsAllowed", () => Plugin.PlayerApi?.SetAllProductionGoodAllowed(true), null);
+
+            void TryApply(string key, Action action, Func<bool?> getter)
+            {
+                if (!ParseBool(key, out var val) || !val) return;
+                try
+                {
+                    action();
+
+                    if (getter != null)
+                    {
+                        bool? actual = getter();
+                        if (actual == true)
+                        {
+                            if (dbg) Plugin.Logger.LogInfo($"[GameplayOptions] {key} = true (confirmed)");
+                        }
+                        else
+                        {
+                            Plugin.Logger.LogWarning($"[GameplayOptions] {key} was set but read back as {actual?.ToString() ?? "null"} — may not have taken effect");
+                        }
+                    }
+                    else
+                    {
+                        if (dbg) Plugin.Logger.LogInfo($"[GameplayOptions] {key} = true (applied, no read-back available)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Logger.LogWarning($"[GameplayOptions] {key} failed: {ex.Message}");
+                }
+            }
         }
 
         private static void LoadAutoTrade(TomlTable tomlModel)

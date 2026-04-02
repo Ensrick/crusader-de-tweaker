@@ -152,7 +152,8 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                         var modified = (int)Mathf.Clamp((float)args.Damage * damageMultiplier, 1, int.MaxValue);
                         args.Damage = modified;
 
-                        Plugin.Logger.LogInfo($"[StructureDmgMult] tile={args.TileId} unitId={attackingUnitId} dmg {originalDamage}->{modified} (x{damageMultiplier:F4})");
+                        if (dbg)
+                            Plugin.Logger.LogInfo($"[StructureDmgMult] tile={args.TileId} unitId={attackingUnitId} dmg {originalDamage}->{modified} (x{damageMultiplier:F4})");
                     }
                     catch (Exception ex)
                     {
