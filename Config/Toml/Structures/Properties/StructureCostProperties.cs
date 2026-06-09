@@ -33,7 +33,6 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
             );
 
             value = GetCost(cost);
-            // Skip 0-cost entries — user can add them manually if needed
             return value > 0;
         }
 
@@ -62,8 +61,12 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
 
         internal override bool ValidateValue(int value)
         {
-            // Costs can be 0, positive, or even negative for special cases
             return true;
+        }
+
+        internal override bool ShouldOmitFromGeneration(int value)
+        {
+            return value == 0;
         }
     }
 

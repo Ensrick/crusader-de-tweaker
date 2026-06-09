@@ -59,6 +59,14 @@ namespace CrusaderDETweaker.Tests
             Test_TryGenerate_EntityFiltered();
             Test_TryGenerate_ApiFailure();
 
+            // Test migration (TryGenerateWithOverride) — the "-1 = use default" sentinel logic
+            Test_Migration_DefaultValueBecomesSentinel();
+            Test_Migration_OverridePreserved();
+            Test_Migration_ExistingSentinelKept();
+            Test_Migration_UnparseableFallsToSentinel();
+            Test_Migration_Float_DefaultBecomesSentinel();
+            Test_Migration_Float_OverridePreserved();
+
             // Test TryLoad
             Test_TryLoad_Success();
             Test_TryLoad_ValidationFailure();
@@ -216,7 +224,9 @@ namespace CrusaderDETweaker.Tests
             bool success = handler.TryGenerate(TestEntity.EntityA, sb);
             
             string output = sb.ToString();
-            AssertTrue("TryGenerate_Success", success && output.Contains("Health = 1000"));
+            // Numeric properties now generate the "-1 = use game default (no override)" sentinel,
+            // with the live game value in the "# Default:" comment.
+            AssertTrue("TryGenerate_Success", success && output.Contains("Health = -1") && output.Contains("# Default: 1000"));
         }
 
         private static void Test_TryGenerate_EntityFiltered()
@@ -240,6 +250,76 @@ namespace CrusaderDETweaker.Tests
             bool success = handler.TryGenerate(TestEntity.EntityA, sb);
             
             AssertTrue("TryGenerate_ApiFailure", !success);
+        }
+
+        // ===================================================
+        // Migration Tests (TryGenerateWithOverride)
+        // ===================================================
+
+        private static System.Collections.Generic.Dictionary<string, object> Existing(string key, object value)
+            => new System.Collections.Generic.Dictionary<string, object> { { key, value } };
+
+        private static void Test_Migration_DefaultValueBecomesSentinel()
+        {
+            var handler = new MockIntPropertyHandler("Health");
+            handler.SetApiValue(1000); // game default
+            var sb = new StringBuilder();
+            // Existing value equals the game default → should migrate to the -1 sentinel.
+            bool ok = handler.TryGenerateWithOverride(TestEntity.EntityA, sb, Existing("Health", 1000L));
+            string output = sb.ToString();
+            AssertTrue("Migration_DefaultBecomesSentinel", ok && output.Contains("Health = -1") && output.Contains("# Default: 1000"));
+        }
+
+        private static void Test_Migration_OverridePreserved()
+        {
+            var handler = new MockIntPropertyHandler("Health");
+            handler.SetApiValue(1000);
+            var sb = new StringBuilder();
+            // Existing value differs from default → preserved as a genuine override.
+            bool ok = handler.TryGenerateWithOverride(TestEntity.EntityA, sb, Existing("Health", 5000L));
+            string output = sb.ToString();
+            AssertTrue("Migration_OverridePreserved", ok && output.Contains("Health = 5000") && output.Contains("# Default: 1000"));
+        }
+
+        private static void Test_Migration_ExistingSentinelKept()
+        {
+            var handler = new MockIntPropertyHandler("Health");
+            handler.SetApiValue(1000);
+            var sb = new StringBuilder();
+            // Existing value is already the sentinel → kept as a no-op.
+            bool ok = handler.TryGenerateWithOverride(TestEntity.EntityA, sb, Existing("Health", -1L));
+            string output = sb.ToString();
+            AssertTrue("Migration_ExistingSentinelKept", ok && output.Contains("Health = -1") && output.Contains("# Default: 1000"));
+        }
+
+        private static void Test_Migration_UnparseableFallsToSentinel()
+        {
+            var handler = new MockIntPropertyHandler("Health");
+            handler.SetApiValue(1000);
+            var sb = new StringBuilder();
+            // Unparseable existing value → fall through to fresh sentinel generation.
+            bool ok = handler.TryGenerateWithOverride(TestEntity.EntityA, sb, Existing("Health", "garbage"));
+            AssertTrue("Migration_UnparseableFallsToSentinel", ok && sb.ToString().Contains("Health = -1"));
+        }
+
+        private static void Test_Migration_Float_DefaultBecomesSentinel()
+        {
+            var handler = new MockFloatPropertyHandler("MeleeArmorMultiplier");
+            handler.SetApiValue(1.0f);
+            var sb = new StringBuilder();
+            // Stored 1.0 equals the default within epsilon → migrate to -1.
+            bool ok = handler.TryGenerateWithOverride(TestEntity.EntityA, sb, Existing("MeleeArmorMultiplier", 1.0));
+            AssertTrue("Migration_Float_DefaultBecomesSentinel", ok && sb.ToString().Contains("MeleeArmorMultiplier = -1"));
+        }
+
+        private static void Test_Migration_Float_OverridePreserved()
+        {
+            var handler = new MockFloatPropertyHandler("MeleeArmorMultiplier");
+            handler.SetApiValue(1.0f);
+            var sb = new StringBuilder();
+            // A real override well outside epsilon → preserved.
+            bool ok = handler.TryGenerateWithOverride(TestEntity.EntityA, sb, Existing("MeleeArmorMultiplier", 1.5));
+            AssertTrue("Migration_Float_OverridePreserved", ok && sb.ToString().Contains("MeleeArmorMultiplier = 1.5"));
         }
 
         // ===================================================
@@ -333,6 +413,10 @@ namespace CrusaderDETweaker.Tests
                 LastSetValue = value;
             }
 
+            // Real numeric handlers expose the game value as the default (for the "# Default:" comment).
+            protected override bool TryGetOriginalValue(TestEntity entity, out int defaultValue)
+                => TryGetFromAPI(entity, out defaultValue);
+
             // Expose internal methods for testing
             public new string FormatValue(int value) => base.FormatValue(value);
             public new bool TryParseValue(object tomlValue, out int result) => base.TryParseValue(tomlValue, out result);
@@ -345,13 +429,21 @@ namespace CrusaderDETweaker.Tests
         /// </summary>
         private class MockFloatPropertyHandler : PropertyHandler<TestEntity, float>
         {
+            private float _apiValue;
+            private bool _hasApiValue;
+
             public MockFloatPropertyHandler(string name) : base(name) { }
+
+            public void SetApiValue(float value) { _apiValue = value; _hasApiValue = true; }
 
             protected override bool TryGetFromAPI(TestEntity entity, out float value)
             {
-                value = 0;
-                return false;
+                value = _apiValue;
+                return _hasApiValue;
             }
+
+            protected override bool TryGetOriginalValue(TestEntity entity, out float value)
+                => TryGetFromAPI(entity, out value);
 
             protected override void SetToAPI(TestEntity entity, float value) { }
 

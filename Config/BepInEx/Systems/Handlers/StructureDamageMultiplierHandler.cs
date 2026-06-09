@@ -89,10 +89,11 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
 
                         // Demolisher/Sapper detection via context-based unit ID (SHCDESE v1.21.1+).
                         // NOTE: args.Unknown1 (native a6) is NOT the attacker unit ID.
-                        // GetCurrentContextAttackingUnitId() reads gContextAttackingUnitIdVA,
-                        // a game-global set during c_game_buildingtile_take_damage.
+                        // GetCurrentContextUnitId() reads gContextAttackingUnitIdVA (renamed from
+                        // GetCurrentContextAttackingUnitId in SHCDESE v1.28), a game-global set
+                        // during c_game_buildingtile_take_damage.
                         // Applied first so they stack correctly with structure-type and global multipliers.
-                        int attackingUnitId = Plugin.UnitApi.GetCurrentContextAttackingUnitId();
+                        int attackingUnitId = Plugin.UnitApi.GetCurrentContextUnitId();
 
                         if (dbg)
                             Plugin.Logger.LogInfo($"[DBG-BldgDmg-4] attackingUnitId={attackingUnitId}");

@@ -34,7 +34,7 @@ SHCDE-SE APIs are not available until the game library is loaded. Subscribe to t
 using SHCDESE.API.LowLevel;
 
 // In Plugin.Awake()
-CrusaderLibrary.Instance.LibraryLoaded += _ => OnLibraryLoaded();
+CrusaderLibrary.Instance.LibraryLoaded += (handle, memory) => OnLibraryLoaded();
 
 private void OnLibraryLoaded()
 {
@@ -184,19 +184,24 @@ int damage = Plugin.UnitApi.GetMeleeDamageFromTo(
 
 ### Cost Methods
 
-#### GetGoldCost / SetGoldCost
-Gets or sets the gold cost for a unit type.
+#### GetUnitGoldCost / SetUnitGoldCost
+Gets or sets the gold cost to recruit a unit type.
 
 ```csharp
-int GetGoldCost(eChimps chimp)
-void SetGoldCost(eChimps chimp, int value)
+int  GetUnitGoldCost(eChimps chimp)
+void SetUnitGoldCost(eChimps chimp, int value)
 ```
+
+> **Naming note:** The C# methods are `GetUnitGoldCost` / `SetUnitGoldCost`. The Lua-facing
+> export name is `"GetGoldCost"` (`[LuaApiExport("GetGoldCost")]`), which is why this is easy to
+> get wrong. From C# you MUST use the `Unit`-prefixed names. (Verified against SHCDE-SE v1.34.0
+> `GameUnitManagerAPI.cs`. The *building* equivalent is plain `GetGoldCost(eStructs)` — see below.)
 
 **Example:**
 ```csharp
 // Get and modify gold cost
-int currentCost = Plugin.UnitApi.GetGoldCost(eChimps.CHIMP_TYPE_SWORDSMAN);
-Plugin.UnitApi.SetGoldCost(eChimps.CHIMP_TYPE_SWORDSMAN, currentCost * 2); // Double cost
+int currentCost = Plugin.UnitApi.GetUnitGoldCost(eChimps.CHIMP_TYPE_SWORDSMAN);
+Plugin.UnitApi.SetUnitGoldCost(eChimps.CHIMP_TYPE_SWORDSMAN, currentCost * 2); // Double cost
 ```
 
 **Used in:** `Config/Toml/Units/Properties/GoldCostProperty.cs` - Setting unit gold cost from TOML
@@ -841,7 +846,7 @@ ushort defaultHousing = Plugin.BuildingApi.GetHousingPopulationSpace(eStructs.ST
 - `GetMaxHealth(int unitId)` / `SetMaxHealth(int unitId, int health)` - Health
 - `GetDefaultHealth(eChimps chimp)` / `SetDefaultHealth(eChimps chimp, uint value)` - Default health
 - `GetDefaultSpeed(eChimps chimp)` / `SetDefaultSpeed(eChimps chimp, ushort value)` - Default speed
-- `GetGoldCost(eChimps chimp)` / `SetGoldCost(eChimps chimp, int value)` - Gold cost
+- `GetUnitGoldCost(eChimps chimp)` / `SetUnitGoldCost(eChimps chimp, int value)` - Gold cost (Lua export name is `GetGoldCost`; from C# use the `Unit`-prefixed names)
 - `GetMeleeDamageFromTo(eChimps source, eChimps target)` - Damage lookup
 
 **Buildings:**

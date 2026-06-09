@@ -213,6 +213,8 @@
     <Compile Include="Config\BepInEx\Systems\Handlers\MeleeDamageMultiplierHandler.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\RangedDamageMultiplierHandler.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\StructureDamageMultiplierHandler.cs" />
+    <Compile Include="Config\BepInEx\Systems\Handlers\UnitCapHandler.cs" />
+    <Compile Include="Config\BepInEx\Systems\Handlers\BuildingCapHandler.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\StructureTypeDetector.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

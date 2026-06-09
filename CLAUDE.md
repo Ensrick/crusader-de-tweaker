@@ -78,9 +78,25 @@ Game Defaults → TOML Properties → CSV Overrides → BepInEx Multipliers
 
 | Tier | Files | Purpose | Restart? |
 |------|-------|---------|----------|
-| **BepInEx** | `CrusaderDETweaker_GlobalMultipliers.cfg` | Global multipliers | No |
+| **BepInEx** | `CrusaderDETweaker_GlobalMultipliers.cfg` | Global multipliers, unit caps | No |
 | **TOML** | `*_Units.toml`, `*_Structures.toml` | Individual properties | Yes |
 | **CSV** | `*_MeleeDamage.csv`, etc. | Granular damage overrides | Yes |
+
+### `-1` = "use game default" sentinel (Units/Structures TOML, v2.3.0+)
+
+Numeric stat properties (Health, Speed, GoldCost, ShieldHealth, armor multipliers, structure
+health/costs, housing, run-speed bonuses) default to **`-1` = "leave the game value unchanged"**.
+Only a real number overrides; the live game value is shown in the `# Default:` comment (generation
+runs before apply each launch, so it stays current). Mechanics (all centralized — do NOT edit the
+20+ handlers):
+- Skip-on-apply: `PropertyHandlerWrapper.TryLoadFromObject` returns early if the **raw** TOML value
+  is `-1` (matched via `NoOpSentinel` before the typed cast, so it works for `uint`/`ushort` too).
+- Generation + migration: `PropertyHandler.TryGenerateCore` writes `-1` for fresh entries and
+  migrates any existing `value == default` to `-1` (genuine overrides preserved). Float comparison
+  uses an epsilon (`AreValuesEqual`).
+- Different conventions elsewhere, do not unify: `MaxCount` uses `-1 = unlimited`; Trade Prices use
+  `0 = no override`; Globals (siege/stealth/etc.) still bake the default value (not yet converted).
+See memory `reference_shcde_se_modding_gotchas` for the broader SHCDE-SE init/event constraints.
 
 ### Config Paths
 
@@ -139,7 +155,7 @@ ConfigManager.Initialize()
     ├─ Load() for each system              ← Registers hooks, reads TOML/CSV
     └─ (no direct API calls here)
     ↓
-BepInExConfigManager.Initialize()  ← Real-time hooks
+BepInExConfigManager.Initialize()  ← Multipliers, unit caps, wall costs
     ↓
 OnStartMap / OnLoadMap hooks fire  ← SAFE to call game APIs here
 // CoreTestRunner.RunAllTests()  ← DISABLED (re-enable for dev verification)
@@ -171,6 +187,8 @@ Past crashes caused by this:
 | Unit properties | `Config/Toml/Units/Properties/*.cs` |
 | Unit registry | `Config/Toml/Units/UnitPropertyRegistry.cs` |
 | Unit categories | `Data/UnitCategories.cs` |
+| Unit cap handler | `Config/BepInEx/Systems/Handlers/UnitCapHandler.cs` |
+| Building cap handler | `Config/BepInEx/Systems/Handlers/BuildingCapHandler.cs` |
 | Test runner | `Tests/CoreTestRunner.cs` |
 
 ---

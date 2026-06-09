@@ -52,7 +52,30 @@ namespace CrusaderDETweaker.Config.Toml
         /// </summary>
         internal static void GenerateDefaultConfigUnits()
         {
-            if (ConfigFileHelper.ConfigFileExists(ConfigPaths.Units)) return;
+            // Load existing values for migration if file already exists
+            TomlTable existingToml = null;
+            bool oldMaxCountScheme = false;
+            if (ConfigFileHelper.ConfigFileExists(ConfigPaths.Units))
+            {
+                try
+                {
+                    string existingRaw = ConfigFileHelper.ReadConfigFile(ConfigPaths.Units);
+                    existingToml = Tomlyn.Toml.ToModel(existingRaw);
+                    // Old configs (2.2.0, and the "(no cap)" 2.2.x variant) used MaxCount = 0 to mean
+                    // "no limit". The current generator ALWAYS writes the "-1 = unlimited" marker in the
+                    // MaxCount comment, so a file LACKING that marker is an old-scheme file whose 0s must
+                    // migrate to -1 (unlimited). Otherwise 2.2.1+ enforcement reads 0 as "disabled" and
+                    // deletes every unit/building of that type on spawn. An intentional 0 = disabled set
+                    // in a NEW-format file is preserved, because that file DOES contain the marker.
+                    oldMaxCountScheme = !existingRaw.Contains("-1 = unlimited");
+                    Plugin.Logger.LogInfo($"Migrating existing unit config: {ConfigPaths.Units}");
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Logger.LogWarning($"Could not parse existing unit config for migration, leaving unchanged: {ex.Message}");
+                    return;
+                }
+            }
 
             try
             {
@@ -75,16 +98,29 @@ namespace CrusaderDETweaker.Config.Toml
 
                     sb.AppendLine($"[{unit}]");
 
+                    IDictionary<string, object> existingSection = null;
+                    if (existingToml != null && existingToml.TryGetValue(unit.ToString(), out var rawSection))
+                        existingSection = rawSection as IDictionary<string, object>;
+
                     var handlers = UnitPropertyRegistry.Instance.GetApplicable(unit);
                     bool hasAnyProperty = false;
 
                     foreach (var handler in handlers)
                     {
-                        hasAnyProperty |= handler.TryGenerate(unit, sb);
+                        hasAnyProperty |= existingSection != null
+                            ? handler.TryGenerateWithOverride(unit, sb, existingSection)
+                            : handler.TryGenerate(unit, sb);
                     }
 
-                    if (!hasAnyProperty)
-                        sb.AppendLine("# No modifiable properties");
+                    int existingMaxCount = -1;
+                    if (existingSection != null && existingSection.TryGetValue("MaxCount", out var mcVal) && mcVal is long mc)
+                    {
+                        existingMaxCount = (int)mc;
+                        // Migrate pre-2.2.1 "0 = no cap" to the new "-1 = unlimited".
+                        if (oldMaxCountScheme && existingMaxCount == 0)
+                            existingMaxCount = -1;
+                    }
+                    sb.AppendLine($"MaxCount = {existingMaxCount}  # -1 = unlimited (default), 0 = disabled, >0 = max alive at once");
 
                     sb.AppendLine();
                     processedCount++;
@@ -95,7 +131,8 @@ namespace CrusaderDETweaker.Config.Toml
                 int projectileCount = 0;
 
                 ConfigFileHelper.WriteConfigFile(ConfigPaths.Units, sb.ToString());
-                Plugin.Logger.LogInfo($"Generated unit config: Units={processedCount}, Skipped={skippedCount}, Projectiles={projectileCount}");
+                string action = existingToml != null ? "Migrated" : "Generated";
+                Plugin.Logger.LogInfo($"{action} unit config: Units={processedCount}, Skipped={skippedCount}, Projectiles={projectileCount}");
             }
             catch (Exception ex)
             {
@@ -109,8 +146,6 @@ namespace CrusaderDETweaker.Config.Toml
         /// </summary>
         internal static void GenerateDefaultConfigStructures()
         {
-            if (ConfigFileHelper.ConfigFileExists(ConfigPaths.Structures)) return;
-
             GenerateDefaultConfig(
                 filePath: ConfigPaths.Structures,
                 registry: StructurePropertyRegistry.Instance,
@@ -166,6 +201,7 @@ namespace CrusaderDETweaker.Config.Toml
                 const int DefaultFoodConsumptionRate = 3;
                 const int DefaultPeasantRespawnTickTargetValue = 4000;
                 const int DefaultPeasantRespawnTickResetValue = 2000;
+                const int DefaultCampPeasantsCap = 24;
 
                 var restockAmount = ExistingOrDefault(existingToml, "Siege Engines", "SiegeEngineRestockStoneAmount", DefaultRestockStoneAmount);
                 var restockCost = ExistingOrDefault(existingToml, "Siege Engines", "SiegeEngineRestockStoneCost", DefaultRestockStoneCost);
@@ -228,12 +264,15 @@ namespace CrusaderDETweaker.Config.Toml
 
                 var peasantTickTarget = ExistingOrDefault(existingToml, "Peasant Spawning", "PeasantRespawnTickTargetValue", DefaultPeasantRespawnTickTargetValue);
                 var peasantTickReset = ExistingOrDefault(existingToml, "Peasant Spawning", "PeasantRespawnTickResetValue", DefaultPeasantRespawnTickResetValue);
+                var campPeasantsCap = ExistingOrDefault(existingToml, "Peasant Spawning", "CampPeasantsCap", DefaultCampPeasantsCap);
 
                 sb.AppendLine("[\"Peasant Spawning\"]");
                 sb.AppendLine($"# How many ticks must elapse before a new peasant spawns. Lower = faster spawning.");
                 sb.AppendLine($"PeasantRespawnTickTargetValue = {peasantTickTarget}  # default: {DefaultPeasantRespawnTickTargetValue}");
                 sb.AppendLine($"# Tick counter reset value after a spawn. Lower = fewer ticks wasted on reset.");
                 sb.AppendLine($"PeasantRespawnTickResetValue = {peasantTickReset}  # default: {DefaultPeasantRespawnTickResetValue}");
+                sb.AppendLine($"# Max peasants that can be waiting at the campfire. 0 = no cap.");
+                sb.AppendLine($"CampPeasantsCap = {campPeasantsCap}  # default: {DefaultCampPeasantsCap}");
                 sb.AppendLine();
 
                 sb.AppendLine("# ========================================");
@@ -366,11 +405,20 @@ namespace CrusaderDETweaker.Config.Toml
         {
             // Load existing values for migration if file already exists
             TomlTable existingToml = null;
+            bool oldMaxCountScheme = false;
             if (ConfigFileHelper.ConfigFileExists(filePath))
             {
                 try
                 {
-                    existingToml = Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(filePath));
+                    string existingRaw = ConfigFileHelper.ReadConfigFile(filePath);
+                    existingToml = Tomlyn.Toml.ToModel(existingRaw);
+                    // Old configs (2.2.0, and the "(no cap)" 2.2.x variant) used MaxCount = 0 to mean
+                    // "no limit". The current generator ALWAYS writes the "-1 = unlimited" marker in the
+                    // MaxCount comment, so a file LACKING that marker is an old-scheme file whose 0s must
+                    // migrate to -1 (unlimited). Otherwise 2.2.1+ enforcement reads 0 as "disabled" and
+                    // deletes every unit/building of that type on spawn. An intentional 0 = disabled set
+                    // in a NEW-format file is preserved, because that file DOES contain the marker.
+                    oldMaxCountScheme = !existingRaw.Contains("-1 = unlimited");
                     Plugin.Logger.LogInfo($"Migrating existing {entityTypeName} config: {filePath}");
                 }
                 catch (Exception ex)
@@ -414,8 +462,15 @@ namespace CrusaderDETweaker.Config.Toml
                             : handler.TryGenerate(entity, sb);
                     }
 
-                    if (!hasAnyProperty)
-                        sb.AppendLine("# No modifiable properties");
+                    int existingMaxCount = -1;
+                    if (existingSection != null && existingSection.TryGetValue("MaxCount", out var mcVal) && mcVal is long mc)
+                    {
+                        existingMaxCount = (int)mc;
+                        // Migrate pre-2.2.1 "0 = no cap" to the new "-1 = unlimited".
+                        if (oldMaxCountScheme && existingMaxCount == 0)
+                            existingMaxCount = -1;
+                    }
+                    sb.AppendLine($"MaxCount = {existingMaxCount}  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once");
 
                     sb.AppendLine();
                     processedCount++;

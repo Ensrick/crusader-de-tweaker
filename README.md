@@ -12,6 +12,7 @@ Crusader DE Tweaker provides fine-grained control over game balance through mult
 - **Structure Tweaking**: Adjust building health, costs, and housing capacity
 - **Damage System**: Configure damage values via CSV matrix files
 - **Real-Time Multipliers**: Apply global multipliers without restarting the game
+- **Unit & Building Count Caps**: Limit how many of each unit or building type a player can have (e.g., max 20 Knights, 3 Hovels)
 - **CSV Damage Matrices**: Surgical damage adjustments via CSV files
 
 ### Use Cases
@@ -35,7 +36,8 @@ Crusader DE Tweaker provides fine-grained control over game balance through mult
 
 3. **Configure:**
    - Edit `CrusaderDETweaker_Units.toml` to customize units (generated on first run if missing)
-   - Edit `CrusaderDETweaker_GlobalMultipliers.cfg` for real-time multipliers (no restart needed)
+   - Edit `CrusaderDETweaker_GlobalMultipliers.cfg` for real-time multipliers and unit caps (no restart needed)
+   - Edit `CrusaderDETweaker_GameplaySettings.toml` for gameplay globals (siege, stealth, peasant spawning, trade)
    - Restart the game to apply TOML changes
    - **Note:** Your config files are safe - the mod never overwrites your changes. Files are only generated if they don't exist.
 
@@ -49,8 +51,8 @@ This mod supports multiple configuration methods, each suited for different use 
 
 The primary configuration method for most users:
 
-- **`CrusaderDETweaker_Units.toml`** - Unit properties (health, speed, costs, tags)
-- **`CrusaderDETweaker_Structures.toml`** - Building properties (health, costs, housing)
+- **`CrusaderDETweaker_Units.toml`** - Unit properties (health, speed, costs, max count caps)
+- **`CrusaderDETweaker_Structures.toml`** - Building properties (health, costs, housing, max count caps)
 
 **When to use:** Most common use case. Edit these files to customize individual units and structures.
 

@@ -9,7 +9,7 @@
 ### Plugin GUID
 
 ```csharp
-[BepInPlugin("CrusaderDETweaker", "Crusader DE Tweaker", "1.0")]
+[BepInPlugin("CrusaderDETweaker", "Crusader DE Tweaker", "2.2.0")]
 ```
 
 **GUID**: `"CrusaderDETweaker"`
@@ -41,7 +41,7 @@
         ↓
 3. Load CSV Damage Matrices    ← DamageMatrixConfigSystem
         ↓
-4. BepInEx Hooks               ← Real-time multipliers
+4. BepInEx Hooks               ← Multipliers, unit caps, wall costs
 ```
 
 ### Why Order Matters

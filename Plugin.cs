@@ -57,7 +57,7 @@ namespace CrusaderDETweaker
     /// The GUID "CrusaderDETweaker" is the CORRECT and INTENDED value.
     /// Previous incorrect GUID "ensrick.crusaderdetweaker" was a mistake.
     /// </summary>
-    [BepInPlugin("CrusaderDETweaker", "Crusader DE Tweaker", "1.0")]
+    [BepInPlugin("CrusaderDETweaker", "Crusader DE Tweaker", "2.3.1")]
     public class Plugin : BaseUnityPlugin
     {
         /// <summary>
@@ -119,7 +119,7 @@ namespace CrusaderDETweaker
 
             Logger.LogInfo("CrusaderDETweaker loading");
 
-            SHCDESE.API.LowLevel.CrusaderLibrary.Instance.LibraryLoaded += _ => CrusaderLibrary_LibraryLoaded();
+            SHCDESE.API.LowLevel.CrusaderLibrary.Instance.LibraryLoaded += (handle, memory) => CrusaderLibrary_LibraryLoaded();
         }
 
         /// <summary>
@@ -158,9 +158,10 @@ namespace CrusaderDETweaker
                 var bepInExCfgPath = Path.Combine(Paths.ConfigPath, "CrusaderDETweaker", "CrusaderDETweaker_GlobalMultipliers.cfg");
                 BepInExConfigManager.Initialize(new ConfigFile(bepInExCfgPath, true));
 
-                // DEACTIVATED: Unit test runner disabled - re-enable for development verification
-                // CoreTestRunner includes UnitTagRegistryTest which tests the deactivated tag system
-                // CrusaderDETweaker.Tests.CoreTestRunner.RunAllTests();
+                // QA self-check: run the core-logic unit suites on load and log PASS/FAIL to
+                // LogOutput.log. Mock handlers only — no game-API calls, safe during init. This
+                // surfaces a regression immediately in the log if core logic ever breaks.
+                CrusaderDETweaker.Tests.CoreTestRunner.RunAllTests();
 
                 Logger.LogInfo("Crusader DE Tweaker initialized successfully.");
                 _isInitialized = true;

@@ -128,12 +128,22 @@ $RECYCLE.BIN/
 # ============================================================================
 # Game-Specific (if copied to game directory)
 # ============================================================================
-# These shouldn't be in the repo, but just in case
-BepInEx/
-plugins/
-config/
+# These shouldn't be in the repo, but just in case. ANCHORED with a leading slash so they only
+# match a top-level copy and do NOT match the SOURCE tree (Config/, Config/BepInEx/).
+# NOTE: a bare `config/` line used to live here. On Windows' case-insensitive filesystem it
+# matched the source `Config/` directory and silently excluded ~85 source files from the repo.
+# It has been removed; do not reintroduce a non-anchored `config/`/`BepInEx/`/`plugins/` rule.
+/BepInEx/
+/plugins/
 
 
 .fake
 # Claude Code AI Session Data
 .claude/
+
+# AI assistant tool dirs / local backups / runtime dumps (not source)
+.cursor/
+.gemini/
+/logs/
+Config/Backups/
+*.res

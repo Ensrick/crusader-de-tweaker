@@ -68,13 +68,5 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Ranged
             return UnitMatrixHelper.ShouldSkipUnit(defender);
         }
 
-        /// <summary>
-        /// Get the ORIGINAL DEFAULT ranged damage value (from game before any mods).
-        /// This is used to determine if CSV value was modified by user.
-        /// </summary>
-        protected override int GetOriginalDefaultValue(ProjectileType projectile, eChimps defender)
-        {
-            return Core.CsvMatrixReader.GetOriginalRangedDamage(projectile, defender);
-        }
     }
 }

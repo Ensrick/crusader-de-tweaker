@@ -12,8 +12,8 @@ Files:
 [list]
 [*]CrusaderDETweaker_GlobalMultipliers.cfg - Real-time global multipliers
 [*]CrusaderDETweaker_GameplaySettings.toml - Gameplay flags, siege, stealth, trade prices, auto-trade
-[*]CrusaderDETweaker_Units.toml - Per-unit stats (health, speed, cost, weapon/armor requirements)
-[*]CrusaderDETweaker_Structures.toml - Per-structure stats (health, cost, housing)
+[*]CrusaderDETweaker_Units.toml - Per-unit stats (health, speed, cost, weapon/armor requirements, max count)
+[*]CrusaderDETweaker_Structures.toml - Per-structure stats (health, cost, housing, max count)
 [*]DamageMatrices\CrusaderDETweaker_MeleeDamage.csv - Unit vs unit melee damage
 [*]DamageMatrices\CrusaderDETweaker_RangedDamage.csv - Projectile (arrow/bolt/slinger/javelin) damage per unit
 [*]DamageMatrices\CrusaderDETweaker_EunuchAoeDamage.csv - Eunuch AOE damage per unit
@@ -23,7 +23,7 @@ Files:
 [*]DamageMatrices\CrusaderDETweaker_BuildingFireDamage.csv - Fire damage per building type
 [/list]
 
-[b]Note:[/b] Config files are only generated if they don't exist. Your changes are never overwritten. Delete a file to reset it to defaults.
+[b]Note:[/b] Config files are generated on first launch and migrated on updates — your values are preserved, and new properties are added automatically. Delete a file to reset it to defaults.
 
 
 [size=5][b]Load Order[/b][/size]
@@ -71,7 +71,6 @@ DiseaseDamageMultiplier = 1.0              # Scales all three disease damage tie
 [/code]
 
 [b]Multipliers stack.[/b] Example: WallDamageTakenMultiplier = 0.5 and StructureDamageTakenMultiplier = 2.0 → walls take 1.0× damage (0.5 × 2.0).
-
 
 [size=5][b]2. CrusaderDETweaker_GameplaySettings.toml[/b][/size]
 [b]Gameplay-wide settings[/b] — covers siege engines, stealth, gates, flags, trade, and auto-trade.
@@ -134,6 +133,27 @@ AllTradeGoodsAllowed = false
 AllProductionGoodsAllowed = false
 [/code]
 
+[b]Pathfinding[/b]
+[code]
+[Pathfinding]
+PathfindingMaxTilesConstraint = 2000  # Max tiles a unit can pathfind through. Higher = longer paths allowed.
+[/code]
+
+[b]Food Consumption[/b]
+[code]
+["Food Consumption"]
+FoodConsumptionTickThreshold = 15000  # Ticks between food consumption evaluations. Higher = slower eating.
+FoodConsumptionRate = 3               # Base rate multiplier for food consumption per tick.
+[/code]
+
+[b]Peasant Spawning[/b]
+[code]
+["Peasant Spawning"]
+PeasantRespawnTickTargetValue = 4000  # Ticks before a new peasant spawns. Lower = faster spawning.
+PeasantRespawnTickResetValue = 2000   # Tick counter reset value after a spawn.
+CampPeasantsCap = 24                  # Max peasants waiting at the campfire. 0 = no cap.
+[/code]
+
 [b]Trade Prices[/b]
 
 Override the market buy/sell price for individual goods. [b]0 = use the game's default price[/b] (no override). Requires a Trade Post. Re-applied on each map load.
@@ -190,23 +210,27 @@ SellLevel = 0
 
 
 [size=5][b]3. CrusaderDETweaker_Units.toml[/b][/size]
-[b]Per-unit stats[/b] — one section per unit type. Values are read from the game on first launch and written as defaults.
+[b]Per-unit stats[/b] — one section per unit type. Each numeric stat defaults to [b]-1[/b] = "use the game default": the mod leaves that stat unchanged. The game's current value is shown in the [b]# Default:[/b] comment, refreshed every launch. Set any real number to override.
 
 [code]
 [CHIMP_TYPE_KNIGHT]
-Health = 20000                    # Max health
-Speed = 1                         # Movement speed
-GoldCost = 40                     # Recruitment gold cost (Crusader units only)
-WeaponType = "STORED_SWORDS"      # Required weapon resource
-ArmorType = "STORED_METAL_ARMOUR" # Required armor resource
-RequiresHorse = true              # Links unit to a stable slot on spawn
+Health = -1 # Default: 20000       # -1 = use game default; set a number to override
+Speed = -1 # Default: 1
+GoldCost = 5000 # Default: 40       # example override: 5000-gold Knights
+WeaponType = "STORED_SWORDS"       # equipment requirements are set directly (no -1)
+ArmorType = "STORED_METAL_ARMOUR"
+RequiresHorse = true               # links unit to a stable slot on spawn
+MaxCount = 20                      # cap (separate convention: -1 = unlimited, 0 = disabled)
 
 [CHIMP_TYPE_ARCHER]
-Health = 2500
-Speed = 1
-GoldCost = 12
+Health = -1 # Default: 2500
+Speed = -1 # Default: 1
+GoldCost = -1 # Default: 12
 WeaponType = "STORED_BOWS"
+MaxCount = -1                      # -1 = unlimited (default)
 [/code]
+
+[b]Note:[/b] [b]-1[/b] means "don't touch this stat" — only stats you give a real number are overridden. (Existing configs migrate automatically: a value that equals its default becomes -1; your genuine overrides are kept.) This is the same idea as Trade Prices' [b]0 = use default[/b], using -1 because 0 is a valid stat value.
 
 [b]Available Properties:[/b]
 [list]
@@ -216,6 +240,7 @@ WeaponType = "STORED_BOWS"
 [*][b]WeaponType[/b] — Weapon resource: STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS, STORED_PIKES, STORED_MACES, STORED_SPEARS
 [*][b]ArmorType[/b] — Armor resource: STORED_METAL_ARMOUR, STORED_LEATHER_ARMOUR
 [*][b]RequiresHorse[/b] — Cavalry units only. When true, hooks unit spawn to link it to a stable slot.
+[*][b]MaxCount[/b] — Limit on units of this type alive at once for the local player. [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (the unit is recruitable but every one is removed the moment it spawns, so you cannot field it), [b]>0[/b] = max alive (excess removed on spawn).
 [/list]
 
 [b]Note:[/b] Damage values are not set here. All combat damage is controlled by the CSV matrices below.
@@ -226,25 +251,22 @@ WeaponType = "STORED_BOWS"
 
 [code]
 [STRUCT_BARRACKS]
-Health = 400
-GoldCost = 15
-WoodCost = 0
-StoneCost = 0
-IronCost = 0
-PitchCost = 0
-HousingPopulationSpace = 0
+Health = -1 # Default: 400        # -1 = use game default; set a number to override
+GoldCost = -1 # Default: 15
+MaxCount = -1                     # -1 = unlimited (default)
 
 [STRUCT_HOVEL]
-Health = 100
-GoldCost = 0
-WoodCost = 6
-StoneCost = 0
-IronCost = 0
-PitchCost = 0
-HousingPopulationSpace = 8
+Health = -1 # Default: 100
+WoodCost = 3 # Default: 6          # example override: cheaper Hovels
+HousingPopulationSpace = -1 # Default: 8
+MaxCount = 3                      # cap: limit Hovels to 3
 [/code]
 
-[b]Available Properties:[/b] Health, GoldCost, WoodCost, StoneCost, IronCost, PitchCost, HousingPopulationSpace
+Same as units: each numeric stat defaults to [b]-1[/b] = "use the game default" (unchanged); set a real number to override. Cost properties with a default of 0 are omitted for cleanliness — you can add them manually (e.g. [b]StoneCost = 10[/b]) and the mod will apply them.
+
+[b]Available Properties:[/b] Health, GoldCost, WoodCost, StoneCost, IronCost, PitchCost, HousingPopulationSpace, MaxCount
+
+[b]MaxCount[/b] for buildings works the same as for units: [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (every placement removed), [b]>0[/b] = max placed at once.
 
 [b]Note:[/b] Wall costs are controlled by [b]LowWallCostMultiplier[/b] and [b]HighWallCostMultiplier[/b] in the CFG file, not here.
 
@@ -284,7 +306,7 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [size=5][b]Quick Tips[/b][/size]
 [list]
 [*][b]TOML and CSV changes require a game restart[/b]
-[*][b]Most CFG multipliers apply in real-time[/b] — no restart needed (fire/heal multipliers are the exception)
+[*][b]Most CFG settings apply in real-time[/b] — multipliers require no restart (fire/heal multipliers are the exception)
 [*][b]Delete a config file to reset it[/b] — it will be regenerated with defaults on next launch
 [*][b]Multipliers stack[/b] — UnitMeleeDamageTakenMultiplier and StructureDamageTakenMultiplier both apply independently
 [*][b]Minimum damage is always 1[/b] — setting multipliers to 0 still results in 1 damage

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using CrusaderDETweaker.Config.BepInEx;
+using CrusaderDETweaker.Config.BepInEx.Systems.Handlers;
 using CrusaderDETweaker.Config.Toml;
 using CrusaderDETweaker.Config.Toml.Core;
 using CrusaderDETweaker.Config.Toml.Projectiles;
@@ -40,6 +41,9 @@ namespace CrusaderDETweaker.Config.Toml
     /// </summary>
     internal static class ConfigLoader
     {
+        private static Dictionary<eChimps, int> _unitCaps = new Dictionary<eChimps, int>();
+        private static Dictionary<eStructs, int> _buildingCaps = new Dictionary<eStructs, int>();
+
         /// <summary>
         /// Load and apply unit configurations from TOML file.
         /// Also loads projectile configurations from the same file.
@@ -102,6 +106,8 @@ namespace CrusaderDETweaker.Config.Toml
                 );
 
                 Plugin.Logger.LogInfo($"Applied unit configs: Units={unitProcessed}, Projectiles={projProcessed}, Errors={unitErrors + projErrors}");
+
+                LoadUnitCaps(unitModel);
 
                 // DEACTIVATED: Mismatch summaries for armor formulas
                 // Units.Properties.MeleeArmorMultiplierProperty.LogMismatchSummary();
@@ -247,6 +253,9 @@ namespace CrusaderDETweaker.Config.Toml
                     }
                 });
 
+            UnitCapHandler.Subscribe(_unitCaps);
+            BuildingCapHandler.Subscribe(_buildingCaps);
+
             Plugin.Logger.LogInfo("[GlobalConfig] Registered OnStartMap + OnLoadMap + OnBuildingSpawn + OnUnitCreate hooks.");
         }
 
@@ -361,6 +370,16 @@ namespace CrusaderDETweaker.Config.Toml
 
             if (psTable.TryGetValue("PeasantRespawnTickResetValue", out var resetVal) && resetVal is long reset)
                 Plugin.GlobalsApi?.PeasantRespawnTickResetValue?.SetValue((ushort)reset);
+
+            if (psTable.TryGetValue("CampPeasantsCap", out var capVal) && capVal is long cap)
+            {
+                if (cap < 0 || cap > ushort.MaxValue)
+                {
+                    Plugin.Logger.LogWarning($"[Peasant Spawning] CampPeasantsCap={cap} is outside the ushort range [0, {ushort.MaxValue}]; clamping.");
+                    cap = System.Math.Max(0L, System.Math.Min((long)ushort.MaxValue, cap));
+                }
+                Plugin.GlobalsApi?.CampPeasantsCap?.SetValue((ushort)cap);
+            }
         }
 
         private static void LoadPlayerOptions(TomlTable tomlModel, bool dbg = false)
@@ -523,6 +542,50 @@ namespace CrusaderDETweaker.Config.Toml
                 Plugin.Logger.LogInfo($"[Trade Prices] Applied {applied} trade price overrides");
         }
 
+        private static void LoadUnitCaps(TomlTable unitModel)
+        {
+            _unitCaps.Clear();
+            foreach (var kvp in unitModel)
+            {
+                if (!(kvp.Value is TomlTable section)) continue;
+                if (!section.TryGetValue("MaxCount", out var mcVal) || !(mcVal is long mc)) continue;
+                if (mc > int.MaxValue)
+                {
+                    Plugin.Logger.LogWarning($"[UnitCaps] {kvp.Key}.MaxCount={mc} exceeds int.MaxValue; clamping to {int.MaxValue}.");
+                    mc = int.MaxValue;
+                }
+                int cap = (int)mc;
+                // -1 (or any negative) = unlimited → don't track. 0 = disabled, >0 = cap → track.
+                if (cap < 0) continue;
+                if (!Enum.TryParse<eChimps>(kvp.Key, out var unit)) continue;
+                _unitCaps[unit] = cap;
+            }
+            if (_unitCaps.Count > 0)
+                Plugin.Logger.LogInfo($"[UnitCaps] Loaded {_unitCaps.Count} unit cap(s) from TOML.");
+        }
+
+        private static void LoadBuildingCaps(TomlTable structModel)
+        {
+            _buildingCaps.Clear();
+            foreach (var kvp in structModel)
+            {
+                if (!(kvp.Value is TomlTable section)) continue;
+                if (!section.TryGetValue("MaxCount", out var mcVal) || !(mcVal is long mc)) continue;
+                if (mc > int.MaxValue)
+                {
+                    Plugin.Logger.LogWarning($"[BuildingCaps] {kvp.Key}.MaxCount={mc} exceeds int.MaxValue; clamping to {int.MaxValue}.");
+                    mc = int.MaxValue;
+                }
+                int cap = (int)mc;
+                // -1 (or any negative) = unlimited → don't track. 0 = disabled, >0 = cap → track.
+                if (cap < 0) continue;
+                if (!Enum.TryParse<eStructs>(kvp.Key, out var structure)) continue;
+                _buildingCaps[structure] = cap;
+            }
+            if (_buildingCaps.Count > 0)
+                Plugin.Logger.LogInfo($"[BuildingCaps] Loaded {_buildingCaps.Count} building cap(s) from TOML.");
+        }
+
         /// <summary>
         /// Helper method to parse projectile enum from string key.
         /// </summary>
@@ -538,13 +601,29 @@ namespace CrusaderDETweaker.Config.Toml
         /// </summary>
         internal static void ApplyAllStructureConfigs()
         {
-            ApplyConfigs(
-                filePath: ConfigPaths.Structures,
-                registry: StructurePropertyRegistry.Instance,
-                nonModifiableEntities: Data.StructureCategories.NonModable,
-                entityTypeName: "structure",
-                parseEntity: TryParseStructure
-            );
+            if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Structures)) return;
+
+            try
+            {
+                var tomlString = ConfigFileHelper.ReadConfigFile(ConfigPaths.Structures);
+                var tomlModel = Tomlyn.Toml.ToModel(tomlString);
+
+                var (processedCount, skippedCount, errorCount) = EntityProcessor.ProcessEntities(
+                    tomlModel,
+                    StructurePropertyRegistry.Instance,
+                    Data.StructureCategories.NonModable,
+                    "structure",
+                    TryParseStructure
+                );
+
+                Plugin.Logger.LogInfo($"Applied structure configs: Processed={processedCount}, Skipped={skippedCount}, Errors={errorCount}");
+
+                LoadBuildingCaps(tomlModel);
+            }
+            catch (Exception ex)
+            {
+                Core.ErrorLogging.LogConfigLoadException("structure configs", ex);
+            }
         }
 
         /// <summary>
