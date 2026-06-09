@@ -43,7 +43,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <!-- Debug OutputPath: MUST match plugin GUID "CrusaderDETweaker" -->
-    <OutputPath>..\..\..\..\..\Program Files %28x86%29\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\CrusaderDETweaker\</OutputPath>
+    <OutputPath>$(GameDir)\BepInEx\plugins\CrusaderDETweaker\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -54,32 +54,35 @@
     <Optimize>true</Optimize>
     <!-- Release OutputPath: MUST match plugin GUID "CrusaderDETweaker" (same as Debug) -->
     <!-- CRITICAL: Both Debug and Release use the SAME folder. This is intentional. -->
-    <OutputPath>..\..\..\..\..\Program Files %28x86%29\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\CrusaderDETweaker\</OutputPath>
+    <OutputPath>$(GameDir)\BepInEx\plugins\CrusaderDETweaker\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="BepInEx">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\core\BepInEx.dll</HintPath>
+      <HintPath>$(GameDir)\BepInEx\core\BepInEx.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="R3">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\R3.dll</HintPath>
+      <HintPath>$(GameDir)\BepInEx\plugins\000shcdese\R3.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="SHCDESE">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath>
+      <HintPath>$(GameDir)\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="Zhuqiaomon">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\plugins\000shcdese\Zhuqiaomon.dll</HintPath>
+      <HintPath>$(GameDir)\BepInEx\plugins\000shcdese\Zhuqiaomon.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Tomlyn">
-      <HintPath>C:\Users\danjo\.nuget\packages\tomlyn\0.19.0\lib\netstandard2.0\Tomlyn.dll</HintPath>
-      <Private>True</Private>
+    <!-- ReadOnlySpan/Span support for net481; provided at runtime by BepInEx/SHCDE-SE, so don't copy to output. -->
+    <Reference Include="System.Memory">
+      <HintPath>$(GameDir)\BepInEx\plugins\000shcdese\System.Memory.dll</HintPath>
+      <Private>False</Private>
     </Reference>
+    <!-- Tomlyn via NuGet so a clean clone restores it automatically (no machine-specific path). -->
+    <PackageReference Include="Tomlyn" Version="0.19.0" />
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
@@ -90,11 +93,11 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Xml" />
     <Reference Include="UnityEngine">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="UnityEngine.CoreModule">
-      <HintPath>..\..\..\..\..\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>

@@ -147,3 +147,6 @@ $RECYCLE.BIN/
 /logs/
 Config/Backups/
 *.res
+
+# Release packaging output (the Nexus zip is a build artifact, not source)
+/dist/

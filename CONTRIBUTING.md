@@ -1,5 +1,23 @@
 # Contributing to Crusader DE Tweaker
 
+## Prerequisites
+
+- **Stronghold Crusader: Definitive Edition** installed — the build links against the game's
+  BepInEx, SHCDE-SE and Unity assemblies (it does not bundle them).
+- **BepInEx 5** and **SHCDE-SE** (by Rawra) installed into the game folder.
+- **Visual Studio 2022** or MSBuild, with the **.NET Framework 4.8.1** targeting pack.
+
+The build resolves the game folder through the `$(GameDir)` property (see `Directory.Build.props`),
+which defaults to the standard Steam path. If your install is elsewhere, override it — no file edit
+needed:
+
+```
+msbuild CrusaderDETweaker.csproj /t:Restore,Build /p:Configuration=Release /p:GameDir="D:\...\Stronghold Crusader Definitive Edition"
+```
+
+Tomlyn is a NuGet `PackageReference`; Visual Studio restores it automatically, and `.\scripts\build.ps1`
+(or `msbuild /t:Restore`) restores it on the command line.
+
 ## Quick Start
 
 1. **Read** [CLAUDE.MD](CLAUDE.MD) - Primary development reference

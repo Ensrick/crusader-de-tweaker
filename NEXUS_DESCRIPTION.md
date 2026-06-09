@@ -1,6 +1,16 @@
-Version 2.2.1
+Version 2.3.1
 
 Updated for SHC DE v2.7!
+
+[b]2.3.1:[/b]
+[list]
+[*]Building count caps ([b]MaxCount[/b]) now block placement [b]before[/b] the building is built — no more paying for a building and watching it vanish a frame later. A disabled building simply can't be placed, and loading a save no longer removes over-cap buildings you already had.
+[/list]
+
+[b]2.3.0:[/b]
+[list]
+[*]Unit & structure stat properties now default to [b]-1[/b] = "use the game's default value". The mod only changes the stats you actually set, instead of re-applying every value on load — much better compatibility with other mods. Each property shows the current game default in its [i]# Default:[/i] comment, refreshed every launch. Existing configs migrate automatically (a value equal to its default becomes -1; genuine overrides are preserved).
+[/list]
 
 [b]2.2.1:[/b]
 [list]

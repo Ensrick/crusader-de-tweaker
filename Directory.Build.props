@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <!--
+      Root of the Stronghold Crusader: Definitive Edition install. The build resolves the game's
+      BepInEx, SHCDE-SE (000shcdese) and Unity assemblies from here, and deploys the plugin into
+      "$(GameDir)\BepInEx\plugins\CrusaderDETweaker\".
+
+      The default below is the standard Steam location. If your install is elsewhere, override it
+      without editing this file:
+
+        msbuild CrusaderDETweaker.csproj /p:GameDir="D:\SteamLibrary\steamapps\common\Stronghold Crusader Definitive Edition"
+
+      or set a GameDir environment variable. Building also requires SHCDE-SE (by Rawra) installed
+      in that game folder, since the plugin references its assemblies.
+    -->
+    <GameDir Condition=" '$(GameDir)' == '' ">C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition</GameDir>
+  </PropertyGroup>
+</Project>
