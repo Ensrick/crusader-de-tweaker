@@ -276,7 +276,7 @@ Same as units: each numeric stat defaults to [b]-1[/b] = "use the game default" 
 
 [b]Available Properties:[/b] Health, GoldCost, WoodCost, StoneCost, IronCost, PitchCost, HousingPopulationSpace, MaxCount
 
-[b]MaxCount[/b] for buildings works the same as for units: [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (every placement removed), [b]>0[/b] = max placed at once.
+[b]MaxCount[/b] for buildings: [b]-1[/b] = unlimited (default), [b]0[/b] = disabled, [b]>0[/b] = max placed at once. Unlike units, building placement is refused [b]up front[/b] (like the game's own placement rules) — no resources are spent, and loading a save never removes buildings you already had.
 
 [b]Note:[/b] Wall costs are controlled by [b]LowWallCostMultiplier[/b] and [b]HighWallCostMultiplier[/b] in the CFG file, not here.
 

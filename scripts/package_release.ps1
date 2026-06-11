@@ -76,5 +76,13 @@ Compress-Archive -Path $stagingBepInEx -DestinationPath $zipPath -CompressionLev
 $zipSize = [math]::Round((Get-Item $zipPath).Length / 1KB, 1)
 Write-Host "  $zipPath ($zipSize KB)" -ForegroundColor Green
 
+# --- Copy Nexus/Workshop BBCode docs next to the zip for copy/paste during upload ---
+Write-Host ""
+Write-Host "Copying upload docs..." -ForegroundColor White
+$repoRoot = Split-Path $PSScriptRoot -Parent
+Copy-Item (Join-Path $repoRoot "NEXUS_DESCRIPTION.md")   (Join-Path $StagingPath "NEXUS_DESCRIPTION.txt")   -Force
+Copy-Item (Join-Path $repoRoot "CONFIGURATION_GUIDE.md") (Join-Path $StagingPath "CONFIGURATION_GUIDE.txt") -Force
+Write-Host "  NEXUS_DESCRIPTION.txt + CONFIGURATION_GUIDE.txt (BBCode, paste into the Nexus pages)" -ForegroundColor Green
+
 Write-Host ""
 Write-Host "Done. Users can extract '$([System.IO.Path]::GetFileName($zipPath))' directly into their game folder." -ForegroundColor Cyan
