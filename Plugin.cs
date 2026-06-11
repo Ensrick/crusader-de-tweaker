@@ -57,7 +57,7 @@ namespace CrusaderDETweaker
     /// The GUID "CrusaderDETweaker" is the CORRECT and INTENDED value.
     /// Previous incorrect GUID "ensrick.crusaderdetweaker" was a mistake.
     /// </summary>
-    [BepInPlugin("CrusaderDETweaker", "Crusader DE Tweaker", "2.3.1")]
+    [BepInPlugin("CrusaderDETweaker", "Crusader DE Tweaker", "2.4.0")]
     public class Plugin : BaseUnityPlugin
     {
         /// <summary>

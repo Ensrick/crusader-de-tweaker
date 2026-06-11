@@ -1,6 +1,13 @@
-Version 2.3.1
+Version 2.4.0
 
 Updated for SHC DE v2.7!
+
+[b]2.4.0:[/b]
+[list]
+[*]New gameplay options: [b]GlobalImprovedSiegeBehaviour[/b] and [b]GlobalMoreAggressiveSiegeBehaviour[/b] — force the game's AI siege behaviour toggles on from the config, re-applied on every map load.
+[*]New: [b]EnemyHealthModifier[/b] — the game's "Enemy Health" advanced option as a config value: [b]-1[/b] = don't override, [b]0[/b] = Weak (66%), [b]1[/b] = Normal (100%), [b]2[/b] = Strong (125%), [b]3[/b] = Very Strong (150%). The vanilla way to scale enemy (AI) troop health only — per-unit Health stats apply to both sides.
+[*]New: [b]AdvancedOptionsEnabled[/b] / [b]AdvancedSkirmishOptionsEnabled[/b] — the game's advanced-options master switches, exposed in the config and auto-enabled whenever you override any advanced option, so sub-options can't be silently ignored.
+[/list]
 
 [b]2.3.1:[/b]
 [list]

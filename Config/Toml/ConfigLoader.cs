@@ -14,6 +14,9 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
+// Alias instead of a namespace using: SHCDESE.Interop.Enums also defines ProjectileType,
+// which collides with CrusaderDETweaker.Data.ProjectileType.
+using EnemyHPModifier = SHCDESE.Interop.Enums.EnemyHPModifier;
 using Tomlyn;
 using Tomlyn.Model;
 using System.Collections.Generic;
@@ -402,25 +405,52 @@ namespace CrusaderDETweaker.Config.Toml
             // false = "don't override" (leave game default as-is), not "explicitly disable".
             // Each call is individually guarded — some options rely on map-load-time structures.
             // Getter is optional: if provided, the result is read back to confirm the setting took effect.
-            TryApply("BetterHealers",             () => Plugin.PlayerApi?.SetBetterHealers(true),            () => Plugin.PlayerApi?.IsBetterHealers());
-            TryApply("FasterPeasants",            () => Plugin.PlayerApi?.SetFasterPeasants(true),           () => Plugin.PlayerApi?.IsFasterPeasants());
-            TryApply("ImprovedArabSwordsman",     () => Plugin.PlayerApi?.SetImprovedArabSwordsman(true),    () => Plugin.PlayerApi?.IsImprovedArabSwordsman());
-            TryApply("ImprovedFletchers",         () => Plugin.PlayerApi?.SetImprovedFletchers(true),        () => Plugin.PlayerApi?.IsImprovedFletchers());
-            TryApply("ImprovedLadderman",         () => Plugin.PlayerApi?.SetImprovedLadderman(true),        () => Plugin.PlayerApi?.IsImprovedLadderman());
-            TryApply("ImprovedSpearman",          () => Plugin.PlayerApi?.SetImprovedSpearman(true),         () => Plugin.PlayerApi?.IsImprovedSpearman());
-            TryApply("NerfEunuchs",               () => Plugin.PlayerApi?.SetNerfEunuchs(true),              () => Plugin.PlayerApi?.IsNerfEunuchs());
-            TryApply("NoKnockdownWalls",          () => Plugin.PlayerApi?.SetNoKnockdownWalls(true),         () => Plugin.PlayerApi?.IsNoKnockdownWalls());
-            TryApply("RebalancedHorseArchers",    () => Plugin.PlayerApi?.SetRebalancedHorseArchers(true),   () => Plugin.PlayerApi?.IsRebalancedHorseArchers());
-            TryApply("UncappedPeasants",          () => Plugin.PlayerApi?.SetUncappedPeasants(true),         () => Plugin.PlayerApi?.IsUncappedPeasants());
+            //
+            // Advanced sub-options (ChoreManagerOptions-backed) are tracked so the game's master
+            // flags can be raised below: whether the game honors a sub-option while AdvancedOptions /
+            // AdvancedSkirmishOptions is off is undocumented, so the masters are set whenever any
+            // sub-option is in use. The read-back only confirms the memory write, not the gate.
+            bool advancedOptionUsed = false;
+            advancedOptionUsed |= TryApply("BetterHealers",             () => Plugin.PlayerApi?.SetBetterHealers(true),            () => Plugin.PlayerApi?.IsBetterHealers());
+            advancedOptionUsed |= TryApply("FasterPeasants",            () => Plugin.PlayerApi?.SetFasterPeasants(true),           () => Plugin.PlayerApi?.IsFasterPeasants());
+            advancedOptionUsed |= TryApply("ImprovedArabSwordsman",     () => Plugin.PlayerApi?.SetImprovedArabSwordsman(true),    () => Plugin.PlayerApi?.IsImprovedArabSwordsman());
+            advancedOptionUsed |= TryApply("ImprovedFletchers",         () => Plugin.PlayerApi?.SetImprovedFletchers(true),        () => Plugin.PlayerApi?.IsImprovedFletchers());
+            advancedOptionUsed |= TryApply("ImprovedLadderman",         () => Plugin.PlayerApi?.SetImprovedLadderman(true),        () => Plugin.PlayerApi?.IsImprovedLadderman());
+            advancedOptionUsed |= TryApply("ImprovedSpearman",          () => Plugin.PlayerApi?.SetImprovedSpearman(true),         () => Plugin.PlayerApi?.IsImprovedSpearman());
+            advancedOptionUsed |= TryApply("NerfEunuchs",               () => Plugin.PlayerApi?.SetNerfEunuchs(true),              () => Plugin.PlayerApi?.IsNerfEunuchs());
+            advancedOptionUsed |= TryApply("RebalancedHorseArchers",    () => Plugin.PlayerApi?.SetRebalancedHorseArchers(true),   () => Plugin.PlayerApi?.IsRebalancedHorseArchers());
+            advancedOptionUsed |= TryApply("UncappedPeasants",          () => Plugin.PlayerApi?.SetUncappedPeasants(true),         () => Plugin.PlayerApi?.IsUncappedPeasants());
+            advancedOptionUsed |= LoadEnemyHealthModifier(settingsTable, dbg);
+            // Native-global-pointer options (not ChoreManagerOptions-backed): no master flag involved
+            TryApply("NoKnockdownWalls",                   () => Plugin.PlayerApi?.SetNoKnockdownWalls(true),                   () => Plugin.PlayerApi?.IsNoKnockdownWalls());
+            TryApply("GlobalImprovedSiegeBehaviour",       () => Plugin.PlayerApi?.SetGlobalImprovedSiegeBehaviour(true),       () => Plugin.PlayerApi?.IsGlobalImprovedSiegeBehaviour());
+            TryApply("GlobalMoreAggressiveSiegeBehaviour", () => Plugin.PlayerApi?.SetGlobalMoreAggressiveSiegeBehaviour(true), () => Plugin.PlayerApi?.IsGlobalMoreAggressiveSiegeBehaviour());
             // Map-rules options: no single getter for "all", so no read-back — failure is logged via exception
             TryApply("AllBuildingsAvailable",     () => Plugin.PlayerApi?.SetAllBuildingAvailability(true),  null);
             TryApply("AllUnitsAllowed",           () => Plugin.PlayerApi?.SetAllUnitsAllowed(true),          null);
             TryApply("AllTradeGoodsAllowed",      () => Plugin.PlayerApi?.SetAllTradeGoodsAllowed(true),     null);
             TryApply("AllProductionGoodsAllowed", () => Plugin.PlayerApi?.SetAllProductionGoodAllowed(true), null);
-
-            void TryApply(string key, Action action, Func<bool?> getter)
+            // Master switches for the game's advanced options: explicit config values apply like any
+            // other option, and both are auto-enabled when any advanced sub-option above was overridden.
+            TryApply("AdvancedOptionsEnabled",         () => Plugin.PlayerApi?.SetAdvancedOptionsEnabled(true),         () => Plugin.PlayerApi?.IsAdvancedOptionsEnabled());
+            TryApply("AdvancedSkirmishOptionsEnabled", () => Plugin.PlayerApi?.SetAdvancedSkirmishOptionsEnabled(true), () => Plugin.PlayerApi?.IsAdvancedSkirmishOptionsEnabled());
+            if (advancedOptionUsed)
             {
-                if (!ParseBool(key, out var val) || !val) return;
+                try
+                {
+                    Plugin.PlayerApi?.SetAdvancedOptionsEnabled(true);
+                    Plugin.PlayerApi?.SetAdvancedSkirmishOptionsEnabled(true);
+                    if (dbg) Plugin.Logger.LogInfo("[GameplayOptions] Advanced sub-option overrides active — raised AdvancedOptions/AdvancedSkirmishOptions master flags");
+                }
+                catch (Exception ex)
+                {
+                    Plugin.Logger.LogWarning($"[GameplayOptions] Failed to raise advanced-options master flags: {ex.Message}");
+                }
+            }
+
+            bool TryApply(string key, Action action, Func<bool?> getter)
+            {
+                if (!ParseBool(key, out var val) || !val) return false;
                 try
                 {
                     action();
@@ -446,7 +476,48 @@ namespace CrusaderDETweaker.Config.Toml
                 {
                     Plugin.Logger.LogWarning($"[GameplayOptions] {key} failed: {ex.Message}");
                 }
+                return true;
             }
+        }
+
+        /// <summary>
+        /// Apply the game's "Enemy Health" advanced option — scales enemy (AI) troop health
+        /// without touching the player's own units. Enum-valued, so it doesn't fit the bool
+        /// TryApply pattern: -1 = don't override, 0 = Weak (66%), 1 = Normal (100%),
+        /// 2 = Strong (125%), 3 = Very Strong (150%).
+        /// Returns true when an override was requested (counts as an advanced sub-option).
+        /// </summary>
+        private static bool LoadEnemyHealthModifier(TomlTable settingsTable, bool dbg)
+        {
+            if (!settingsTable.TryGetValue("EnemyHealthModifier", out var raw) || !(raw is long value) || value < 0)
+                return false;
+
+            if (value > 3)
+            {
+                Plugin.Logger.LogWarning($"[GameplayOptions] EnemyHealthModifier = {value} is outside [0, 3]; ignoring.");
+                return false;
+            }
+
+            try
+            {
+                var requested = (EnemyHPModifier)value;
+                Plugin.PlayerApi?.SetEnemyHealthModifier(requested);
+
+                var actual = Plugin.PlayerApi?.GetEnemyHealthModifier();
+                if (actual == requested)
+                {
+                    if (dbg) Plugin.Logger.LogInfo($"[GameplayOptions] EnemyHealthModifier = {requested} (confirmed)");
+                }
+                else
+                {
+                    Plugin.Logger.LogWarning($"[GameplayOptions] EnemyHealthModifier was set to {requested} but read back as {actual?.ToString() ?? "null"} — may not have taken effect");
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogWarning($"[GameplayOptions] EnemyHealthModifier failed: {ex.Message}");
+            }
+            return true;
         }
 
         private static void LoadAutoTrade(TomlTable tomlModel)

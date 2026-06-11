@@ -113,7 +113,7 @@ DiseaseDamage3 = 400    # Damage tier 3 (highest)
 
 [b]Gameplay Options[/b]
 
-[b]All options only take effect when set to true.[/b] false means "leave the game default unchanged" — it does not actively disable anything.
+[b]All options only take effect when set to true.[/b] false means "leave the game default unchanged" — it does not actively disable anything. (Exception: EnemyHealthModifier is a number; -1 means "leave unchanged".)
 [code]
 ["Gameplay Options"]
 BetterHealers = false           # Improve healer unit effectiveness
@@ -126,6 +126,16 @@ NerfEunuchs = false             # Reduce Eunuch effectiveness
 NoKnockdownWalls = false        # Walls cannot be knocked down (re-applied on each map load)
 RebalancedHorseArchers = false  # Rebalance Horse Archer stats
 UncappedPeasants = false        # Remove peasant population cap
+# AI siege behaviour toggles — applied on each map load
+GlobalImprovedSiegeBehaviour = false
+GlobalMoreAggressiveSiegeBehaviour = false
+# Enemy Health advanced option — scales enemy (AI) troop health only.
+# -1 = don't override, 0 = Weak (66%), 1 = Normal (100%), 2 = Strong (125%), 3 = Very Strong (150%)
+EnemyHealthModifier = -1
+# Master switches for the game's advanced options. Auto-enabled whenever any advanced
+# option above is set, so you normally don't need to touch these.
+AdvancedOptionsEnabled = false
+AdvancedSkirmishOptionsEnabled = false
 # Override map restrictions — only takes effect when set to true
 AllBuildingsAvailable = false
 AllUnitsAllowed = false
