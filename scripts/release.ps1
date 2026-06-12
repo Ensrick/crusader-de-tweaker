@@ -1,7 +1,7 @@
 # scripts/release.ps1
 #
 # PURPOSE: Full release pipeline for CrusaderDETweaker.
-#          Runs all steps in order: build → backup → reset → launch → package → restore.
+#          Runs all steps in order: build → backup → package.
 #
 # USAGE:
 #   .\scripts\release.ps1                          # Auto-named backup (timestamp)
@@ -10,11 +10,16 @@
 #
 # STEPS:
 #   1. Build        — compiles the plugin DLL
-#   2. Backup       — saves current configs to Backups\<name>
-#   3. Reset        — deletes live config files
-#   4. Launch game  — starts game via Steam, waits for init, kills it (regenerates configs)
-#   5. Package      — copies plugin + fresh configs to staging dir and zips
-#   6. Restore      — puts your personal configs back
+#   2. Backup       — saves current configs to Backups\<name> (safety net)
+#   3. Package      — stages the plugin folder and zips it
+#
+# HISTORY: Until v2.4.0 this pipeline had three more steps (reset configs →
+# launch game to regenerate pristine defaults → restore personal configs)
+# because the zip shipped config files. As of v2.4.1 the zip is plugin-only —
+# extracting an upgrade over an install used to overwrite users' personalized
+# configs with the shipped defaults. Configs now come from first-launch
+# generation + on-update migration, so the reset/launch/restore dance is gone.
+# reset_configs.ps1 / restore_configs.ps1 remain available as standalone tools.
 #
 # PARAMETERS:
 #   -BackupName     Name for the config backup. Defaults to timestamp.
@@ -42,39 +47,21 @@ Write-Host "  Backup name : $BackupName"            -ForegroundColor White
 Write-Host ""
 
 # --- Step 1: Build ---
-Write-Host "[1/6] Building..." -ForegroundColor Yellow
+Write-Host "[1/3] Building..." -ForegroundColor Yellow
 & (Join-Path $ScriptsDir "build.ps1") -GamePath $GamePath
 if ($LASTEXITCODE -ne 0) { Write-Host "BUILD FAILED. Aborting." -ForegroundColor Red; exit 1 }
 Write-Host ""
 
-# --- Step 2: Backup configs ---
-Write-Host "[2/6] Backing up configs as '$BackupName'..." -ForegroundColor Yellow
+# --- Step 2: Backup configs (safety net; nothing in the pipeline touches them anymore) ---
+Write-Host "[2/3] Backing up configs as '$BackupName'..." -ForegroundColor Yellow
 & (Join-Path $ScriptsDir "backup_configs.ps1") -Name $BackupName -GamePath $GamePath
 if ($LASTEXITCODE -ne 0) { Write-Host "BACKUP FAILED. Aborting." -ForegroundColor Red; exit 1 }
 Write-Host ""
 
-# --- Step 3: Reset configs ---
-Write-Host "[3/6] Resetting configs..." -ForegroundColor Yellow
-& (Join-Path $ScriptsDir "reset_configs.ps1") -GamePath $GamePath
-if ($LASTEXITCODE -ne 0) { Write-Host "RESET FAILED. Aborting." -ForegroundColor Red; exit 1 }
-Write-Host ""
-
-# --- Step 4: Launch game to regenerate configs ---
-Write-Host "[4/6] Launching game to regenerate configs..." -ForegroundColor Yellow
-& (Join-Path $ScriptsDir "launch_game.ps1") -GamePath $GamePath
-if ($LASTEXITCODE -ne 0) { Write-Host "LAUNCH FAILED. Aborting." -ForegroundColor Red; exit 1 }
-Write-Host ""
-
-# --- Step 5: Package release ---
-Write-Host "[5/6] Packaging release..." -ForegroundColor Yellow
+# --- Step 3: Package release ---
+Write-Host "[3/3] Packaging release..." -ForegroundColor Yellow
 & (Join-Path $ScriptsDir "package_release.ps1") -GamePath $GamePath
 if ($LASTEXITCODE -ne 0) { Write-Host "PACKAGE FAILED. Aborting." -ForegroundColor Red; exit 1 }
-Write-Host ""
-
-# --- Step 6: Restore configs ---
-Write-Host "[6/6] Restoring configs from '$BackupName'..." -ForegroundColor Yellow
-& (Join-Path $ScriptsDir "restore_configs.ps1") -Name $BackupName -GamePath $GamePath
-if ($LASTEXITCODE -ne 0) { Write-Host "RESTORE FAILED (configs are in backup '$BackupName')." -ForegroundColor Red; exit 1 }
 
 Write-Host ""
 Write-Host "=======================================" -ForegroundColor Green

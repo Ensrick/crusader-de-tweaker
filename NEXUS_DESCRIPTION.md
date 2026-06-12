@@ -1,6 +1,12 @@
-Version 2.4.0
+Version 2.4.1
 
 Updated for SHC DE v2.7!
+
+[b]2.4.1:[/b]
+[list]
+[*]Fixed harmless [i]Unknown property 'MaxCount'[/i] warnings flooding the BepInEx console on launch (one per unit and structure). Caps always worked; the log noise is gone now.
+[*]The download no longer includes config files, so updating by extracting over your install can never overwrite your personalized configs again. Configs are generated on first launch and your existing values are migrated automatically on every update.
+[/list]
 
 [b]2.4.0:[/b]
 [list]

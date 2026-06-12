@@ -1,6 +1,7 @@
-2.4.1 - Silence MaxCount warning spam (2026-06-12):
+2.4.1 - Silence MaxCount warning spam, plugin-only release zip (2026-06-12):
 
        - **Fix: `Unknown property 'MaxCount'` no longer warned for every unit and structure on launch.** `MaxCount` is read by the dedicated cap loaders (`ConfigLoader.LoadUnitCaps` / `LoadBuildingCaps`), not by the per-property registry, so the generic property loop flagged it as unknown — ~161 warning lines per launch with a full config. Caps themselves always worked; the warnings were cosmetic. The generic loop now recognizes externally-handled TOML keys and logs them at Debug level instead.
+       - **Change: the release zip no longer includes config files.** Previous zips carried freshly-generated pristine configs, so upgrading by extracting the zip over an existing install silently overwrote personalized configs with defaults. Configs are generated on first launch and migrated in place on every update, so the zip now ships only `BepInEx/plugins/CrusaderDETweaker/`. Release pipeline simplified accordingly (`release.ps1` is now build → backup → package; the reset/launch/restore steps are retired).
 
 2.4.0 - AI siege behaviour toggles, Enemy Health option, advanced-options master flags (2026-06-11):
 

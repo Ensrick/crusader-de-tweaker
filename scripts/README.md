@@ -16,13 +16,17 @@ Development and release automation scripts.
 
 **Steps (in order):**
 1. `build.ps1` — compile plugin DLL
-2. `backup_configs.ps1` — save your current configs
-3. `reset_configs.ps1` — delete live configs
-4. `launch_game.ps1` — start game, wait for init, kill it (generates fresh default configs)
-5. `package_release.ps1` — copy plugin + fresh configs to staging dir, create zip
-6. `restore_configs.ps1` — put your personal configs back
+2. `backup_configs.ps1` — save your current configs (safety net only; nothing deletes them anymore)
+3. `package_release.ps1` — stage the plugin folder, create zip, copy BBCode docs next to it
 
-Aborts at any step on failure. Your configs are always safe in the backup before they're deleted.
+Aborts at any step on failure.
+
+> **Changed in v2.4.1:** the zip is plugin-only. The old pipeline had three extra steps
+> (`reset_configs.ps1` → `launch_game.ps1` → `restore_configs.ps1`) to put pristine configs in
+> the zip — but users upgrading by extracting over their install would overwrite their
+> personalized configs with those defaults. Configs are now generated on first launch and
+> migrated on updates, so they don't ship at all. The reset/restore scripts remain available
+> as standalone tools.
 
 ---
 

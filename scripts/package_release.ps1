@@ -1,6 +1,15 @@
 # scripts/package_release.ps1
 #
-# PURPOSE: Stage the latest plugin + config files and pack them into the release zip.
+# PURPOSE: Stage the latest plugin files and pack them into the release zip.
+#
+# NOTE: Config files are deliberately NOT shipped (changed in v2.4.1). The old
+# pipeline zipped freshly-regenerated pristine configs, but a user upgrading by
+# extracting the zip over their install would overwrite their personalized
+# configs with those defaults — losing their settings and contradicting the
+# Nexus description's "your existing config values are kept automatically".
+# The plugin generates defaults on first launch and migrates existing files on
+# every update, so shipping configs buys nothing and risks data loss. This also
+# retires the old reset -> launch -> restore steps in release.ps1.
 #
 # USAGE:
 #   .\scripts\package_release.ps1
@@ -18,11 +27,10 @@ param(
 )
 
 $gamePlugin = Join-Path $GamePath    "BepInEx\plugins\CrusaderDETweaker"
-$gameConfig = Join-Path $GamePath    "BepInEx\config\CrusaderDETweaker"
 
 $stagingBepInEx      = Join-Path $StagingPath "BepInEx"
 $stagingPlugin       = Join-Path $StagingPath "BepInEx\plugins\CrusaderDETweaker"
-$stagingConfig       = Join-Path $StagingPath "BepInEx\config\CrusaderDETweaker"
+$stagingConfig       = Join-Path $StagingPath "BepInEx\config"
 $zipPath             = Join-Path $StagingPath "Crusader DE Tweaker.zip"
 
 Write-Host "=== CrusaderDETweaker Package Release ===" -ForegroundColor Cyan
@@ -33,33 +41,32 @@ if (-not (Test-Path $gamePlugin)) {
     Write-Host "Plugin folder not found: $gamePlugin" -ForegroundColor Red
     exit 1
 }
-if (-not (Test-Path $gameConfig)) {
-    Write-Host "Config folder not found: $gameConfig" -ForegroundColor Red
-    exit 1
-}
 
-# --- Copy plugin folder ---
+# --- Refresh plugin staging (rename previous copy aside; never recursive-delete) ---
 Write-Host "Copying plugin..." -ForegroundColor White
 if (Test-Path $stagingPlugin) {
-    Remove-Item $stagingPlugin -Recurse -Force
+    $ts = Get-Date -Format "yyyyMMdd-HHmmss"
+    Rename-Item $stagingPlugin "CrusaderDETweaker.bak.$ts"
+    Write-Host "  (previous staging renamed to CrusaderDETweaker.bak.$ts - clear old .bak dirs manually when convenient)" -ForegroundColor Gray
 }
 Copy-Item $gamePlugin $stagingPlugin -Recurse -Force
 Write-Host "  plugins\CrusaderDETweaker\" -ForegroundColor Green
 
-# --- Copy config folder (excluding Backups subfolder) ---
-Write-Host "Copying config..." -ForegroundColor White
+# --- Guard: configs must not ship ---
 if (Test-Path $stagingConfig) {
-    Remove-Item $stagingConfig -Recurse -Force
+    Write-Host "Staging still contains a BepInEx\config folder - it would ship personal settings to users." -ForegroundColor Red
+    Write-Host "Move it out of BepInEx\ (e.g. rename to ..\config.bak.<date>) and re-run." -ForegroundColor Red
+    exit 1
 }
-Copy-Item $gameConfig $stagingConfig -Recurse -Force
 
-# Remove Backups folder if it got copied (user-specific, not for distribution)
-$stagingBackups = Join-Path $stagingConfig "Backups"
-if (Test-Path $stagingBackups) {
-    Remove-Item $stagingBackups -Recurse -Force
-    Write-Host "  (excluded Backups subfolder)" -ForegroundColor Gray
+# --- Guard: renamed .bak plugin dirs must not ship either ---
+$bakDirs = Get-ChildItem (Join-Path $stagingBepInEx 'plugins') -Directory -Filter '*.bak.*' -ErrorAction SilentlyContinue
+if ($bakDirs) {
+    foreach ($d in $bakDirs) {
+        Move-Item $d.FullName (Join-Path $StagingPath $d.Name)
+        Write-Host "  (moved $($d.Name) out of the zip tree)" -ForegroundColor Gray
+    }
 }
-Write-Host "  config\CrusaderDETweaker\" -ForegroundColor Green
 
 # --- Pack BepInEx folder into zip ---
 Write-Host ""
