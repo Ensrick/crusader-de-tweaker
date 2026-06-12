@@ -1,3 +1,7 @@
+2.4.1 - Silence MaxCount warning spam (2026-06-12):
+
+       - **Fix: `Unknown property 'MaxCount'` no longer warned for every unit and structure on launch.** `MaxCount` is read by the dedicated cap loaders (`ConfigLoader.LoadUnitCaps` / `LoadBuildingCaps`), not by the per-property registry, so the generic property loop flagged it as unknown — ~161 warning lines per launch with a full config. Caps themselves always worked; the warnings were cosmetic. The generic loop now recognizes externally-handled TOML keys and logs them at Debug level instead.
+
 2.4.0 - AI siege behaviour toggles, Enemy Health option, advanced-options master flags (2026-06-11):
 
        - **New: `GlobalImprovedSiegeBehaviour` / `GlobalMoreAggressiveSiegeBehaviour`** — the game's AI siege behaviour toggles are now available in `["Gameplay Options"]`. Same semantics as every other gameplay option: only `true` overrides, `false` leaves the in-game setting untouched. Applied on each map load with read-back confirmation. (These write dedicated native globals via SHCDE-SE's `SetGlobalImprovedSiegeBehaviour` / `SetGlobalMoreAggressiveSiegeBehaviour` — separate plumbing from the `ChoreManagerOptions`-backed options.)

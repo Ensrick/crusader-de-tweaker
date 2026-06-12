@@ -47,9 +47,24 @@ namespace CrusaderDETweaker.Config.Toml.Core
         {
             // Armor system v1.0 (replaced with multiplier-based system)
             "ArmorValue",
-            "MeleeArmorValue", 
+            "MeleeArmorValue",
             "RangedArmorValue",
             "EunuchAoeArmorValue"
+        };
+
+        /// <summary>
+        /// Properties that are valid in the TOML but consumed outside the property registry,
+        /// so the generic per-property loop must not warn about them.
+        ///
+        /// MAINTENANCE NOTE FOR AI AGENTS:
+        /// When a TOML key is read by a dedicated loader instead of a PropertyHandler
+        /// (like MaxCount in ConfigLoader.LoadUnitCaps/LoadBuildingCaps), add it here.
+        /// </summary>
+        private static readonly HashSet<string> ExternallyHandledProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Unit/building caps - read by ConfigLoader.LoadUnitCaps/LoadBuildingCaps,
+            // enforced by UnitCapHandler/BuildingCapHandler
+            "MaxCount"
         };
 
         /// <summary>
@@ -156,8 +171,13 @@ namespace CrusaderDETweaker.Config.Toml.Core
         /// </summary>
         public static void LogUnknownProperty(string entityTypeName, object entity, string propertyName)
         {
+            // Properties handled by dedicated loaders outside the registry are not unknown
+            if (ExternallyHandledProperties.Contains(propertyName))
+            {
+                Plugin.Logger.LogDebug($"Property '{propertyName}' for {entityTypeName} {entity} is handled outside the property registry (expected)");
+            }
             // Check if this is a known obsolete property
-            if (ObsoleteProperties.Contains(propertyName))
+            else if (ObsoleteProperties.Contains(propertyName))
             {
                 // Log at Debug level - these are expected in old configs and are harmless
                 Plugin.Logger.LogDebug($"Obsolete property '{propertyName}' for {entityTypeName} {entity} (ignored - property has been removed)");
