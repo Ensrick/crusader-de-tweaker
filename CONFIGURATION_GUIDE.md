@@ -324,3 +324,8 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [*][b]Auto Trade[/b] requires a Trade Post and is re-applied on each map load
 [*][b]Check BepInEx\LogOutput.log[/b] in the game directory for errors
 [/list]
+
+
+[size=5][b]Source Code[/b][/size]
+This mod is open source. Browse the code, report a bug, or contribute:
+[url=https://gitlab.com/ensrick7/crusader-de-tweaker]gitlab.com/ensrick7/crusader-de-tweaker[/url]
