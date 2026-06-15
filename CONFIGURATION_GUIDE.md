@@ -113,7 +113,7 @@ DiseaseDamage3 = 400    # Damage tier 3 (highest)
 
 [b]Gameplay Options[/b]
 
-[b]All options only take effect when set to true.[/b] false means "leave the game default unchanged" — it does not actively disable anything. (Exception: EnemyHealthModifier is a number; -1 means "leave unchanged".)
+[b]All options only take effect when set to true.[/b] false means "leave the game default unchanged" — it does not actively disable anything.
 [code]
 ["Gameplay Options"]
 BetterHealers = false           # Improve healer unit effectiveness
@@ -129,9 +129,6 @@ UncappedPeasants = false        # Remove peasant population cap
 # AI siege behaviour toggles — applied on each map load
 GlobalImprovedSiegeBehaviour = false
 GlobalMoreAggressiveSiegeBehaviour = false
-# Enemy Health advanced option — scales enemy (AI) troop health only.
-# -1 = don't override, 0 = Weak (66%), 1 = Normal (100%), 2 = Strong (125%), 3 = Very Strong (150%)
-EnemyHealthModifier = -1
 # Master switches for the game's advanced options. Auto-enabled whenever any advanced
 # option above is set, so you normally don't need to touch these.
 AdvancedOptionsEnabled = false
@@ -250,7 +247,7 @@ MaxCount = -1                      # -1 = unlimited (default)
 [*][b]WeaponType[/b] — Weapon resource: STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS, STORED_PIKES, STORED_MACES, STORED_SPEARS
 [*][b]ArmorType[/b] — Armor resource: STORED_METAL_ARMOUR, STORED_LEATHER_ARMOUR
 [*][b]RequiresHorse[/b] — Cavalry units only. When true, hooks unit spawn to link it to a stable slot.
-[*][b]MaxCount[/b] — Limit on units of this type alive at once for the local player. [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (the unit is recruitable but every one is removed the moment it spawns, so you cannot field it), [b]>0[/b] = max alive (excess removed on spawn).
+[*][b]MaxCount[/b] — Limit on units of this type alive at once for the local player. [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (cannot be recruited at all), [b]>0[/b] = max alive at once. Recruiting at/over the cap is refused up front (no gold spent); a request for more than the remaining room is trimmed to fit.
 [/list]
 
 [b]Note:[/b] Damage values are not set here. All combat damage is controlled by the CSV matrices below.

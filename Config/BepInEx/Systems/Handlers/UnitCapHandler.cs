@@ -64,10 +64,18 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                     }
                 });
 
-            Plugin.Logger.LogInfo("[UnitCaps] Subscribed — caps read live at spawn time.");
+            // Recruited units (Barracks / Mercenary Post) do NOT fire OnUnitCreate — recruiting
+            // transforms a peasant into a soldier rather than spawning a fresh unit, so the
+            // subscription above never catches them. Enforce the cap at recruit time instead by
+            // hooking EngineInterface.GameAction(MakeTroop). The OnUnitCreate path above is kept as
+            // belt-and-suspenders for the spawns that DO fire it (e.g. keep-spawned units).
+            MakeTroopRecruitHook.Install(caps);
+
+            Plugin.Logger.LogInfo("[UnitCaps] Subscribed — caps read live at spawn + recruit time.");
         }
 
-        private static int CountPlayerUnitsOfType(int playerId, eChimps unitType)
+        // internal so MakeTroopRecruitHook can reuse the exact same count semantics at recruit time.
+        internal static int CountPlayerUnitsOfType(int playerId, eChimps unitType)
         {
             int count = 0;
             var allAlive = Plugin.UnitApi.GetAllAliveUnits();

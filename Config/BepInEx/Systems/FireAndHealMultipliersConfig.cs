@@ -1,8 +1,12 @@
 // Config/BepInEx/Systems/FireAndHealMultipliersConfig.cs
 // AI DEV: BepInEx config system for fire damage, Bedouin heal, and disease damage multipliers.
-// Applied statically at initialization (no event hook available for these damage types).
-// Runs AFTER TOML globals and CSV matrices load, so multipliers apply on top of those values.
-// Fire/heal act per-unit via UnitApi/BuildingApi; disease scales the three global damage tiers.
+// Fire/heal act per-unit via UnitApi/BuildingApi and are applied once at initialization, on top of
+// the values already set by TOML globals and CSV matrices.
+// Disease is the exception: DiseaseDamageMultiplier is bound + validated here but APPLIED in
+// ConfigLoader.LoadGameGlobals (each map load, on top of the [Disease] TOML base) because the
+// disease tiers are global immediates that LoadGameGlobals rewrites every map load — applying the
+// multiplier at init here would be clobbered (and would write a game global during init, which
+// risks a native ACCESS_VIOLATION).
 
 using System;
 using BepInEx.Configuration;
@@ -64,7 +68,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 1.0f,
                 "Global multiplier for all three disease damage tiers (DiseaseDamage1/2/3).\n" +
                 "Example: Set to 2.0 to double disease damage, or 0.5 to halve it.\n" +
-                "Applied once at startup (requires game restart to change). For per-tier values, use [Disease] in GameplaySettings.toml."
+                "Applied on each map load, on top of the [Disease] base in GameplaySettings.toml."
             );
 
             BepInExConfigHelper.ValidateMultipliers(
@@ -82,7 +86,12 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
             ApplyUnitFireDamage();
             ApplyStructureFireDamage();
             ApplyBedouinHeal();
-            ApplyDiseaseDamage();
+            // NOTE: DiseaseDamageMultiplier is intentionally NOT applied here. It is applied in
+            // ConfigLoader.LoadGameGlobals (on each map load, on top of the [Disease] TOML base).
+            // Applying it here was doubly broken: (1) it wrote game globals during LibraryLoaded
+            // init, which is the documented ACCESS_VIOLATION hazard; (2) LoadGameGlobals re-wrote
+            // the raw TOML disease values on the first map load, clobbering this multiplier so it
+            // never took effect. See ApplyDiseaseDamage removal note below.
         }
 
         private void ApplyUnitFireDamage()
@@ -153,28 +162,12 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
             Plugin.Logger.LogInfo($"Applied BedouinHealMultiplier={BedouinHealMultiplier.Value} to {applied} units");
         }
 
-        private void ApplyDiseaseDamage()
-        {
-            if (Mathf.Approximately(DiseaseDamageMultiplier.Value, 1.0f)) return;
-
-            try
-            {
-                var g = Plugin.GlobalsApi;
-                if (g == null) return;
-
-                if (g.DiseaseDamage1 != null)
-                    g.DiseaseDamage1.SetValue((int)Mathf.Max(1, g.DiseaseDamage1.GetValue() * DiseaseDamageMultiplier.Value));
-                if (g.DiseaseDamage2 != null)
-                    g.DiseaseDamage2.SetValue((int)Mathf.Max(1, g.DiseaseDamage2.GetValue() * DiseaseDamageMultiplier.Value));
-                if (g.DiseaseDamage3 != null)
-                    g.DiseaseDamage3.SetValue((int)Mathf.Max(1, g.DiseaseDamage3.GetValue() * DiseaseDamageMultiplier.Value));
-
-                Plugin.Logger.LogInfo($"Applied DiseaseDamageMultiplier={DiseaseDamageMultiplier.Value} to all disease tiers");
-            }
-            catch (Exception ex)
-            {
-                Plugin.Logger.LogWarning($"Failed to apply disease damage multiplier: {ex.Message}");
-            }
-        }
+        // ApplyDiseaseDamage() was removed: the disease multiplier is now applied in
+        // ConfigLoader.LoadGameGlobals (on each map load, on top of the [Disease] TOML base), which
+        // is the only writer of DiseaseDamage1/2/3 at runtime. The old once-at-init implementation
+        // here both ran a game-API write during LibraryLoaded init (ACCESS_VIOLATION hazard) and was
+        // immediately overwritten by LoadGameGlobals' raw TOML write on the first map load, so the
+        // multiplier had no effect. The DiseaseDamageMultiplier ConfigEntry binding + validation in
+        // Initialize() are kept; only the application moved.
     }
 }

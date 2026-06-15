@@ -294,9 +294,6 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine("# AI siege behaviour toggles — applied on each map load");
                 sb.AppendLine($"GlobalImprovedSiegeBehaviour = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "GlobalImprovedSiegeBehaviour", false))}");
                 sb.AppendLine($"GlobalMoreAggressiveSiegeBehaviour = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "GlobalMoreAggressiveSiegeBehaviour", false))}");
-                sb.AppendLine("# Enemy Health advanced option — scales enemy (AI) troop health only.");
-                sb.AppendLine("# -1 = don't override, 0 = Weak (66%), 1 = Normal (100%), 2 = Strong (125%), 3 = Very Strong (150%)");
-                sb.AppendLine($"EnemyHealthModifier = {ExistingOrDefault(existingToml, "Gameplay Options", "EnemyHealthModifier", -1L)}");
                 sb.AppendLine("# Master switches for the game's advanced options — auto-enabled whenever any advanced option above is set");
                 sb.AppendLine($"AdvancedOptionsEnabled = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "AdvancedOptionsEnabled", false))}");
                 sb.AppendLine($"AdvancedSkirmishOptionsEnabled = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "AdvancedSkirmishOptionsEnabled", false))}");

@@ -100,6 +100,21 @@
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- Game assembly: needed for EngineInterface.GameAction(Enums.GameActionCommand,...) — the
+         recruit (MakeTroop) command intercepted by MakeTroopRecruitHook for unit MaxCount. -->
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <!-- MonoMod RuntimeDetour (shipped in BepInEx core) for the MakeTroop GameAction detour. -->
+    <Reference Include="MonoMod.RuntimeDetour">
+      <HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="MonoMod.Utils">
+      <HintPath>$(GameDir)\BepInEx\core\MonoMod.Utils.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Config\Core\IConfigSystem.cs" />
@@ -217,6 +232,7 @@
     <Compile Include="Config\BepInEx\Systems\Handlers\RangedDamageMultiplierHandler.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\StructureDamageMultiplierHandler.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\UnitCapHandler.cs" />
+    <Compile Include="Config\BepInEx\Systems\Handlers\MakeTroopRecruitHook.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\BuildingCapHandler.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\StructureTypeDetector.cs" />
     <Compile Include="Plugin.cs" />

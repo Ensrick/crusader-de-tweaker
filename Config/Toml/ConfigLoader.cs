@@ -14,9 +14,6 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
-// Alias instead of a namespace using: SHCDESE.Interop.Enums also defines ProjectileType,
-// which collides with CrusaderDETweaker.Data.ProjectileType.
-using EnemyHPModifier = SHCDESE.Interop.Enums.EnemyHPModifier;
 using Tomlyn;
 using Tomlyn.Model;
 using System.Collections.Generic;
@@ -352,14 +349,21 @@ namespace CrusaderDETweaker.Config.Toml
 
             if (tomlModel.TryGetValue("Disease", out var diseaseObj) && diseaseObj is TomlTable diseaseTable)
             {
+                // The [Multipliers] DiseaseDamageMultiplier (BepInEx cfg) scales on top of the TOML
+                // base, applied HERE (every map load) rather than once at init. This loader is the
+                // last writer of the disease-tier globals on each map start, so applying the
+                // multiplier at init was overwritten and had no effect; doing it here is also safe
+                // (map-load hook, not the LibraryLoaded init path). Floor of 1 prevents 0 damage.
+                float diseaseMult = BepInExConfigManager.FireAndHeal?.DiseaseDamageMultiplier?.Value ?? 1.0f;
+
                 if (diseaseTable.TryGetValue("DiseaseDamage1", out var dd1Value) && dd1Value is long dd1)
-                    Plugin.GlobalsApi?.DiseaseDamage1?.SetValue((int)dd1);
+                    Plugin.GlobalsApi?.DiseaseDamage1?.SetValue((int)Math.Max(1f, dd1 * diseaseMult));
 
                 if (diseaseTable.TryGetValue("DiseaseDamage2", out var dd2Value) && dd2Value is long dd2)
-                    Plugin.GlobalsApi?.DiseaseDamage2?.SetValue((int)dd2);
+                    Plugin.GlobalsApi?.DiseaseDamage2?.SetValue((int)Math.Max(1f, dd2 * diseaseMult));
 
                 if (diseaseTable.TryGetValue("DiseaseDamage3", out var dd3Value) && dd3Value is long dd3)
-                    Plugin.GlobalsApi?.DiseaseDamage3?.SetValue((int)dd3);
+                    Plugin.GlobalsApi?.DiseaseDamage3?.SetValue((int)Math.Max(1f, dd3 * diseaseMult));
             }
         }
 
@@ -420,7 +424,6 @@ namespace CrusaderDETweaker.Config.Toml
             advancedOptionUsed |= TryApply("NerfEunuchs",               () => Plugin.PlayerApi?.SetNerfEunuchs(true),              () => Plugin.PlayerApi?.IsNerfEunuchs());
             advancedOptionUsed |= TryApply("RebalancedHorseArchers",    () => Plugin.PlayerApi?.SetRebalancedHorseArchers(true),   () => Plugin.PlayerApi?.IsRebalancedHorseArchers());
             advancedOptionUsed |= TryApply("UncappedPeasants",          () => Plugin.PlayerApi?.SetUncappedPeasants(true),         () => Plugin.PlayerApi?.IsUncappedPeasants());
-            advancedOptionUsed |= LoadEnemyHealthModifier(settingsTable, dbg);
             // Native-global-pointer options (not ChoreManagerOptions-backed): no master flag involved
             TryApply("NoKnockdownWalls",                   () => Plugin.PlayerApi?.SetNoKnockdownWalls(true),                   () => Plugin.PlayerApi?.IsNoKnockdownWalls());
             TryApply("GlobalImprovedSiegeBehaviour",       () => Plugin.PlayerApi?.SetGlobalImprovedSiegeBehaviour(true),       () => Plugin.PlayerApi?.IsGlobalImprovedSiegeBehaviour());
@@ -478,46 +481,6 @@ namespace CrusaderDETweaker.Config.Toml
                 }
                 return true;
             }
-        }
-
-        /// <summary>
-        /// Apply the game's "Enemy Health" advanced option — scales enemy (AI) troop health
-        /// without touching the player's own units. Enum-valued, so it doesn't fit the bool
-        /// TryApply pattern: -1 = don't override, 0 = Weak (66%), 1 = Normal (100%),
-        /// 2 = Strong (125%), 3 = Very Strong (150%).
-        /// Returns true when an override was requested (counts as an advanced sub-option).
-        /// </summary>
-        private static bool LoadEnemyHealthModifier(TomlTable settingsTable, bool dbg)
-        {
-            if (!settingsTable.TryGetValue("EnemyHealthModifier", out var raw) || !(raw is long value) || value < 0)
-                return false;
-
-            if (value > 3)
-            {
-                Plugin.Logger.LogWarning($"[GameplayOptions] EnemyHealthModifier = {value} is outside [0, 3]; ignoring.");
-                return false;
-            }
-
-            try
-            {
-                var requested = (EnemyHPModifier)value;
-                Plugin.PlayerApi?.SetEnemyHealthModifier(requested);
-
-                var actual = Plugin.PlayerApi?.GetEnemyHealthModifier();
-                if (actual == requested)
-                {
-                    if (dbg) Plugin.Logger.LogInfo($"[GameplayOptions] EnemyHealthModifier = {requested} (confirmed)");
-                }
-                else
-                {
-                    Plugin.Logger.LogWarning($"[GameplayOptions] EnemyHealthModifier was set to {requested} but read back as {actual?.ToString() ?? "null"} — may not have taken effect");
-                }
-            }
-            catch (Exception ex)
-            {
-                Plugin.Logger.LogWarning($"[GameplayOptions] EnemyHealthModifier failed: {ex.Message}");
-            }
-            return true;
         }
 
         private static void LoadAutoTrade(TomlTable tomlModel)

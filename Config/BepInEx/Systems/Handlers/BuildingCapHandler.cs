@@ -17,6 +17,7 @@ using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Buildings;
 using SHCDESE.Extensions;   // eMappers.ConvertToEStructs()
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums; // AliveState, PlayerRelationship
 
 namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
 {
@@ -88,14 +89,29 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
         private static int CountPlayerBuildingsOfType(int playerId, eStructs buildingType)
         {
             _reusableBuildingList.Clear();
-            Plugin.BuildingApi?.GetAllBuildings(_reusableBuildingList, null, buildingType);
-            int count = 0;
-            for (int i = 0; i < _reusableBuildingList.Count; i++)
-            {
-                if (Plugin.BuildingApi.GetOwner(_reusableBuildingList[i]) == playerId)
-                    count++;
-            }
-            return count;
+            // Count ONLY alive buildings owned by this player.
+            //
+            // BUGFIX (woodcutter-cap-blocks-everything): this previously passed stateFilter=null,
+            // which makes GetAllBuildings return buildings in EVERY AliveState — including
+            // MarkedForDeletion (bulldozed / destroyed / replaced; the engine zeroes those entries
+            // only "shortly" later) and NeedsInit. A MarkedForDeletion building keeps its
+            // r_BuildingType and r_PlayerIdOwner during that window, so over a match these
+            // dead-but-not-yet-collected buildings of the same type pile up and push the count
+            // permanently >= cap. Symptom: a woodcutter capped at 3 became unplaceable after ~1
+            // minute of normal build/bulldoze churn. (It was NOT AI buildings — those carry a
+            // different owner and were already excluded.)
+            //
+            // AliveState.IsAlive drops the dead/uninitialised entries. PlayerRelationship.Self does
+            // the owner filter INSIDE the query (directly on r_PlayerIdOwner), so we no longer
+            // resolve query-result ids back through GetOwner — also sidestepping the SE library's
+            // 0-based-index vs 1-based-id mismatch in that resolve path.
+            Plugin.BuildingApi?.GetAllBuildings(
+                _reusableBuildingList,
+                AliveState.IsAlive,
+                buildingType,
+                PlayerRelationship.Self,
+                playerId);
+            return _reusableBuildingList.Count;
         }
     }
 }
