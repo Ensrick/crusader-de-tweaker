@@ -3,25 +3,22 @@
 
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
-    [int]$SteamAppId = 3024040
+    [int]$SteamAppId = 3024040,
+    [int]$ProcessTimeoutSeconds = 90,
+    [int]$InitializationTimeoutSeconds = 300
 )
+
+$ErrorActionPreference = "Stop"
 
 Write-Host "=== CrusaderDETweaker Test Launch ===" -ForegroundColor Cyan
 
-# FORCE WINDOWED MODE - fullscreen can't be minimized
+# Force windowed mode because fullscreen cannot be minimized reliably.
 $settingsPath = "$env:APPDATA\..\LocalLow\Firefly Studios\Stronghold Crusader Definitive Edition\settings.cfg"
 $originalFullscreen = $null
-if (Test-Path $settingsPath) {
-    $content = Get-Content $settingsPath -Raw
-    if ($content -match "FullscreenType:(\d+)") {
-        $originalFullscreen = $matches[1]
-        if ($originalFullscreen -ne "0") {
-            $content = $content -replace "FullscreenType:\d+", "FullscreenType:0"
-            Set-Content $settingsPath $content -NoNewline
-            Write-Host "Forced windowed mode (was fullscreen type $originalFullscreen)" -ForegroundColor Yellow
-        }
-    }
-}
+$fullscreenChanged = $false
+$process = $null
+$testPassed = $false
+$exitCode = 1
 
 # Win32 API for aggressive window minimization
 Add-Type @"
@@ -63,104 +60,112 @@ function Minimize-GameWindow {
     }
 }
 
-# Delete marker file
-$markerPath = Join-Path $env:APPDATA "BepInEx\config\CrusaderDETweaker\plugin_initialized.ready"
-Remove-Item $markerPath -Force -ErrorAction SilentlyContinue
-
-# 2. Launch game through Steam
-Write-Host "Launching game through Steam..." -ForegroundColor Yellow
-Start-Process "steam://run/$SteamAppId"
-
-trap {
-    # Cleanup any background jobs if script is interrupted (Ctrl+C, error, etc)
-    Get-Job | Remove-Job -Force -ErrorAction SilentlyContinue
-    Write-Host "[Cleanup] Removed all background jobs." -ForegroundColor Yellow
-    break
-}
-
-# 3. Wait for game process with aggressive minimization during wait
-Write-Host "Waiting for game process..." -ForegroundColor Yellow
-$process = $null
-$gameProcessName = "Stronghold Crusader Definitive Edition"
-
-# 3. Wait for game process
-Write-Host "Waiting for game process..." -ForegroundColor Yellow
-$process = $null
-$gameProcessName = "Stronghold Crusader Definitive Edition"
-
-for ($i = 0; $i -lt 90; $i++) {
-    $process = Get-Process -Name $gameProcessName -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($process) {
-        Write-Host "Game started (PID: $($process.Id))" -ForegroundColor Green
-        Minimize-GameWindow -ProcessId $process.Id
-        break
+try {
+    if (Test-Path $settingsPath) {
+        $content = Get-Content $settingsPath -Raw
+        if ($content -match "FullscreenType:(\d+)") {
+            $originalFullscreen = $matches[1]
+            if ($originalFullscreen -ne "0") {
+                $content = $content -replace "FullscreenType:\d+", "FullscreenType:0"
+                Set-Content $settingsPath $content -NoNewline
+                $fullscreenChanged = $true
+                Write-Host "Forced windowed mode (was fullscreen type $originalFullscreen)" -ForegroundColor Yellow
+            }
+        }
     }
-    Start-Sleep -Milliseconds 500
-}
 
-if (-not $process) {
-    Write-Host "Game did not start within 90 seconds" -ForegroundColor Red
-    exit 1
-}
+    $markerPath = Join-Path $env:APPDATA "BepInEx\config\CrusaderDETweaker\plugin_initialized.ready"
+    Remove-Item $markerPath -Force -ErrorAction SilentlyContinue
 
-# 4. Wait for plugin initialization
-Write-Host "Waiting for plugin init..." -ForegroundColor Yellow
-$logPath = Join-Path $GamePath "BepInEx\LogOutput.log"
-$startTime = Get-Date
+    Write-Host "Launching game through Steam..." -ForegroundColor Yellow
+    $steamExe = Get-Process -Name "steam" -ErrorAction SilentlyContinue |
+        Select-Object -First 1 -ExpandProperty Path
+    if (-not $steamExe) {
+        $steamPath = (Get-ItemProperty -Path "HKCU:\Software\Valve\Steam" -Name "SteamPath" -ErrorAction SilentlyContinue).SteamPath
+        if ($steamPath) {
+            $steamExe = Join-Path $steamPath "steam.exe"
+        }
+    }
 
-while ($true) {
-    # Refresh process
-    $process = Get-Process -Name $gameProcessName -ErrorAction SilentlyContinue | Select-Object -First 1
-    
-    # Check if process exited
+    if ($steamExe -and (Test-Path -LiteralPath $steamExe)) {
+        Start-Process -FilePath $steamExe -ArgumentList "-applaunch", $SteamAppId
+    }
+    else {
+        Start-Process "steam://run/$SteamAppId"
+    }
+
+    Write-Host "Waiting for game process..." -ForegroundColor Yellow
+    $gameProcessName = "Stronghold Crusader Definitive Edition"
+    $processDeadline = (Get-Date).AddSeconds($ProcessTimeoutSeconds)
+    while ((Get-Date) -lt $processDeadline) {
+        $process = Get-Process -Name $gameProcessName -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($process) {
+            Write-Host "Game started (PID: $($process.Id))" -ForegroundColor Green
+            Minimize-GameWindow -ProcessId $process.Id
+            break
+        }
+        Start-Sleep -Milliseconds 500
+    }
+
     if (-not $process) {
-        Write-Host "Game exited unexpectedly" -ForegroundColor Yellow
-        break
+        throw "Game did not start within $ProcessTimeoutSeconds seconds"
     }
-    
-    # Minimize occasionally to ensure it stays down
-    Minimize-GameWindow -ProcessId $process.Id
-    
-    # Check if plugin initialized
-    if (Test-Path $markerPath) {
-        Write-Host "Plugin initialized!" -ForegroundColor Green
-        
-        # Kill the game immediately
-        Write-Host "Terminating game..." -ForegroundColor Yellow
+
+    Write-Host "Waiting for plugin init..." -ForegroundColor Yellow
+    $logPath = Join-Path $GamePath "BepInEx\LogOutput.log"
+    $initializationDeadline = (Get-Date).AddSeconds($InitializationTimeoutSeconds)
+
+    while ((Get-Date) -lt $initializationDeadline) {
+        $process = Get-Process -Name $gameProcessName -ErrorAction SilentlyContinue | Select-Object -First 1
+        if (-not $process) {
+            throw "Game exited before the plugin initialized"
+        }
+
+        Minimize-GameWindow -ProcessId $process.Id
+
+        if (Test-Path $markerPath) {
+            Write-Host "Plugin initialized!" -ForegroundColor Green
+            $testPassed = $true
+            $exitCode = 0
+            break
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+
+    if (-not $testPassed) {
+        Write-Host "Plugin did not initialize within $InitializationTimeoutSeconds seconds" -ForegroundColor Red
+    }
+
+    Write-Host "Terminating game..." -ForegroundColor Yellow
+    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+
+    Write-Host ""
+    Write-Host "=== Results ===" -ForegroundColor Cyan
+
+    if (Test-Path $logPath) {
+        $summary = Select-String -Path $logPath -Pattern "Total mismatches:" | Select-Object -Last 1
+        if ($summary) { Write-Host $summary.Line -ForegroundColor Yellow }
+
+        $ranged = Select-String -Path $logPath -Pattern "No ranged formula mismatches" | Select-Object -Last 1
+        if ($ranged) { Write-Host "Ranged: 0 mismatches" -ForegroundColor Green }
+    }
+}
+finally {
+    if ($process -and -not $process.HasExited -and -not $testPassed) {
         Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        break
     }
-    
-    # Timeout after 5 minutes
-    if (((Get-Date) - $startTime).TotalSeconds -gt 300) {
-        Write-Host "Timeout - killing game" -ForegroundColor Red
-        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-        break
+
+    if ($fullscreenChanged -and (Test-Path $settingsPath)) {
+        $content = Get-Content $settingsPath -Raw
+        $content = $content -replace "FullscreenType:0", "FullscreenType:$originalFullscreen"
+        Set-Content $settingsPath $content -NoNewline
+        Write-Host "Restored fullscreen setting to $originalFullscreen" -ForegroundColor Cyan
     }
-    
-    Start-Sleep -Milliseconds 500
 }
 
-# 5. Show results
-Write-Host ""
-Write-Host "=== Results ===" -ForegroundColor Cyan
-
-if (Test-Path $logPath) {
-    # Show mismatch summary
-    $summary = Select-String -Path $logPath -Pattern "Total mismatches:" | Select-Object -Last 1
-    if ($summary) { Write-Host $summary.Line -ForegroundColor Yellow }
-    
-    $ranged = Select-String -Path $logPath -Pattern "No ranged formula mismatches" | Select-Object -Last 1
-    if ($ranged) { Write-Host "Ranged: 0 mismatches" -ForegroundColor Green }
+if ($testPassed) {
+    Write-Host "Test passed." -ForegroundColor Green
 }
-
-# Restore original fullscreen setting
-if ($originalFullscreen -and $originalFullscreen -ne "0") {
-    $content = Get-Content $settingsPath -Raw
-    $content = $content -replace "FullscreenType:0", "FullscreenType:$originalFullscreen"
-    Set-Content $settingsPath $content -NoNewline
-    Write-Host "Restored fullscreen setting to $originalFullscreen" -ForegroundColor Cyan
-}
-
-Write-Host "Done." -ForegroundColor Green
+exit $exitCode
 

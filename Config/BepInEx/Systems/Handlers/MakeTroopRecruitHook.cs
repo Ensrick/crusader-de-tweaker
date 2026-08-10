@@ -45,9 +45,10 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
         // Time-expiring reservations. A recruited soldier does not appear in the live unit count
         // until the peasant has walked to the barracks and transformed (seconds later), so without
         // this, rapid recruit clicks would each read the old (low) live count and blow past the cap.
-        // Each approved recruit reserves a slot that simply EXPIRES — this SE version exposes no
-        // unit-transition event to observe recruit completion, so expiry both frees cancelled
-        // recruits and self-corrects once the finished soldier shows up in the live total.
+        // Each approved recruit reserves a slot that expires. SHCDE-SE 1.35+ exposes
+        // OnUnitTransition, but that event fires during the later peasant transformation and cannot
+        // cancel or trim the paid recruit command. Expiry frees cancelled recruits and self-corrects
+        // once the finished soldier appears in the live total.
         private static readonly Dictionary<eChimps, List<DateTime>> _pending = new Dictionary<eChimps, List<DateTime>>();
         private static readonly TimeSpan PendingLifetime = TimeSpan.FromSeconds(15);
 

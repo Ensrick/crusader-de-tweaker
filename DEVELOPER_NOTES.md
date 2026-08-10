@@ -9,7 +9,7 @@
 ### Plugin GUID
 
 ```csharp
-[BepInPlugin("CrusaderDETweaker", "Crusader DE Tweaker", "2.2.0")]
+[BepInPlugin("CrusaderDETweaker", "Crusader DE Tweaker", PluginInfo.PLUGIN_VERSION)]
 ```
 
 **GUID**: `"CrusaderDETweaker"`
@@ -35,23 +35,17 @@
 **The order is CRITICAL and must not change:**
 
 ```
-1. Capture Original Defaults    ← OriginalDefaultsCapture.CaptureAll()
-        ↓
-2. Load TOML Configs           ← UnitConfigSystem, StructureConfigSystem
-        ↓
-3. Load CSV Damage Matrices    ← DamageMatrixConfigSystem
-        ↓
-4. BepInEx Hooks               ← Multipliers, unit caps, wall costs
+1. Register configuration systems
+2. Load TOML configuration
+3. Load CSV damage matrices
+4. Register runtime hooks and defer session APIs until map-load events
 ```
 
 ### Why Order Matters
 
-1. **Original Defaults** - Captured from game API BEFORE any mods apply
-2. **TOML Configs** - Modify properties using captured defaults as reference
-3. **CSV Matrices** - Only apply values that DIFFER from original defaults
-4. **BepInEx Hooks** - Apply real-time multipliers on top
-
-**If order changes**: CSV comparison breaks, TOML changes get overwritten.
+Native game/session APIs must not run during SHCDE-SE `LibraryLoaded`; they are safe only
+after map startup. Keep global/session application in the registered map hooks. TOML and CSV
+systems must initialize before runtime hooks consume their values.
 
 ---
 
@@ -59,27 +53,9 @@
 
 ### CSV Comparison
 
-CSV values are ONLY applied if they differ from **original defaults**:
-
-```
-IF csv_value == original_default:
-    SKIP (let TOML handle it)
-ELSE:
-    APPLY csv_value (user modified it)
-```
-
-### PREVIOUS MISTAKE (Fixed)
-
-Old code compared CSV against calculated values instead of original defaults. This caused:
-- CSV overriding TOML changes
-- User TOML edits being ignored
-
-### Current Approach
-
-1. `OriginalDefaultsCapture.CaptureAll()` saves pristine game values
-2. TOML applies formula-based modifications
-3. CSV compares against original (not modified) values
-4. Only user-modified CSV values are applied
+Original-default capture was removed because reading native globals during `LibraryLoaded`
+could crash the game. CSV loaders now apply configured matrix values directly; TOML property
+settings and runtime multipliers are separate layers.
 
 ---
 
@@ -88,9 +64,8 @@ Old code compared CSV against calculated values instead of original defaults. Th
 | Mistake | Consequence |
 |---------|-------------|
 | Change GUID without updating paths | Plugin won't load |
-| Change config load order | TOML changes ignored |
-| Compare CSV to calculated values | CSV overrides everything |
-| Skip original defaults capture | Can't detect user CSV changes |
+| Call native globals during `LibraryLoaded` | Game may crash during startup |
+| Register hooks before configs are loaded | Hooks may observe incomplete settings |
 
 ---
 
@@ -100,7 +75,8 @@ Before submitting changes:
 
 - [ ] Build succeeds: `.\scripts\build.ps1`
 - [ ] Game loads plugin (check BepInEx console)
-- [ ] Unit tests pass ("ALL 4 TEST SUITES PASSED")
+- [ ] Initializer order check passes: `.\scripts\test_initialization_order.ps1`
+- [ ] Smoke launch passes: `.\scripts\launch_game.ps1`
 - [ ] TOML changes apply correctly
 - [ ] CSV overrides work for modified values only
 
@@ -109,4 +85,4 @@ Before submitting changes:
 ## Related Documentation
 
 - [CLAUDE.MD](CLAUDE.MD) - Full architecture reference
-- [API_REFERENCE.md](API_REFERENCE.md) - SHCDE-SE API details
+- [API_REFERENCE.md](docs/shcde-se/API_REFERENCE.md) - SHCDE-SE API details

@@ -136,15 +136,15 @@ namespace CrusaderDETweaker.Config.Toml
             {
                 if (capValue is long capLong)
                 {
-                    int cap = (int)capLong;
-                    if (cap >= 100 && cap <= 100000)
+                    if (capLong >= 100 && capLong <= 100000)
                     {
+                        int cap = (int)capLong;
                         Units.Properties.RangedArmorMultiplierProperty.RangedDamageCap = cap;
                         Plugin.Logger.LogDebug($"Set RangedDamageCap = {cap}");
                     }
                     else
                     {
-                        Plugin.Logger.LogWarning($"Invalid RangedDamageCap value: {cap} (must be 100-100000)");
+                        Plugin.Logger.LogWarning($"Invalid RangedDamageCap value: {capLong} (must be 100-100000)");
                     }
                 }
             }
@@ -296,55 +296,55 @@ namespace CrusaderDETweaker.Config.Toml
             if (tomlModel.TryGetValue("Siege Engines", out var siegeObj) && siegeObj is TomlTable siegeTable)
             {
                 if (siegeTable.TryGetValue("SiegeEngineRestockStoneAmount", out var craValue) && craValue is long cra)
-                    Plugin.GlobalsApi?.CatapultRestockStoneAmount?.SetValue((ushort)cra);
+                    Plugin.GlobalsApi?.CatapultRestockStoneAmount?.SetValue((ushort)ClampInteger("Siege Engines", "SiegeEngineRestockStoneAmount", cra, ushort.MinValue, ushort.MaxValue));
 
                 if (siegeTable.TryGetValue("SiegeEngineRestockStoneCost", out var crcValue) && crcValue is long crc)
-                    Plugin.GlobalsApi?.CatapultRestockStoneCost?.SetValue((ushort)crc);
+                    Plugin.GlobalsApi?.CatapultRestockStoneCost?.SetValue((ushort)ClampInteger("Siege Engines", "SiegeEngineRestockStoneCost", crc, ushort.MinValue, ushort.MaxValue));
 
                 if (siegeTable.TryGetValue("SiegeEngineInitialStoneAmount", out var cisValue) && cisValue is long cis)
-                    Plugin.GlobalsApi?.CatapultInitialStoneAmount?.SetValue((byte)Math.Max(0, Math.Min(255, cis)));
+                    Plugin.GlobalsApi?.CatapultInitialStoneAmount?.SetValue((byte)ClampInteger("Siege Engines", "SiegeEngineInitialStoneAmount", cis, byte.MinValue, byte.MaxValue));
             }
 
             if (tomlModel.TryGetValue("Stealth", out var stealthObj) && stealthObj is TomlTable stealthTable)
             {
                 if (stealthTable.TryGetValue("StealthDetectionRange", out var adrValue) && adrValue is long adr)
-                    Plugin.GlobalsApi?.AssassinDetectionRange?.SetValue((ushort)adr);
+                    Plugin.GlobalsApi?.AssassinDetectionRange?.SetValue((ushort)ClampInteger("Stealth", "StealthDetectionRange", adr, ushort.MinValue, ushort.MaxValue));
 
                 if (stealthTable.TryGetValue("StealthTransparencyThreshold", out var attValue) && attValue is long att)
-                    Plugin.GlobalsApi?.AssassinTransparencyThreshold?.SetValue((ushort)att);
+                    Plugin.GlobalsApi?.AssassinTransparencyThreshold?.SetValue((ushort)ClampInteger("Stealth", "StealthTransparencyThreshold", att, ushort.MinValue, ushort.MaxValue));
             }
 
             if (tomlModel.TryGetValue("Stables", out var stablesObj) && stablesObj is TomlTable stablesTable)
             {
                 if (stablesTable.TryGetValue("StablesHorseRegenTickTarget", out var srtValue) && srtValue is long srt)
-                    Plugin.GlobalsApi?.StablesHorseRegenTickTarget?.SetValue((short)srt);
+                    Plugin.GlobalsApi?.StablesHorseRegenTickTarget?.SetValue((short)ClampInteger("Stables", "StablesHorseRegenTickTarget", srt, short.MinValue, short.MaxValue));
 
                 if (stablesTable.TryGetValue("StablesHorsesCap", out var shcValue) && shcValue is long shc)
-                    Plugin.GlobalsApi?.StablesHorsesCap?.SetValue((sbyte)shc);
+                    Plugin.GlobalsApi?.StablesHorsesCap?.SetValue((sbyte)ClampInteger("Stables", "StablesHorsesCap", shc, sbyte.MinValue, sbyte.MaxValue));
             }
 
             if (tomlModel.TryGetValue("Gatehouse", out var gateObj) && gateObj is TomlTable gateTable)
             {
                 if (gateTable.TryGetValue("GateHouseCloseDistance", out var ghcValue) && ghcValue is long ghc)
-                    Plugin.GlobalsApi?.GateHouseCloseDistance?.SetValue((ushort)ghc);
+                    Plugin.GlobalsApi?.GateHouseCloseDistance?.SetValue((ushort)ClampInteger("Gatehouse", "GateHouseCloseDistance", ghc, ushort.MinValue, ushort.MaxValue));
 
                 if (gateTable.TryGetValue("GateHouseReOpenDistance", out var ghrValue) && ghrValue is long ghr)
-                    Plugin.GlobalsApi?.GateHouseReOpenDistance?.SetValue((ushort)ghr);
+                    Plugin.GlobalsApi?.GateHouseReOpenDistance?.SetValue((ushort)ClampInteger("Gatehouse", "GateHouseReOpenDistance", ghr, ushort.MinValue, ushort.MaxValue));
             }
 
             if (tomlModel.TryGetValue("Pathfinding", out var pfObj) && pfObj is TomlTable pfTable)
             {
                 if (pfTable.TryGetValue("PathfindingMaxTilesConstraint", out var pfValue) && pfValue is long pfConstraint)
-                    Plugin.GlobalsApi?.PathfindingMaxTilesConstraint?.SetValue((ushort)pfConstraint);
+                    Plugin.GlobalsApi?.PathfindingMaxTilesConstraint?.SetValue((ushort)ClampInteger("Pathfinding", "PathfindingMaxTilesConstraint", pfConstraint, ushort.MinValue, ushort.MaxValue));
             }
 
             if (tomlModel.TryGetValue("Food Consumption", out var fcObj) && fcObj is TomlTable fcTable)
             {
                 if (fcTable.TryGetValue("FoodConsumptionTickThreshold", out var fctValue) && fctValue is long fct)
-                    Plugin.GlobalsApi?.FoodConsumptionTickThreshold?.SetValue((int)fct);
+                    Plugin.GlobalsApi?.FoodConsumptionTickThreshold?.SetValue((int)ClampInteger("Food Consumption", "FoodConsumptionTickThreshold", fct, int.MinValue, int.MaxValue));
 
                 if (fcTable.TryGetValue("FoodConsumptionRate", out var fcrValue) && fcrValue is long fcr)
-                    Plugin.PlayerApi?.FoodConsumptionRate?.SetValue((int)fcr);
+                    Plugin.PlayerApi?.FoodConsumptionRate?.SetValue((int)ClampInteger("Food Consumption", "FoodConsumptionRate", fcr, int.MinValue, int.MaxValue));
             }
 
             if (tomlModel.TryGetValue("Disease", out var diseaseObj) && diseaseObj is TomlTable diseaseTable)
@@ -357,13 +357,13 @@ namespace CrusaderDETweaker.Config.Toml
                 float diseaseMult = BepInExConfigManager.FireAndHeal?.DiseaseDamageMultiplier?.Value ?? 1.0f;
 
                 if (diseaseTable.TryGetValue("DiseaseDamage1", out var dd1Value) && dd1Value is long dd1)
-                    Plugin.GlobalsApi?.DiseaseDamage1?.SetValue((int)Math.Max(1f, dd1 * diseaseMult));
+                    Plugin.GlobalsApi?.DiseaseDamage1?.SetValue(ScalePositiveInt32("Disease", "DiseaseDamage1", dd1, diseaseMult));
 
                 if (diseaseTable.TryGetValue("DiseaseDamage2", out var dd2Value) && dd2Value is long dd2)
-                    Plugin.GlobalsApi?.DiseaseDamage2?.SetValue((int)Math.Max(1f, dd2 * diseaseMult));
+                    Plugin.GlobalsApi?.DiseaseDamage2?.SetValue(ScalePositiveInt32("Disease", "DiseaseDamage2", dd2, diseaseMult));
 
                 if (diseaseTable.TryGetValue("DiseaseDamage3", out var dd3Value) && dd3Value is long dd3)
-                    Plugin.GlobalsApi?.DiseaseDamage3?.SetValue((int)Math.Max(1f, dd3 * diseaseMult));
+                    Plugin.GlobalsApi?.DiseaseDamage3?.SetValue(ScalePositiveInt32("Disease", "DiseaseDamage3", dd3, diseaseMult));
             }
         }
 
@@ -373,20 +373,13 @@ namespace CrusaderDETweaker.Config.Toml
                 return;
 
             if (psTable.TryGetValue("PeasantRespawnTickTargetValue", out var targetVal) && targetVal is long target)
-                Plugin.GlobalsApi?.PeasantRespawnTickTargetValue?.SetValue((ushort)target);
+                Plugin.GlobalsApi?.PeasantRespawnTickTargetValue?.SetValue((ushort)ClampInteger("Peasant Spawning", "PeasantRespawnTickTargetValue", target, ushort.MinValue, ushort.MaxValue));
 
             if (psTable.TryGetValue("PeasantRespawnTickResetValue", out var resetVal) && resetVal is long reset)
-                Plugin.GlobalsApi?.PeasantRespawnTickResetValue?.SetValue((ushort)reset);
+                Plugin.GlobalsApi?.PeasantRespawnTickResetValue?.SetValue((ushort)ClampInteger("Peasant Spawning", "PeasantRespawnTickResetValue", reset, ushort.MinValue, ushort.MaxValue));
 
             if (psTable.TryGetValue("CampPeasantsCap", out var capVal) && capVal is long cap)
-            {
-                if (cap < 0 || cap > ushort.MaxValue)
-                {
-                    Plugin.Logger.LogWarning($"[Peasant Spawning] CampPeasantsCap={cap} is outside the ushort range [0, {ushort.MaxValue}]; clamping.");
-                    cap = System.Math.Max(0L, System.Math.Min((long)ushort.MaxValue, cap));
-                }
-                Plugin.GlobalsApi?.CampPeasantsCap?.SetValue((ushort)cap);
-            }
+                Plugin.GlobalsApi?.CampPeasantsCap?.SetValue((ushort)ClampInteger("Peasant Spawning", "CampPeasantsCap", cap, ushort.MinValue, ushort.MaxValue));
         }
 
         private static void LoadPlayerOptions(TomlTable tomlModel, bool dbg = false)
@@ -509,10 +502,10 @@ namespace CrusaderDETweaker.Config.Toml
                     enabled = enabledBool;
 
                 if (goodTable.TryGetValue("BuyLevel", out var buyVal) && buyVal is long buyLong)
-                    buyLevel = (ushort)Math.Max(0, Math.Min(ushort.MaxValue, (long)buyLong));
+                    buyLevel = (ushort)ClampInteger("Auto Trade", $"{kvp.Key}.BuyLevel", buyLong, ushort.MinValue, ushort.MaxValue);
 
                 if (goodTable.TryGetValue("SellLevel", out var sellVal) && sellVal is long sellLong)
-                    sellLevel = (ushort)Math.Max(0, Math.Min(ushort.MaxValue, (long)sellLong));
+                    sellLevel = (ushort)ClampInteger("Auto Trade", $"{kvp.Key}.SellLevel", sellLong, ushort.MinValue, ushort.MaxValue);
 
                 Plugin.PlayerApi?.SetAutoTrade(good, enabled, buyLevel, sellLevel);
                 applied++;
@@ -549,18 +542,20 @@ namespace CrusaderDETweaker.Config.Toml
 
                 if (goodTable.TryGetValue("BuyPrice", out var buyVal) && buyVal is long buyLong && buyLong > 0)
                 {
-                    if ((int)buyLong != currentPrice.BuyPrice)
+                    int buyPrice = (int)ClampInteger("Trade Prices", $"{kvp.Key}.BuyPrice", buyLong, 1, int.MaxValue);
+                    if (buyPrice != currentPrice.BuyPrice)
                     {
-                        currentPrice.BuyPrice = (int)buyLong;
+                        currentPrice.BuyPrice = buyPrice;
                         changed = true;
                     }
                 }
 
                 if (goodTable.TryGetValue("SellPrice", out var sellVal) && sellVal is long sellLong && sellLong > 0)
                 {
-                    if ((int)sellLong != currentPrice.SellPrice)
+                    int sellPrice = (int)ClampInteger("Trade Prices", $"{kvp.Key}.SellPrice", sellLong, 1, int.MaxValue);
+                    if (sellPrice != currentPrice.SellPrice)
                     {
-                        currentPrice.SellPrice = (int)sellLong;
+                        currentPrice.SellPrice = sellPrice;
                         changed = true;
                     }
                 }
@@ -583,14 +578,14 @@ namespace CrusaderDETweaker.Config.Toml
             {
                 if (!(kvp.Value is TomlTable section)) continue;
                 if (!section.TryGetValue("MaxCount", out var mcVal) || !(mcVal is long mc)) continue;
+                // Any negative value means unlimited. Check before narrowing so long.MinValue cannot wrap.
+                if (mc < 0) continue;
                 if (mc > int.MaxValue)
                 {
                     Plugin.Logger.LogWarning($"[UnitCaps] {kvp.Key}.MaxCount={mc} exceeds int.MaxValue; clamping to {int.MaxValue}.");
                     mc = int.MaxValue;
                 }
                 int cap = (int)mc;
-                // -1 (or any negative) = unlimited → don't track. 0 = disabled, >0 = cap → track.
-                if (cap < 0) continue;
                 if (!Enum.TryParse<eChimps>(kvp.Key, out var unit)) continue;
                 _unitCaps[unit] = cap;
             }
@@ -605,19 +600,48 @@ namespace CrusaderDETweaker.Config.Toml
             {
                 if (!(kvp.Value is TomlTable section)) continue;
                 if (!section.TryGetValue("MaxCount", out var mcVal) || !(mcVal is long mc)) continue;
+                // Any negative value means unlimited. Check before narrowing so long.MinValue cannot wrap.
+                if (mc < 0) continue;
                 if (mc > int.MaxValue)
                 {
                     Plugin.Logger.LogWarning($"[BuildingCaps] {kvp.Key}.MaxCount={mc} exceeds int.MaxValue; clamping to {int.MaxValue}.");
                     mc = int.MaxValue;
                 }
                 int cap = (int)mc;
-                // -1 (or any negative) = unlimited → don't track. 0 = disabled, >0 = cap → track.
-                if (cap < 0) continue;
                 if (!Enum.TryParse<eStructs>(kvp.Key, out var structure)) continue;
                 _buildingCaps[structure] = cap;
             }
             if (_buildingCaps.Count > 0)
                 Plugin.Logger.LogInfo($"[BuildingCaps] Loaded {_buildingCaps.Count} building cap(s) from TOML.");
+        }
+
+        private static long ClampInteger(string section, string key, long value, long minimum, long maximum)
+        {
+            long clamped = Math.Max(minimum, Math.Min(maximum, value));
+            if (clamped != value)
+            {
+                Plugin.Logger.LogWarning($"[{section}] {key}={value} is outside [{minimum}, {maximum}]; clamping to {clamped}.");
+            }
+
+            return clamped;
+        }
+
+        private static int ScalePositiveInt32(string section, string key, long value, float multiplier)
+        {
+            double scaled = value * (double)multiplier;
+            if (double.IsNaN(scaled))
+            {
+                Plugin.Logger.LogWarning($"[{section}] {key} produced NaN after applying multiplier {multiplier}; using 1.");
+                return 1;
+            }
+
+            if (scaled > int.MaxValue)
+            {
+                Plugin.Logger.LogWarning($"[{section}] {key}={value} exceeds int.MaxValue after applying multiplier {multiplier}; clamping to {int.MaxValue}.");
+                return int.MaxValue;
+            }
+
+            return scaled < 1 ? 1 : (int)scaled;
         }
 
         /// <summary>

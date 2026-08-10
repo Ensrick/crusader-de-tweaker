@@ -38,11 +38,10 @@ namespace CrusaderDETweaker
     /// This class orchestrates the initialization of all config systems using the unified
     /// IConfigSystem interface. It ensures proper initialization order:
     /// 
-    /// 1. Capture original game defaults (BEFORE any configs load - for CSV comparison)
-    /// 2. Generate default config files (if missing)
-    /// 3. Load TOML configs (Units, Structures)
-    /// 4. Load CSV damage matrices (overrides for specific matchups)
-    /// 5. Validate all configs (optional)
+    /// 1. Generate default config files (file I/O only)
+    /// 2. Load global and TOML configs
+    /// 3. Load CSV damage matrices after TOML configs
+    /// 4. Validate all configs (optional)
     /// 
     /// The unified interface allows different config types (TOML, CSV) to be managed
     /// consistently, making it easy to add new config systems in the future.
@@ -63,13 +62,12 @@ namespace CrusaderDETweaker
         /// Initialize all configuration systems.
         /// 
         /// This method orchestrates the complete initialization sequence:
-        /// 1. Capture original game defaults (before TOML modifications)
-        /// 2. Generate default config files (if missing)
-        /// 3. Load and apply all configs
-        /// 4. Validate all configs (if requested)
+        /// 1. Generate default config files (if missing)
+        /// 2. Load config values and register deferred event hooks
+        /// 3. Validate all configs (if requested)
         /// 
-        /// The order is critical: original defaults must be captured before TOML configs
-        /// are loaded, so CSV comparison logic can compare against true game values.
+        /// Native API reads and writes are not safe here because no game session exists yet.
+        /// Systems must defer those operations to OnStartMap or OnLoadMap handlers.
         /// </summary>
         /// <param name="runValidation">Whether to run validation after loading (default: true)</param>
         internal static void Initialize(bool runValidation = true)

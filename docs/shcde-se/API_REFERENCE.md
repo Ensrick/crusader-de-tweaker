@@ -194,7 +194,7 @@ void SetUnitGoldCost(eChimps chimp, int value)
 
 > **Naming note:** The C# methods are `GetUnitGoldCost` / `SetUnitGoldCost`. The Lua-facing
 > export name is `"GetGoldCost"` (`[LuaApiExport("GetGoldCost")]`), which is why this is easy to
-> get wrong. From C# you MUST use the `Unit`-prefixed names. (Verified against SHCDE-SE v1.34.0
+> get wrong. From C# you MUST use the `Unit`-prefixed names. (Verified against SHCDE-SE v1.39.0
 > `GameUnitManagerAPI.cs`. The *building* equivalent is plain `GetGoldCost(eStructs)` — see below.)
 
 **Example:**

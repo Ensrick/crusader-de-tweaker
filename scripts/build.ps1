@@ -62,7 +62,7 @@ foreach ($path in $vsPaths) {
 
 if ($null -eq $msbuildPath) {
     Write-Host "MSBuild not found. Trying dotnet build..." -ForegroundColor Yellow
-    dotnet build --configuration $Configuration
+    dotnet build CrusaderDETweaker.csproj --configuration $Configuration -p:GameDir="$GamePath"
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Build failed! Please use Visual Studio 2022 or install MSBuild." -ForegroundColor Red
         exit 1
@@ -74,11 +74,15 @@ if ($null -eq $msbuildPath) {
     
     # Restore packages
     Write-Host "Restoring NuGet packages..." -ForegroundColor Yellow
-    & $msbuildPath /t:Restore /p:Configuration=$Configuration CrusaderDETweaker.csproj | Out-Null
+    & $msbuildPath /t:Restore /p:Configuration=$Configuration "/p:GameDir=$GamePath" CrusaderDETweaker.csproj | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Package restore failed!" -ForegroundColor Red
+        exit 1
+    }
     
     # Build
     Write-Host "Building project..." -ForegroundColor Yellow
-    & $msbuildPath /t:Build /p:Configuration=$Configuration CrusaderDETweaker.csproj
+    & $msbuildPath /t:Build /p:Configuration=$Configuration "/p:GameDir=$GamePath" CrusaderDETweaker.csproj
     
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Build failed!" -ForegroundColor Red
