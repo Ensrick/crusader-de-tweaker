@@ -3,7 +3,7 @@
 // PURPOSE: Consolidates projectile API calls to eliminate switch statement duplication.
 //
 // USAGE:
-// - GetRangedDamage(): Used by RangedDefaultsCapture and RangedDamageMatrixGenerator to read from API
+// - GetRangedDamage(): Used by RangedDamageMatrixGenerator to read from API
 // - SetRangedDamage(): Used by RangedDamageMatrixLoader to apply CSV values to game
 //
 // IMPORTANT FOR AI AGENTS:
@@ -20,7 +20,6 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
     /// Helper class to consolidate projectile API calls and eliminate switch statement duplication.
     /// 
     /// Used by:
-    /// - RangedDefaultsCapture: Captures original ranged damage defaults from API
     /// - RangedDamageMatrixGenerator: Generates CSV files with current API values
     /// - RangedDamageMatrixLoader: Applies CSV values to game via API
     /// 
