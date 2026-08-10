@@ -13,8 +13,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
     {
         public string Name => "Unit Multipliers";
 
-        public bool IsInitialized { get; private set; }
-
         public ConfigEntry<float> MeleeDamageTakenMultiplier { get; private set; }
         public ConfigEntry<float> RangedDamageTakenMultiplier { get; private set; }
         public ConfigEntry<float> HealthMultiplier { get; private set; }
@@ -53,7 +51,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
             );
 
             ValidateMultipliers();
-            IsInitialized = true;
         }
 
         public void Apply()

@@ -23,12 +23,9 @@
 // - All config systems implement IConfigSystem interface for consistency
 // - TOML configs load before CSV matrices (CSV can override TOML changes)
 //
-using System.Collections.Generic;
-using System.Linq;
 using CrusaderDETweaker.Config.Core;
 using CrusaderDETweaker.Config.DamageMatrix;
 using CrusaderDETweaker.Config.Toml.Systems;
-using SHCDESE.Interop;
 
 namespace CrusaderDETweaker
 {
@@ -143,67 +140,6 @@ namespace CrusaderDETweaker
             {
                 Plugin.Logger.LogInfo($"Initialized {ConfigSystems.Length} config systems ({loadedCount} loaded)");
             }
-        }
-
-        /// <summary>
-        /// Get all registered config systems.
-        /// </summary>
-        internal static IEnumerable<IConfigSystem> GetAllSystems()
-        {
-            return ConfigSystems;
-        }
-
-        /// <summary>
-        /// Get the status of all config systems.
-        /// </summary>
-        internal static string GetStatus()
-        {
-            var loadedCount = ConfigSystems.Count(s => s.IsLoaded);
-            return $"Config Systems: {loadedCount}/{ConfigSystems.Length} loaded";
-        }
-
-        /// <summary>
-        /// Get detailed status information for all config systems.
-        /// </summary>
-        internal static string GetDetailedStatus()
-        {
-            var statusLines = new System.Text.StringBuilder();
-            statusLines.AppendLine("Config Systems Status:");
-            
-            foreach (var system in ConfigSystems)
-            {
-                var status = system.IsLoaded ? "✓ Loaded" : "✗ Not Loaded";
-                statusLines.AppendLine($"  {system.Name}: {status}");
-            }
-            
-            var loadedCount = ConfigSystems.Count(s => s.IsLoaded);
-            statusLines.AppendLine($"\nTotal: {loadedCount}/{ConfigSystems.Length} systems loaded");
-            
-            return statusLines.ToString();
-        }
-
-        /// <summary>
-        /// Reload all configuration systems.
-        /// Useful for hot-reloading configs during development or after file changes.
-        /// </summary>
-        internal static void ReloadAll()
-        {
-            Plugin.Logger.LogInfo("Reloading all config systems...");
-            
-            foreach (var system in ConfigSystems)
-            {
-                try
-                {
-                    system.Load();
-                    Plugin.Logger.LogInfo($"Reloaded {system.Name}");
-                }
-                catch (System.Exception ex)
-                {
-                    Plugin.Logger.LogError($"Failed to reload {system.Name}: {ex.Message}");
-                }
-            }
-            
-            Plugin.Logger.LogInfo("All config systems reloaded");
         }
     }
 }

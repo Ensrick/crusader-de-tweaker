@@ -28,5 +28,6 @@ using System.Runtime.InteropServices;
 //      Build Number
 //      Revision
 //
-[assembly: AssemblyVersion("2.5.0.0")]
-[assembly: AssemblyFileVersion("2.5.0.0")]
+// Version comes from the single source of truth in PluginInfo.cs.
+[assembly: AssemblyVersion(CrusaderDETweaker.PluginInfo.PLUGIN_VERSION)]
+[assembly: AssemblyFileVersion(CrusaderDETweaker.PluginInfo.PLUGIN_VERSION)]

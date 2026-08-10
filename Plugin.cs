@@ -57,14 +57,9 @@ namespace CrusaderDETweaker
     /// The GUID "CrusaderDETweaker" is the CORRECT and INTENDED value.
     /// Previous incorrect GUID "ensrick.crusaderdetweaker" was a mistake.
     /// </summary>
-    [BepInPlugin("CrusaderDETweaker", "Crusader DE Tweaker", "2.5.0")]
+    [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
     public class Plugin : BaseUnityPlugin
     {
-        /// <summary>
-        /// Singleton instance of the plugin (for static access).
-        /// </summary>
-        internal static Plugin Instance { get; private set; }
-        
         /// <summary>
         /// Logger instance for plugin-wide logging.
         ///
@@ -114,7 +109,6 @@ namespace CrusaderDETweaker
 
         private void Awake()
         {
-            Instance = this;
             Logger = base.Logger;
 
             Logger.LogInfo("CrusaderDETweaker loading");

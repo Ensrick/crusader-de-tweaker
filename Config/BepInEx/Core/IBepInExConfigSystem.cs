@@ -46,11 +46,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Core
         /// Called after Initialize().
         /// </summary>
         void Apply();
-
-        /// <summary>
-        /// Whether this config system has been successfully initialized.
-        /// </summary>
-        bool IsInitialized { get; }
     }
 }
 

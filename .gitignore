@@ -37,7 +37,6 @@ MigrationBackup/
 # BepInEx config files (generated, user-specific)
 # Note: These are typically in %APPDATA%\BepInEx\config\ but may be in Output/
 *.cfg
-!app.config
 
 # ============================================================================
 # Model Discovery Output Files

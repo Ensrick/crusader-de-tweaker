@@ -26,8 +26,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
     {
         public string Name => "Fire & Heal Multipliers";
 
-        public bool IsInitialized { get; private set; }
-
         public ConfigEntry<float> UnitFireDamageMultiplier { get; private set; }
         public ConfigEntry<float> StructureFireDamageMultiplier { get; private set; }
         public ConfigEntry<float> BedouinHealMultiplier { get; private set; }
@@ -77,8 +75,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 ("BedouinHealMultiplier", BedouinHealMultiplier),
                 ("DiseaseDamageMultiplier", DiseaseDamageMultiplier)
             );
-
-            IsInitialized = true;
         }
 
         public void Apply()

@@ -13,28 +13,11 @@ namespace CrusaderDETweaker.Config.DamageMatrix
 {
     /// <summary>
     /// Top-level manager for all damage matrix operations.
-    /// Orchestrates generation and loading of all matrix types.
+    /// Orchestrates generation and loading of all matrix types via the two entry
+    /// points the DamageMatrixConfigSystem drives: GenerateDefaults() then LoadAll().
     /// </summary>
     internal static class DamageMatrixManager
     {
-        /// <summary>
-        /// Initialize the damage matrix system.
-        /// 1. Generate default CSV files if they don't exist
-        /// 2. Load CSV files and apply to game
-        /// </summary>
-        public static void Initialize()
-        {
-            Plugin.Logger.LogInfo("Initializing damage matrix system...");
-
-            // Step 1: Generate default matrices if they don't exist
-            GenerateDefaults();
-
-            // Step 2: Load and apply matrices
-            LoadAll();
-
-            Plugin.Logger.LogInfo("Damage matrix system initialized.");
-        }
-
         /// <summary>
         /// Generate all default damage matrix CSV files.
         /// Only creates files that don't already exist.
@@ -109,42 +92,6 @@ namespace CrusaderDETweaker.Config.DamageMatrix
             buildingFireLoader.Load();
 
             Plugin.Logger.LogInfo("Damage matrices loaded.");
-        }
-
-        /// <summary>
-        /// Generate only ranged damage matrix.
-        /// </summary>
-        public static void GenerateRangedMatrix()
-        {
-            var generator = new RangedDamageMatrixGenerator();
-            generator.Generate();
-        }
-
-        /// <summary>
-        /// Generate only melee damage matrix.
-        /// </summary>
-        public static void GenerateMeleeMatrix()
-        {
-            var generator = new MeleeDamageMatrixGenerator();
-            generator.Generate();
-        }
-
-        /// <summary>
-        /// Load only ranged damage matrix.
-        /// </summary>
-        public static void LoadRangedMatrix()
-        {
-            var loader = new RangedDamageMatrixLoader();
-            loader.Load();
-        }
-
-        /// <summary>
-        /// Load only melee damage matrix.
-        /// </summary>
-        public static void LoadMeleeMatrix()
-        {
-            var loader = new MeleeDamageMatrixLoader();
-            loader.Load();
         }
     }
 }

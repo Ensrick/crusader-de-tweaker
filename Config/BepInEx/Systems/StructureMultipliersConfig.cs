@@ -13,8 +13,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
     {
         public string Name => "Structure Multipliers";
 
-        public bool IsInitialized { get; private set; }
-
         public ConfigEntry<float> GlobalDamageTakenMultiplier { get; private set; }
         public ConfigEntry<float> WallDamageTakenMultiplier { get; private set; }
         public ConfigEntry<float> TowerDamageTakenMultiplier { get; private set; }
@@ -87,7 +85,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
             );
 
             ValidateMultipliers();
-            IsInitialized = true;
         }
 
         public void Apply()

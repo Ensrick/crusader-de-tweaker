@@ -5,7 +5,7 @@
 	"Description": "Comprehensive gameplay property configuration system for Stronghold Crusader Definitive Edition",
     "Version": "2.5.0",
     "SupportedGameVersions": [
-        "2.7.0.0"
+        "2.8.0.0"
     ],
     "Website": "https://gitlab.com/ensrick7/crusader-de-tweaker", 
 	"Manifest": 1

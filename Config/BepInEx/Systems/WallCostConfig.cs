@@ -13,8 +13,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
     {
         public string Name => "Wall Cost";
 
-        public bool IsInitialized { get; private set; }
-
         public ConfigEntry<float> LowWallCostMultiplier { get; private set; }
         public ConfigEntry<float> HighWallCostMultiplier { get; private set; }
 
@@ -48,7 +46,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
             );
 
             ValidateMultipliers();
-            IsInitialized = true;
         }
 
         public void Apply()

@@ -131,10 +131,25 @@ if (Test-Path $dllPath) {
     Write-Host "  DLL: $dllPath ($dllSize bytes)" -ForegroundColor Green
     Write-Host "  (Built directly to game folder, matching VS 2022 behavior)" -ForegroundColor Gray
 
-    # Copy info.json if it exists
+    # Stamp info.json's Version from the single source of truth (PluginInfo.cs), then copy
+    # it to the plugin folder. This keeps info.json, the BepInPlugin attribute, and the
+    # assembly version in lockstep — the version is edited in exactly one place.
     $infoJsonSource = Join-Path $PSScriptRoot "..\info.json"
     $infoJsonDest = Join-Path $GamePath "BepInEx\plugins\CrusaderDETweaker\info.json"
+    $pluginInfoPath = Join-Path $PSScriptRoot "..\PluginInfo.cs"
     if (Test-Path $infoJsonSource) {
+        if (Test-Path $pluginInfoPath) {
+            $verMatch = Select-String -Path $pluginInfoPath -Pattern 'PLUGIN_VERSION\s*=\s*"([^"]+)"'
+            if ($verMatch) {
+                $version = $verMatch.Matches[0].Groups[1].Value
+                $info = Get-Content $infoJsonSource -Raw | ConvertFrom-Json
+                if ($info.Version -ne $version) {
+                    $info.Version = $version
+                    ($info | ConvertTo-Json -Depth 10) | Set-Content $infoJsonSource -Encoding UTF8
+                    Write-Host "  Stamped info.json Version = $version (from PluginInfo.cs)" -ForegroundColor Green
+                }
+            }
+        }
         Copy-Item $infoJsonSource $infoJsonDest -Force
         Write-Host "  Copied info.json to plugin folder." -ForegroundColor Green
     }

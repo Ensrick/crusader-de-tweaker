@@ -49,7 +49,10 @@ namespace CrusaderDETweaker.Config.Toml.Core
             "ArmorValue",
             "MeleeArmorValue",
             "RangedArmorValue",
-            "EunuchAoeArmorValue"
+            "EunuchAoeArmorValue",
+            // Resource-slot generic names, superseded by WeaponType (slot 0) / ArmorType (slot 1)
+            "Resource1Type",
+            "Resource2Type"
         };
 
         /// <summary>

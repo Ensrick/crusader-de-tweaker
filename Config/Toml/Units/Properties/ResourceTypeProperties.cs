@@ -171,28 +171,11 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
         public ArmorTypeProperty() : base("ArmorType") { }
     }
 
-    /// <summary>
-    /// Legacy Resource1Type property - kept for backward compatibility.
-    /// Use WeaponType instead for new configurations.
-    /// </summary>
-    internal class Resource1TypeProperty : ResourceTypePropertyBase
-    {
-        protected override int SlotIndex => 0;
-        public Resource1TypeProperty() : base("Resource1Type") { }
-    }
-
-    /// <summary>
-    /// Legacy Resource2Type property - kept for backward compatibility.
-    /// Use ArmorType instead for new configurations.
-    /// </summary>
-    internal class Resource2TypeProperty : ResourceTypePropertyBase
-    {
-        protected override int SlotIndex => 1;
-        public Resource2TypeProperty() : base("Resource2Type") { }
-    }
-
-    // Resource3TypeProperty removed - unused in game logic
-    // Resource4TypeProperty removed - replaced by RequiresHorseProperty (boolean wrapper)
+    // Resource1Type/Resource2Type were never registered; their function is served by
+    // WeaponType (slot 0) and ArmorType (slot 1). The old names are recognized as
+    // obsolete in ErrorLogging so legacy configs do not warn.
+    // Resource3Type - unused in game logic.
+    // Resource4Type - replaced by RequiresHorseProperty (boolean wrapper).
 
     /// <summary>
     /// Handles the RequiresHorse property for Crusader cavalry units.
