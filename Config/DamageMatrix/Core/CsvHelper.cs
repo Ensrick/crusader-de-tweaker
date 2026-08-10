@@ -133,23 +133,27 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
 
                     rowHeaders.Add(parts[0]); // First cell is row header
 
+                    // Unparseable cells fall back to -1, not 0: the loaders apply every value >= 0
+                    // directly to the game, so a 0 would silently zero real damage. -1 is the
+                    // "skip / leave the game value" sentinel.
                     var rowValues = parts.Skip(1)
-                        .Select(v => ParseIntSafe(v, 0))
+                        .Select(v => ParseIntSafe(v, -1))
                         .ToArray();
 
                     matrixRows.Add(rowValues);
                 }
 
-                // Convert to 2D array
+                // Convert to 2D array. Cells a short row does not cover default to -1 (skip),
+                // for the same reason: a missing cell must not be applied as 0.
                 int rows = matrixRows.Count;
                 int cols = columnHeaders.Length;
                 var matrix = new int[rows, cols];
 
                 for (int row = 0; row < rows; row++)
                 {
-                    for (int col = 0; col < cols && col < matrixRows[row].Length; col++)
+                    for (int col = 0; col < cols; col++)
                     {
-                        matrix[row, col] = matrixRows[row][col];
+                        matrix[row, col] = col < matrixRows[row].Length ? matrixRows[row][col] : -1;
                     }
                 }
 
@@ -200,6 +204,10 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
         {
             if (int.TryParse(value, out int result))
                 return result;
+            // A non-empty cell that will not parse is corrupt input worth surfacing; an empty
+            // cell (short row) is expected and silently takes the default.
+            if (!string.IsNullOrWhiteSpace(value))
+                Plugin.Logger.LogWarning($"[CSV] Unparseable value '{value}'; treating as {defaultValue} (skipped).");
             return defaultValue;
         }
 
@@ -233,8 +241,8 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
             sb.AppendLine("#   1. Find the defender unit in the first column");
             sb.AppendLine("#   2. Find the attacker unit/projectile in the header row");
             sb.AppendLine("#   3. Change the value at the intersection to modify damage");
-            sb.AppendLine("#   4. Values matching original game defaults are skipped (not applied)");
-            sb.AppendLine("#   5. Only modified values (different from defaults) are applied to the game");
+            sb.AppendLine("#   4. A value of 0 or more is applied to the game as-is");
+            sb.AppendLine("#   5. A negative value (-1) leaves the game's own value unchanged");
             sb.AppendLine("#");
             sb.AppendLine("# Note: This file can be edited in Excel, Google Sheets, or any text editor.");
             sb.AppendLine("# ========================================");
