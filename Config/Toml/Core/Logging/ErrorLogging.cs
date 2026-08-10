@@ -41,7 +41,7 @@ namespace CrusaderDETweaker.Config.Toml.Core
         /// 
         /// Current obsolete properties:
         /// - ArmorValue, MeleeArmorValue, RangedArmorValue, EunuchAoeArmorValue:
-        ///   Replaced by MeleeArmorMultiplier and RangedArmorMultipliers in v1.0
+        ///   the old additive-armor keys, later replaced by multiplier-based armor handling
         /// </summary>
         private static readonly HashSet<string> ObsoleteProperties = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
