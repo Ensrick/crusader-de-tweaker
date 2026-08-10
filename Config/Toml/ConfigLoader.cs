@@ -5,7 +5,6 @@ using CrusaderDETweaker.Config.BepInEx;
 using CrusaderDETweaker.Config.BepInEx.Systems.Handlers;
 using CrusaderDETweaker.Config.Toml;
 using CrusaderDETweaker.Config.Toml.Core;
-using CrusaderDETweaker.Config.Toml.Projectiles;
 using CrusaderDETweaker.Config.Toml.Units;
 using CrusaderDETweaker.Config.Toml.Structures;
 using CrusaderDETweaker.Data;
@@ -29,9 +28,9 @@ namespace CrusaderDETweaker.Config.Toml
     /// 3. Applying property values using registered property handlers
     /// 4. Handling errors gracefully (invalid entities, missing properties, etc.)
     /// 
-    /// The loader uses a generic ApplyConfigs method that works for both units and structures,
-    /// reducing code duplication. Property handlers are obtained from the appropriate registry
-    /// (UnitPropertyRegistry or StructurePropertyRegistry).
+    /// Units and structures are each applied by a dedicated entry point (ApplyAllUnitConfigs /
+    /// ApplyAllStructureConfigs) that shares the EntityProcessor pipeline. Property handlers are
+    /// obtained from the appropriate registry (UnitPropertyRegistry or StructurePropertyRegistry).
     /// 
     /// Error handling:
     /// - Invalid entity names are logged and skipped
@@ -45,8 +44,7 @@ namespace CrusaderDETweaker.Config.Toml
         private static Dictionary<eStructs, int> _buildingCaps = new Dictionary<eStructs, int>();
 
         /// <summary>
-        /// Load and apply unit configurations from TOML file.
-        /// Also loads projectile configurations from the same file.
+        /// Load and apply unit configurations from the Units TOML file.
         /// </summary>
         internal static void ApplyAllUnitConfigs()
         {
@@ -54,99 +52,24 @@ namespace CrusaderDETweaker.Config.Toml
 
             try
             {
-                // DEACTIVATED: Tag system is too complex for automated management within context limits
-                // Units.Properties.TagsProperty.RegisterDefaultTags();
-
-                // DEACTIVATED: Mismatch tracking for armor formulas
-                // Units.Properties.MeleeArmorMultiplierProperty.ResetMismatchTracking();
-                // Units.Properties.RangedArmorMultiplierProperty.ResetMismatchTracking();
-
                 var tomlString = ConfigFileHelper.ReadConfigFile(ConfigPaths.Units);
                 var tomlModel = Tomlyn.Toml.ToModel(tomlString);
 
-                // Load projectile settings BEFORE processing units (affects RangedArmorMultiplier calculations)
-                LoadProjectileSettings(tomlModel);
-
-                // Filter unit sections vs projectile sections
-                var unitModel = new TomlTable();
-                var projectileModel = new TomlTable();
-                var projectileTypeNames = new HashSet<string>(Enum.GetNames(typeof(ProjectileType)));
-                var ignoredSections = new HashSet<string> { "ProjectileSettings" };
-
-                foreach (var section in tomlModel)
-                {
-                    if (ignoredSections.Contains(section.Key)) continue;
-
-                    if (projectileTypeNames.Contains(section.Key))
-                    {
-                        projectileModel[section.Key] = section.Value;
-                    }
-                    else
-                    {
-                        unitModel[section.Key] = section.Value;
-                    }
-                }
-
-                // Apply unit configs from the filtered unit model
                 var (unitProcessed, unitSkipped, unitErrors) = EntityProcessor.ProcessEntities(
-                    unitModel,
+                    tomlModel,
                     UnitPropertyRegistry.Instance,
                     Data.UnitCategories.NonModable,
                     "unit",
                     TryParseUnit
                 );
 
-                // Apply projectile configs from the filtered projectile model
-                var (projProcessed, projSkipped, projErrors) = EntityProcessor.ProcessEntities(
-                    projectileModel,
-                    ProjectilePropertyRegistry.Instance,
-                    new ProjectileType[0], // No projectiles are non-modifiable
-                    "projectile",
-                    TryParseProjectile
-                );
+                Plugin.Logger.LogInfo($"Applied unit configs: Units={unitProcessed}, Skipped={unitSkipped}, Errors={unitErrors}");
 
-                Plugin.Logger.LogInfo($"Applied unit configs: Units={unitProcessed}, Projectiles={projProcessed}, Errors={unitErrors + projErrors}");
-
-                LoadUnitCaps(unitModel);
-
-                // DEACTIVATED: Mismatch summaries for armor formulas
-                // Units.Properties.MeleeArmorMultiplierProperty.LogMismatchSummary();
-                // Units.Properties.RangedArmorMultiplierProperty.LogMismatchSummary();
+                LoadUnitCaps(tomlModel);
             }
             catch (Exception ex)
             {
                 Core.ErrorLogging.LogConfigLoadException("unit configs", ex);
-            }
-        }
-
-        /// <summary>
-        /// Load projectile settings from the [ProjectileSettings] section.
-        /// These settings affect how ranged damage is calculated.
-        /// </summary>
-        private static void LoadProjectileSettings(TomlTable tomlModel)
-        {
-            if (!tomlModel.TryGetValue("ProjectileSettings", out var settingsObj))
-                return;
-
-            if (!(settingsObj is TomlTable settingsTable))
-                return;
-
-            // RangedDamageCap - maximum damage for ranged attacks
-            if (settingsTable.TryGetValue("RangedDamageCap", out var capValue))
-            {
-                if (capValue is long capLong)
-                {
-                    if (capLong >= 100 && capLong <= 100000)
-                    {
-                        int cap = (int)capLong;
-                        Units.Properties.RangedArmorMultiplierProperty.RangedDamageCap = cap;
-                        Plugin.Logger.LogDebug($"Set RangedDamageCap = {cap}");
-                    }
-                    else
-                    {
-                        Plugin.Logger.LogWarning($"Invalid RangedDamageCap value: {capLong} (must be 100-100000)");
-                    }
-                }
             }
         }
 
@@ -645,16 +568,6 @@ namespace CrusaderDETweaker.Config.Toml
         }
 
         /// <summary>
-        /// Helper method to parse projectile enum from string key.
-        /// </summary>
-        private static ProjectileType? TryParseProjectile(string key)
-        {
-            if (Enum.TryParse<ProjectileType>(key, out var projectile))
-                return projectile;
-            return (ProjectileType?)null;
-        }
-
-        /// <summary>
         /// Load and apply structure configurations from TOML file.
         /// </summary>
         internal static void ApplyAllStructureConfigs()
@@ -702,46 +615,6 @@ namespace CrusaderDETweaker.Config.Toml
             if (Enum.TryParse<eStructs>(key, out var structure))
                 return structure;
             return (eStructs?)null;
-        }
-
-        /// <summary>
-        /// Generic method to load and apply configuration files for any entity type.
-        /// </summary>
-        /// <typeparam name="TEntity">The entity type (eChimps or eStructs)</typeparam>
-        /// <param name="filePath">Path to the TOML config file</param>
-        /// <param name="registry">Property registry for this entity type</param>
-        /// <param name="nonModifiableEntities">Entities that should be skipped</param>
-        /// <param name="entityTypeName">Name of the entity type for logging (e.g., "unit", "structure")</param>
-        /// <param name="parseEntity">Function to parse entity name from string, returns null if invalid</param>
-        private static void ApplyConfigs<TEntity>(
-            string filePath,
-            PropertyRegistry<TEntity> registry,
-            TEntity[] nonModifiableEntities,
-            string entityTypeName,
-            Func<string, TEntity?> parseEntity)
-            where TEntity : struct
-        {
-            if (!ConfigFileHelper.ConfigFileExists(filePath)) return;
-
-            try
-            {
-                var tomlString = ConfigFileHelper.ReadConfigFile(filePath);
-                var tomlModel = Tomlyn.Toml.ToModel(tomlString);
-
-                var (processedCount, skippedCount, errorCount) = EntityProcessor.ProcessEntities(
-                    tomlModel,
-                    registry,
-                    nonModifiableEntities,
-                    entityTypeName,
-                    parseEntity
-                );
-
-                Plugin.Logger.LogInfo($"Applied {entityTypeName} configs: Processed={processedCount}, Skipped={skippedCount}, Errors={errorCount}");
-            }
-            catch (Exception ex)
-            {
-                Core.ErrorLogging.LogConfigLoadException($"{entityTypeName} configs", ex);
-            }
         }
     }
 }

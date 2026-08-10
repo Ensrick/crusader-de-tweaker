@@ -19,7 +19,6 @@ using CrusaderDETweaker.Config.Toml;
 using CrusaderDETweaker.Config.Toml.Core;
 using CrusaderDETweaker.Config.Toml.Units;
 using CrusaderDETweaker.Config.Toml.Structures;
-using CrusaderDETweaker.Config.Toml.Projectiles;
 using CrusaderDETweaker.Data;
 using SHCDESE.Interop;
 

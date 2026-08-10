@@ -191,8 +191,6 @@
     <Compile Include="Config\Toml\Structures\Properties\StructureHousingPopulationSpaceProperty.cs" />
     <Compile Include="Config\Toml\Structures\Properties\KillingPitDamageProperty.cs" />
     <Compile Include="Config\Toml\Structures\StructurePropertyRegistry.cs" />
-    <Compile Include="Config\Toml\Units\Properties\BaseMeleeDamageProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\EunuchAoeDamageProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\GoldCostProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\HealthProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ResourceTypeProperties.cs" />
@@ -202,9 +200,6 @@
     <Compile Include="Config\Toml\Units\Properties\ArabHorsemanRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinCamelLancerRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinHeavyCamelRunSpeedBonusProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\ArmorMultiplierPropertyBase.cs" />
-    <Compile Include="Config\Toml\Units\Properties\MeleeArmorMultiplierProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\RangedArmorMultiplierProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\TagsProperty.cs" />
     <Compile Include="Config\Toml\Units\UnitPropertyRegistry.cs" />
     <Compile Include="Data\UnitTagInteraction.cs" />
@@ -217,8 +212,6 @@
     <Compile Include="Data\StructureCategories.cs" />
     <Compile Include="Data\StructureTypeHelpers.cs" />
     <Compile Include="Data\UnitCategories.cs" />
-    <Compile Include="Config\Toml\Projectiles\ProjectilePropertyRegistry.cs" />
-    <Compile Include="Config\Toml\Projectiles\Properties\ProjectileBaseDamageProperty.cs" />
     <Compile Include="Config\BepInEx\BepInExConfigManager.cs" />
     <Compile Include="Config\BepInEx\Core\BepInExConfigHelper.cs" />
     <Compile Include="Config\BepInEx\Core\ConfigSystemInitializer.cs" />
