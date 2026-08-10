@@ -150,3 +150,7 @@ Config/Backups/
 
 # Release packaging output (the Nexus zip is a build artifact, not source)
 /dist/
+
+# Nexus API key — local publisher secret, NEVER commit (see scripts/nexus/)
+scripts/nexus/nexus.local.json
+nexus.local.json

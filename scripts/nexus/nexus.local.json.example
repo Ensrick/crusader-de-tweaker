@@ -1,0 +1,4 @@
+{
+  "_comment": "Copy this file to nexus.local.json (same folder) and paste your personal Nexus API key. nexus.local.json is gitignored and must never be committed. Get/generate the key at https://www.nexusmods.com/users/myaccount?tab=api . Alternatively set the NEXUS_API_KEY environment variable and skip this file entirely.",
+  "ApiKey": "PASTE-YOUR-PERSONAL-NEXUS-API-KEY-HERE"
+}
