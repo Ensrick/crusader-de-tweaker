@@ -109,5 +109,11 @@ Verifies config system initialization order (BepInEx cfg before TOML, damage mat
 
 ---
 
-### `test_reload_tracking.ps1`
-Tests that reload tracking correctly detects config changes (change detection, unchanged values, reset detection).
+### `_quietbuild.ps1`
+Dev aid: wraps `build.ps1` and prints only the result summary plus real compiler diagnostics, dropping
+the MSBuild noise. Temporary — safe to delete once the overhaul work settles.
+
+---
+
+### `nexus/`
+Nexus Mods upload tooling — see [nexus/README.md](nexus/README.md).

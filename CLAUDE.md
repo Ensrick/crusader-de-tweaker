@@ -1,7 +1,7 @@
 # CLAUDE.MD - AI Agent Reference
 
 > **Purpose**: Primary reference for AI coding agents working on this codebase.
-> **Last Updated**: April 2026
+> **Last Updated**: August 2026 (post dead-code overhaul)
 
 ---
 
@@ -10,7 +10,7 @@
 1. **Build**: `.\scripts\build.ps1`
 2. **Test**: `.\scripts\launch_game.ps1` → Check BepInEx console for test output
 3. **Pattern**: PropertyHandler for properties, Template Method pattern
-4. **Config**: Three tiers - BepInEx (real-time) → TOML (static) → CSV (overrides)
+4. **Config**: Three tiers - TOML (per-entity stats) → CSV (per-matchup damage) → BepInEx (real-time multipliers)
 
 ---
 
@@ -40,31 +40,49 @@
 - Call `Plugin.UnitApi` directly (use PropertyHandler)
 - Add complex lookup tables or ML systems
 - Skip error handling
-- Change Plugin GUID without updating all paths
-- **Call any game API during `LibraryLoaded` / `ConfigManager.Initialize()`** — this causes a native ACCESS_VIOLATION crash. No game session exists yet. All API calls that read or write game state must be deferred to `OnStartMap` or `OnLoadMap` hooks.
+- Change Plugin GUID or hand-edit the version outside `PluginInfo.cs`
+- **Write game state or touch `GameGlobalsManager` during `LibraryLoaded` / `ConfigManager.Initialize()`** — that causes a native ACCESS_VIOLATION crash. No game session exists yet. See "Initialization Flow" for what IS safe there (API *reads* during TOML generation are, and are relied on).
 
 ---
 
 ## Directory Structure
 
 ```
+PluginInfo.cs                # Single source of truth: GUID / name / version
+Plugin.cs                    # BepInEx entry point
 Config/
-├── BepInEx/           # Real-time multipliers (hooks)
-│   └── Systems/       # Config systems + Handlers/
-├── DamageMatrix/      # CSV damage matrices
-│   ├── Core/          # Matrix loading utilities
-│   ├── Melee/Ranged/EunuchAoe/
-├── Toml/              # TOML property system
-│   ├── Core/          # PropertyHandler base + helpers
-│   │   ├── Handlers/  # PropertyHandler, PropertyRegistry, EntityProcessor
-│   │   ├── Helpers/   # ConfigHelpers, TomlFormatter, TypeConverter
-│   │   └── Logging/   # ErrorLogging
-│   ├── Units/Properties/
-│   └── Structures/Properties/
-Data/                  # Enums, categories, data classes
-Tests/                 # Unit test suites
-scripts/               # Build/test automation
+├── ConfigManager.cs         # Orchestrates the 4 IConfigSystems
+├── Core/                    # IConfigSystem
+├── BepInEx/                 # Real-time multipliers (event hooks, no restart)
+│   ├── Core/                # BepInExConfigHelper, ConfigSystemInitializer, IBepInExConfigSystem
+│   ├── BepInExConfigManager.cs
+│   └── Systems/             # UnitMultipliers, StructureMultipliers, WallCost, FireAndHealMultipliers
+│       └── Handlers/        # Damage/health hooks, Unit+Building cap handlers, MakeTroopRecruitHook
+├── DamageMatrix/            # CSV damage matrices — the live per-matchup damage tier
+│   ├── Core/                # CsvHelper, MatrixLoader, MatrixGenerator, MatrixApplicationLoop,
+│   │                        #   MatrixPaths, UnitMatrixHelper, BuildingMatrixHelper, ProjectileApiHelper
+│   ├── Melee/ Ranged/ EunuchAoe/ Ballista/ UnitFireDamage/ BedouinHeal/ BuildingFireDamage/
+│   ├── DamageMatrixManager.cs      # GenerateDefaults() + LoadAll() for all 7 matrices
+│   └── DamageMatrixConfigSystem.cs
+└── Toml/                    # TOML property system
+    ├── ConfigGenerator.cs   # Writes/migrates the TOML files (reads live API values)
+    ├── ConfigLoader.cs      # Applies TOML + registers the session hooks
+    ├── ConfigPaths.cs
+    ├── Core/
+    │   ├── Handlers/        # PropertyHandler, PropertyRegistry, EntityProcessor
+    │   ├── Helpers/         # ConfigFileHelper, ConfigFileHeaderWriter, ErrorHandlingHelper, TypeConverter
+    │   └── Logging/         # ErrorLogging
+    ├── Systems/             # BaseConfigSystem + Global/Unit/StructureConfigSystem
+    ├── Units/Properties/
+    └── Structures/Properties/
+Data/                        # UnitCategories, StructureCategories, StructureTypeHelpers, ProjectileType
+Tests/                       # CoreTestRunner + PropertyHandler/PropertyRegistry/EntityProcessor suites
+scripts/                     # Build/release automation
 ```
+
+> `Config/Backups/legacy_2025-12-26_102826/` contains two dead `.cs` snapshots (`UnitTagInteraction.cs`,
+> `UnitTagsConfigGenerator.cs`). They are NOT in the `.csproj` and are not compiled — a `*.cs` glob will
+> show them, but the systems they belong to were deleted. Ignore them.
 
 ---
 
@@ -73,19 +91,44 @@ scripts/               # Build/test automation
 ### Three-Tier Priority
 
 ```
-Game Defaults → TOML Properties → CSV Overrides → BepInEx Multipliers
+Game Defaults → TOML Properties → CSV Damage Matrices → BepInEx Multipliers
 ```
 
 | Tier | Files | Purpose | Restart? |
 |------|-------|---------|----------|
-| **BepInEx** | `CrusaderDETweaker_GlobalMultipliers.cfg` | Global multipliers, unit caps | No |
-| **TOML** | `*_Units.toml`, `*_Structures.toml` | Individual properties | Yes |
-| **CSV** | `*_MeleeDamage.csv`, etc. | Granular damage overrides | Yes |
+| **TOML** | `*_Units.toml`, `*_Structures.toml`, `*_GameplaySettings.toml` | Per-entity stats + gameplay globals | Yes |
+| **CSV** | `DamageMatrices\*.csv` (7 files) | The **only** per-matchup damage/heal tier | Yes |
+| **BepInEx** | `CrusaderDETweaker_GlobalMultipliers.cfg` | Global multipliers scaling on top, at runtime | No |
+
+### CSV damage matrices (the live damage tier)
+
+Damage is configured **exclusively** through the CSVs — there is no formula/armor-multiplier tier and
+no tag system; both were deleted. Seven matrices, all generated by `DamageMatrixManager.GenerateDefaults()`
+and applied by `DamageMatrixManager.LoadAll()`:
+
+| Matrix | File | Shape |
+|--------|------|-------|
+| Melee | `CrusaderDETweaker_MeleeDamage.csv` | unit x unit |
+| Ranged | `CrusaderDETweaker_RangedDamage.csv` | unit x projectile type |
+| Eunuch AOE | `CrusaderDETweaker_EunuchAoeDamage.csv` | unit x 1 |
+| Ballista | `CrusaderDETweaker_BallistaDamage.csv` | unit x ballista attacker |
+| Unit fire | `CrusaderDETweaker_UnitFireDamage.csv` | unit x 1 |
+| Bedouin heal | `CrusaderDETweaker_BedouinHeal.csv` | unit x 1 |
+| Building fire | `CrusaderDETweaker_BuildingFireDamage.csv` | building x 1 |
+
+**Orientation (all matrices): ROWS (first column) = DEFENDERS, COLUMNS (header row) = ATTACKERS.**
+`CsvHelper.WriteCsvHeaderComments` stamps this into every generated file and
+`MatrixApplicationLoop.ApplyMatrix` indexes `matrix[row=defender, col=attacker]`.
+
+**Apply rule**: loaders read the CSV values directly (`CsvHelper.ReadMatrix`) and apply **every value >= 0**
+to the game. A **negative value (`-1`) means "leave the game's value unchanged"** — it is also what an
+unparseable or missing cell falls back to, so corrupt input can never silently zero real damage. There is
+no comparison against captured original defaults; that subsystem was deleted.
 
 ### `-1` = "use game default" sentinel (Units/Structures TOML, v2.3.0+)
 
-Numeric stat properties (Health, Speed, GoldCost, ShieldHealth, armor multipliers, structure
-health/costs, housing, run-speed bonuses) default to **`-1` = "leave the game value unchanged"**.
+Numeric stat properties (Health, Speed, GoldCost, ShieldHealth, structure health/costs, housing,
+killing-pit damage, run-speed bonuses) default to **`-1` = "leave the game value unchanged"**.
 Only a real number overrides; the live game value is shown in the `# Default:` comment (generation
 runs before apply each launch, so it stays current). Mechanics (all centralized — do NOT edit the
 20+ handlers):
@@ -102,6 +145,14 @@ See memory `reference_shcde_se_modding_gotchas` for the broader SHCDE-SE init/ev
 
 All configs in: `{GameDir}\BepInEx\config\CrusaderDETweaker\`
 CSV damage matrices in: `{GameDir}\BepInEx\config\CrusaderDETweaker\DamageMatrices\`
+
+Both resolve through BepInEx `Paths.ConfigPath`, which for this game points at the **game directory**,
+e.g. `C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\config\`.
+
+> **Stale code comment:** the XML doc and header comment in `Config/Toml/ConfigPaths.cs` still say
+> `%APPDATA%\BepInEx\config\`. That is wrong — `MatrixPaths.cs` documents the correct behaviour. The
+> only thing genuinely written under `%APPDATA%` is `Plugin.cs`'s `plugin_initialized.ready` marker
+> file, which uses an explicit `SpecialFolder.ApplicationData` path for `launch_game.ps1`.
 
 ---
 
@@ -148,31 +199,51 @@ _instance.Register(new YourProperty());
 ```
 Plugin.Awake()
     ↓
-CrusaderLibrary_LibraryLoaded()  ← SHCDE-SE API available
+CrusaderLibrary_LibraryLoaded()  ← SHCDE-SE API available; APIs cached on Plugin.*
     ↓
-ConfigManager.Initialize()
-    ├─ GenerateDefaults() for each system  ← FILE I/O ONLY, no API calls
-    ├─ Load() for each system              ← Registers hooks, reads TOML/CSV
-    └─ (no direct API calls here)
+ConfigManager.Initialize(runValidation: true)
+    ├─ GenerateDefaults() for each system  ← writes/migrates TOML + CSV;
+    │                                         performs API *READS* (see below)
+    ├─ Load() for each system              ← applies TOML, applies CSV matrices,
+    │                                         registers the deferred session hooks
+    └─ Validate() for each system
     ↓
-BepInExConfigManager.Initialize()  ← Multipliers, unit caps, wall costs
+BepInExConfigManager.Initialize(...)  ← Multipliers, unit caps, wall costs
     ↓
-OnStartMap / OnLoadMap hooks fire  ← SAFE to call game APIs here
-// CoreTestRunner.RunAllTests()  ← DISABLED (re-enable for dev verification)
+CoreTestRunner.RunAllTests()      ← runs EVERY launch as a QA self-check (see Unit Tests)
+    ↓
+OnStartMap / OnLoadMap (Post) fire  ← session-state writes happen here
 ```
 
-### CRITICAL: No Game API Calls During Init
+Systems, in order (`ConfigManager.ConfigSystems`): `GlobalConfigSystem`, `UnitConfigSystem`,
+`StructureConfigSystem`, `DamageMatrixConfigSystem`. Order matters: TOML applies before the CSV
+matrices, so a CSV value wins over TOML for the same matchup.
 
-**LibraryLoaded fires before any game session exists.** Calling game APIs at this point (writing to native memory via `GameGlobalsManager`, reading unit/structure properties, etc.) causes a native `ACCESS_VIOLATION` crash. The crash appears inside SHCDE-SE's own init sequence in the log — this is misleading. The actual cause is our code corrupting native state on the background init thread.
+### CRITICAL: what is and isn't safe during init
 
-**Safe during init**: File I/O, TOML parsing, registering event hooks, BepInEx config binding.
+`LibraryLoaded` fires before any game session exists. The rule is **not** "no API calls" — TOML
+generation deliberately reads the live API on every launch:
 
-**NOT safe during init**: Anything on `Plugin.UnitApi`, `Plugin.BuildingApi`, `Plugin.GlobalsApi`, `Plugin.PlayerApi`. Defer these to `OnStartMap`/`OnLoadMap`.
+**Reads are performed and currently work.** `PropertyHandler.TryGenerateCore` calls
+`TryGetOriginalValue()` → `TryGetFromAPI()` → `Plugin.UnitApi` / `Plugin.BuildingApi` for every
+entity+property, so the `# Default:` comment beside each `-1` sentinel stays current. Generation runs
+on every launch (it migrates an existing file, it does not early-return), so these reads happen every
+launch. Template-table *writes* also happen here and work: `ConfigLoader.ApplyAllUnitConfigs` /
+`ApplyAllStructureConfigs` push TOML values through `SetToAPI`, and the seven matrix loaders push CSV
+values through calls like `Plugin.UnitApi.SetMeleeDamageFromTo`.
 
-Past crashes caused by this:
-- `GenerateDefaultConfigUnits/Structures` calling `TryGetFromAPI` for missing entries
-- `CaptureOriginalDefaults` calling `GetMeleeDamageFromTo` for every unit pair
+**NOT safe during init**: `GameGlobalsManager` access and per-session state writes. `Plugin.GlobalsApi`
+and the session-scoped `Plugin.PlayerApi` setters (`SetNoKnockdownWalls`, `SetAutoTrade`, gameplay
+options, trade prices, disease tiers) write native memory that no session owns yet, causing a native
+`ACCESS_VIOLATION`. The crash appears inside SHCDE-SE's own init in the log — misleading; the cause is
+our write. These are why `GlobalConfigSystem.Load()` only calls `ConfigLoader.RegisterSessionHooks()`
+and defers `ApplyAllGlobalConfigs()` to the `OnStartMap`/`OnLoadMap` **Post** hooks.
+
+Known crash from violating this:
 - `ApplyAllGlobalConfigs` calling `GameGlobalsManager.SetValue()` at load time
+
+> If you add a new global/session setting, wire it into `ApplyAllGlobalConfigs()` (hook-driven), never
+> into a `Load()` body.
 
 ---
 
@@ -180,26 +251,36 @@ Past crashes caused by this:
 
 | Task | File |
 |------|------|
+| Version / GUID / name (single source) | `PluginInfo.cs` |
 | Entry point | `Plugin.cs` |
 | Config orchestration | `Config/ConfigManager.cs` |
-| TOML loading | `Config/Toml/ConfigLoader.cs` |
-| Property base class | `Config/Toml/Core/Handlers/PropertyHandler.cs` |
+| TOML generation + migration | `Config/Toml/ConfigGenerator.cs` |
+| TOML loading + session hooks | `Config/Toml/ConfigLoader.cs` |
+| Property base class + `-1` sentinel | `Config/Toml/Core/Handlers/PropertyHandler.cs` |
 | Unit properties | `Config/Toml/Units/Properties/*.cs` |
 | Unit registry | `Config/Toml/Units/UnitPropertyRegistry.cs` |
 | Unit categories | `Data/UnitCategories.cs` |
+| CSV read/write + stamped header | `Config/DamageMatrix/Core/CsvHelper.cs` |
+| Matrix apply loop (row/col indexing) | `Config/DamageMatrix/Core/MatrixApplicationLoop.cs` |
+| Matrix orchestration (all 7) | `Config/DamageMatrix/DamageMatrixManager.cs` |
+| CSV file paths | `Config/DamageMatrix/Core/MatrixPaths.cs` |
 | Unit cap handler | `Config/BepInEx/Systems/Handlers/UnitCapHandler.cs` |
 | Building cap handler | `Config/BepInEx/Systems/Handlers/BuildingCapHandler.cs` |
 | Test runner | `Tests/CoreTestRunner.cs` |
 
 ---
 
-## Tag System (DEACTIVATED)
+## Removed subsystems (do not resurrect, do not document)
 
-The Tag system was intended to provide 100% accuracy for damage modifiers, but has been **DEACTIVATED** due to high complexity and context window performance issues for automated management. 
+These were deleted in the 2026-08 overhaul. If a doc, comment, or memory still mentions them, it is stale:
 
-- **Status**: Code kept for reference, but calls are commented out.
-- **Replacement**: Use **CSV damage matrices** for specific attacker-defender overrides.
-- **Impact**: Default TOML properties (Armor multipliers) apply a generic formula; surgical corrections must be done via CSV files.
+- **Tag system** — `Config/Toml/UnitTags/*`, `TagsProperty`, `Data/UnitTagInteraction.cs`, `UnitTagRegistry`, its test suite. Damage is CSV-only.
+- **Original-defaults capture** — `CsvMatrixReader`, `CsvMatrixFallback`, `OriginalDefaultsCapture`, all `*DefaultsCapture.cs`. Loaders apply CSV values directly; `-1` means "skip".
+- **Formula damage/armor handlers** — `BaseMeleeDamageProperty`, `EunuchAoeDamageProperty`, `ArmorMultiplierPropertyBase`, `Melee`/`RangedArmorMultiplierProperty`.
+- **Projectile TOML leg** — `ProjectilePropertyRegistry`, `ProjectileBaseDamageProperty`, `[ProjectileSettings]`, `RangedDamageCap`. (`Data/ProjectileType.cs` stays: it indexes the ranged CSV.)
+- **Shim helpers** — `ConfigHelpers`, `TomlFormatter`, `ValueValidator`. `TypeConverter` survives with only `TryParseEnum`.
+- **Dead methods** — `ConfigManager.{GetStatus, GetDetailedStatus, GetAllSystems, ReloadAll}`, `DamageMatrixManager.{Initialize + per-matrix wrappers}`, `ConfigLoader.ApplyConfigs<T>`.
+- **UnitCategories arrays** — the Crusader/Arab/Bedouin/Workers/Animals/Special/Military lists are gone. The live surface is `IsNonModifiable` / `NonModable`, `IsNonMeleeAttacker`, `IsRecruitable`.
 
 ---
 
@@ -209,6 +290,8 @@ The Tag system was intended to provide 100% accuracy for damage modifiers, but h
 // Static instances (available after library load)
 Plugin.UnitApi        // GameUnitManagerAPI
 Plugin.BuildingApi    // GameBuildingManagerAPI
+Plugin.GlobalsApi     // GameGlobalsManager   — session-scoped, hook-time ONLY
+Plugin.PlayerApi      // GamePlayerManagerAPI — session-scoped setters are hook-time ONLY
 Plugin.Logger         // BepInEx logging
 ```
 
@@ -231,13 +314,22 @@ Enable debug: `BepInEx\config\BepInEx.cfg` → `LogLevels = ..., Debug`
 
 ## Unit Tests
 
-Tests run automatically on game load. Check console for:
+`Plugin.cs` calls `CoreTestRunner.RunAllTests()` on **every launch**, right after
+`BepInExConfigManager.Initialize()`. It is a QA self-check, not a dev-only path: the suites use mock
+handlers only, make no game-API calls, and log PASS/FAIL to `BepInEx\LogOutput.log`. A regression in
+core logic shows up in the log immediately. Do not gate or remove it.
+
+Three suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**. Look for:
 ```
-=== CrusaderDETweaker Core Tests ===
-ALL 4 TEST SUITES PASSED: PropertyHandler, PropertyRegistry, EntityProcessor, UnitTagRegistry
+=== CORE LOGIC UNIT TEST SUITE ===
+  [PASS] PropertyHandler: N test(s)
+  [PASS] PropertyRegistry: N test(s)
+  [PASS] EntityProcessor: N test(s)
+=== ALL 3 TEST SUITES PASSED ===
 ```
 
-Test files: `Tests/*.cs`, `Data/UnitTagInteraction.Test.cs`
+Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/PropertyRegistryTest.cs`,
+`Tests/EntityProcessorTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
 
 ---
 
@@ -274,9 +366,9 @@ return ErrorHandlingHelper.TryGetValueWithResult(
 | File | Purpose |
 |------|---------|
 | [README.md](README.md) | User overview |
-| [DEVELOPER_NOTES.md](DEVELOPER_NOTES.md) | Critical build info |
-| [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) | User config guide (BBCode) |
-| [DAMAGE_NOTES.md](DAMAGE_NOTES.md) | Damage system analysis |
+| [DEVELOPER_NOTES.md](DEVELOPER_NOTES.md) | Critical build info, version single-sourcing, config order |
+| [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) | **Authoritative** user config format (BBCode) — every config file and its current semantics |
+| [DAMAGE_NOTES.md](DAMAGE_NOTES.md) | Historical pre-rework damage analysis. Background only; its formula/tag content describes deleted code |
 | [scripts/README.md](scripts/README.md) | Script documentation |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 
@@ -292,11 +384,19 @@ return ErrorHandlingHelper.TryGetValueWithResult(
 
 ---
 
-## Plugin GUID
+## Plugin identity and version
+
+`PluginInfo.cs` is the single source of truth:
 
 ```csharp
-[BepInPlugin("CrusaderDETweaker", ...)]
+PluginInfo.PLUGIN_GUID    // "CrusaderDETweaker"
+PluginInfo.PLUGIN_NAME    // "Crusader DE Tweaker"
+PluginInfo.PLUGIN_VERSION // e.g. "2.5.0"
 ```
+
+`Plugin.cs` uses them in `[BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]`,
+`Properties/AssemblyInfo.cs` references `PLUGIN_VERSION`, and `scripts/build.ps1` stamps `info.json`
+from it at build time. **To bump the version, edit `PluginInfo.cs` only.**
 
 **Critical**: GUID must match folder `BepInEx/plugins/CrusaderDETweaker/`
 
@@ -306,7 +406,8 @@ return ErrorHandlingHelper.TryGetValueWithResult(
 
 1. **PropertyHandler** for all property access
 2. **Template Method** pattern for handlers
-3. **Three-tier config**: BepInEx → TOML → CSV
-4. **Build**: `.\scripts\build.ps1`
-5. **Test**: Launch game, check console
-6. **AI dev comments** at top of every .cs file
+3. **Three-tier config**: TOML → CSV matrices → BepInEx multipliers
+4. **CSV is the only damage tier**; rows = defenders, columns = attackers; `-1` = leave unchanged
+5. **Build**: `.\scripts\build.ps1`
+6. **Test**: Launch game, check `LogOutput.log` (the 3 test suites run on load)
+7. **AI dev comments** at top of every .cs file

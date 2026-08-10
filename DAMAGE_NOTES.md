@@ -1,6 +1,22 @@
-# Damage System Analysis - Definitive Guide
+# Damage System Analysis - Historical Notes
 
-This document clarifies the damage system structure and formulas discovered through analysis.
+> ## ⚠ HISTORICAL DOCUMENT — pre-rework analysis, generated 2025-12-24
+>
+> This was a reverse-engineering study of the game's damage tables written **before** the formula and
+> tag systems were removed. Read it for domain background only.
+>
+> **For the current, authoritative format, see [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).**
+>
+> Two things in here are known to be wrong or dead:
+> 1. **The melee CSV orientation below was recorded inverted.** The real orientation, for every matrix,
+>    is **ROWS (first column) = DEFENDERS, COLUMNS (header row) = ATTACKERS** — confirmed by the header
+>    comments `CsvHelper` stamps into each generated file and by `MatrixApplicationLoop.ApplyMatrix`,
+>    which indexes `matrix[row = defender, col = attacker]`. The structural claims are corrected below;
+>    any *number* in the worked examples was attributed under the old inverted reading, so treat which
+>    side "deals" and which "receives" as unverified.
+> 2. **The formula/armor-multiplier tier and the tag system no longer exist** — that code was deleted,
+>    not deactivated. There are no `MeleeArmorMultiplier` / `RangedArmorMultipliers` TOML properties and
+>    no tag interaction files. Damage is set per matchup in the CSVs and nowhere else.
 
 ---
 
@@ -8,17 +24,19 @@ This document clarifies the damage system structure and formulas discovered thro
 
 ### Melee Damage CSV (`CrusaderDETweaker_MeleeDamage.csv`)
 
-**Structure**: Rows = Attackers, Columns = Defenders
+**Structure**: Rows = Defenders, Columns = Attackers
 
 ```
-           ,ARAB_ASSASSIN,ARAB_BALLISTA,...,KNIGHT,...
-ARAB_ASSASSIN,    80    ,     10      ,...,  80  ,...
-KNIGHT       ,    80    ,     10      ,...,  50  ,...
-SWORDSMAN    ,    80    ,     10      ,...,  50  ,...
+             ,ARAB_ASSASSIN,ARAB_BALLISTA,...,KNIGHT,...
+ARAB_ASSASSIN,     80      ,     80      ,...,  80  ,...
+KNIGHT       ,     50      ,     10      ,...,  50  ,...
+SWORDSMAN    ,     50      ,     10      ,...,  50  ,...
 ```
 
-- **Row** = What damage this unit DEALS to all defenders
-- **Column** = What damage this unit RECEIVES from all attackers
+- **Row** = What damage this unit RECEIVES from each attacker
+- **Column** = What damage this unit DEALS to each defender
+
+(The cell values above are illustrative of the layout, not a verified extract.)
 
 ### Ranged Damage CSV (`CrusaderDETweaker_RangedDamage.csv`)
 
@@ -37,6 +55,12 @@ ARAB_SWORDSMAN  ,1500 ,15000, 1500  , 2000
 ---
 
 ## Concrete Example: KNIGHT
+
+> **Caveat:** this worked example was written against the inverted melee orientation. In the real file
+> the Knight's **row** is damage the Knight **receives** and the Knight's **column** is damage it
+> **deals** — the reverse of the headings below. The damage numbers are reproduced as originally
+> recorded and have not been re-verified, so do not use this section to decide which value to edit.
+> Open the CSV and follow its own header comments instead.
 
 ### Knight as ATTACKER (Melee)
 
@@ -94,11 +118,13 @@ Knight RECEIVES:
 
 ---
 
-## Damage Formulas (DEACTIVATED)
+## Damage Formulas (REMOVED FROM THE CODE)
 
-**Note**: The formula-based damage system (Armor Multipliers) has been **DEACTIVATED** as of February 2026. Damage is now controlled exclusively via CSV matrices. The following analysis remains for historical reference.
+**Note**: The formula-based damage system (Armor Multipliers) was deactivated in February 2026 and the
+code was **deleted** in the August 2026 overhaul. Damage is controlled exclusively via CSV matrices. The
+following is retained only as a record of how the vanilla tables appear to have been built.
 
-### Melee Damage Formula (DEACTIVATED)
+### Melee Damage Formula (no longer implemented)
 
 ```
 Damage_Taken = Base_Weapon_Damage  Defender_Armor_Multiplier
@@ -244,13 +270,15 @@ Most common exception types:
 
 ### Attacker vs Defender
 
+Every matrix uses the same orientation:
+
 **Melee CSV**:
-- **Row** = Attacker (damage unit DEALS)
-- **Column** = Defender (damage unit RECEIVES)
+- **Row** = Defender (damage unit RECEIVES)
+- **Column** = Attacker (damage unit DEALS)
 
 **Ranged CSV**:
 - **Row** = Defender (damage unit RECEIVES)
-- **Column** = Projectile type
+- **Column** = Projectile type (the attacker)
 
 ### Armor Multiplier
 
@@ -276,95 +304,21 @@ Engineer Base Damage (Ranged):
 
 ---
 
-## Implications for TOML Configuration
+## What replaced all of this
 
-### Recommended Approach
+The armor-multiplier TOML properties proposed by this analysis (`MeleeArmorMultiplier`,
+`RangedArmorMultipliers`) were built, then deactivated, then **deleted**. So was the tag system that
+was meant to correct the formula's residual error (`UnitTagInteraction`, `UnitTagRegistry`, the
+`UnitTags` config generator/loader and the `Tags` property). None of it exists in the codebase.
 
-Given the findings:
+What the mod ships instead: the seven CSV matrices, which carry a value per attacker/defender pair
+directly, so no formula and no correction layer is needed. The loaders apply every value >= 0 as-is,
+and `-1` means "leave the game's value alone". The BepInEx global multipliers in
+`CrusaderDETweaker_GlobalMultipliers.cfg` scale on top at runtime.
 
-1. **Separate Armor Systems**:
-   - `MeleeArmorMultiplier` (single value per unit)
-   - `RangedArmorMultiplier` (4 values: Arrow, Bolt, Slinger, Javelin)
-
-2. **Maintain Independence**:
-   - Don't try to unify melee/ranged (weak correlation)
-   - Allow different armor profiles for different projectile types
-
-3. **Keep CSV Override System**:
-   - TOML for armor multipliers (formulas)
-   - CSV for specific overrides (special cases)
-
-### Example TOML Structure
-
-```toml
-[Units.CHIMP_TYPE_KNIGHT]
-Health = 1000
-Speed = 100
-MeleeArmorMultiplier = 0.50    # Heavy melee armor
-RangedArmorMultipliers = { Arrow = 0.075, Bolt = 0.250, Slinger = 0.075, Javelin = 0.050 }
-
-[Units.CHIMP_TYPE_ENGINEER]
-Health = 500
-Speed = 80
-MeleeArmorMultiplier = 1.00    # No melee armor
-RangedArmorMultipliers = { Arrow = 1.00, Bolt = 1.00, Slinger = 1.00, Javelin = 1.00 }  # Base (no armor)
-```
+See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for the file list and editing instructions, and
+[CLAUDE.md](CLAUDE.md) for where the loaders live.
 
 ---
 
-## Tag System (DEACTIVATED)
-**Note**: The Tag System has been deactivated as of February 2026. While the code remains for reference, it is not currently active in the damage calculation pipeline.
-
-### Purpose
-
-The base armor multiplier formula doesn't capture all special cases in the original game.
-Tag interactions provide per-attacker-per-defender corrections to achieve 100% accuracy.
-
-### Formula with Tags
-
-```
-Ranged: Damage = Round10(Round10(ProjectileBase × ArmorMult) × TagMult)
-Melee:  Damage = Round5(Round5(AttackerBase × ArmorMult) × TagMult)
-```
-
-**Two-Stage Rounding**: Critical for accuracy. Round before AND after tag multiplier.
-
-### Ranged Tags
-
-Projectile names (Arrow, Bolt, Slinger, Javelin) act as attacker tags:
-
-```toml
-[Interactions.Bolt_vs_Knight]
-AttackerTag = "Bolt"
-DefenderTag = "Knight"
-Multiplier = 2.5000  # Corrects 20 → 50 (bolt armor-piercing)
-```
-
-### Melee Tags
-
-Unit names act as attacker tags for melee-specific corrections:
-
-```toml
-[Interactions.Swordsman_vs_HeavyArmor]
-AttackerTag = "Swordsman"
-DefenderTag = "HeavyArmor"
-Multiplier = 0.5556  # Corrects 90 → 50
-```
-
-### Tag Merging
-
-Units with identical multipliers share tags to reduce redundancy:
-- `Civilian` tag: 44 units share Slinger×0.3333
-- `LargePredator` tag: Lion, Hyena share identical multipliers
-- `HeavyArmor` tag: Knight, Swordsman, ArabSwordsman share multipliers
-
-### Precision
-
-Tag multipliers use 4 decimal places (F4 format) for accuracy:
-- `0.3333` not `0.33` (which would cause rounding errors)
-- Minimum precision determined by GCD of rounding granularity
-
----
-
-**Generated**: 2025-12-24
-**Analysis Scripts**: See `scripts/` directory for Python analysis tools
+**Generated**: 2025-12-24 (superseded; retained as background)

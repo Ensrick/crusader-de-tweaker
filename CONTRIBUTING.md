@@ -29,7 +29,13 @@ Tomlyn is a NuGet `PackageReference`; Visual Studio restores it automatically, a
 1. Make changes
 2. Run `.\scripts\build.ps1`
 3. Test in game with `.\scripts\launch_game.ps1`
-4. Check BepInEx console for errors/test output
+4. Check BepInEx console / `BepInEx\LogOutput.log` for errors and test output
+
+The core-logic test suites (PropertyHandler, PropertyRegistry, EntityProcessor) run automatically on
+every game load via `CoreTestRunner.RunAllTests()`, so a launch is also a regression check — look for
+`ALL 3 TEST SUITES PASSED`.
+
+Version bumps go in `PluginInfo.cs` and nowhere else; `AssemblyInfo.cs` and `info.json` derive from it.
 
 ## Code Style
 
@@ -67,8 +73,9 @@ Plugin.Logger.LogDebug("Details");   // Verbose (disabled by default)
 | File | Purpose |
 |------|---------|
 | [CLAUDE.MD](CLAUDE.MD) | **Primary AI reference** - architecture, patterns, code examples |
-| [DEVELOPER_NOTES.md](DEVELOPER_NOTES.md) | Critical build info, GUID, paths |
-| [API_REFERENCE.md](API_REFERENCE.md) | SHCDE-SE API documentation |
+| [DEVELOPER_NOTES.md](DEVELOPER_NOTES.md) | Critical build info, GUID, version, config order |
+| [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) | Authoritative user-facing config format (all file formats) |
+| [docs/shcde-se/API_REFERENCE.md](docs/shcde-se/API_REFERENCE.md) | SHCDE-SE API documentation |
 | [scripts/README.md](scripts/README.md) | Build/test script documentation |
 
 ## Pull Requests

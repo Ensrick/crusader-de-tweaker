@@ -10,10 +10,10 @@ Crusader DE Tweaker provides fine-grained control over game balance through mult
 
 - **Per-Unit Customization**: Modify health, speed, and costs for individual units
 - **Structure Tweaking**: Adjust building health, costs, and housing capacity
-- **Damage System**: Configure damage values via CSV matrix files
+- **Damage System**: Set damage and healing per attacker/defender matchup in seven CSV matrices (melee, ranged, Eunuch AOE, ballista, unit fire, Bedouin heal, building fire)
 - **Real-Time Multipliers**: Apply global multipliers without restarting the game
 - **Unit & Building Count Caps**: Limit how many of each unit or building type a player can have (e.g., max 20 Knights, 3 Hovels)
-- **CSV Damage Matrices**: Surgical damage adjustments via CSV files
+- **Gameplay Globals**: Siege, stealth, gates, pathfinding, peasant spawning, trade prices and auto-trade
 
 ### Use Cases
 
@@ -35,7 +35,8 @@ Crusader DE Tweaker provides fine-grained control over game balance through mult
    - Place the mod files into your game directory alongside BepInEx and SHCDE-SE.
 
 3. **Configure:**
-   - Edit `CrusaderDETweaker_Units.toml` to customize units (generated on first run if missing)
+   - Config files live in the game directory, not `%APPDATA%`: `{GameDir}\BepInEx\config\CrusaderDETweaker\`
+   - Edit `CrusaderDETweaker_Units.toml` to customize units (generated on first run if missing). Each numeric stat defaults to `-1` = "use the game default"; set a real number to override.
    - Edit `CrusaderDETweaker_GlobalMultipliers.cfg` for real-time multipliers and unit caps (no restart needed)
    - Edit `CrusaderDETweaker_GameplaySettings.toml` for gameplay globals (siege, stealth, peasant spawning, trade)
    - Restart the game to apply TOML changes
@@ -56,15 +57,25 @@ The primary configuration method for most users:
 
 **When to use:** Most common use case. Edit these files to customize individual units and structures.
 
-### 2. CSV Damage Matrices (Legacy - Reference Only)
+### 2. CSV Damage Matrices (the damage system)
 
-Reference files for the original game damage values:
+All combat damage and healing is configured here — the CSVs are the active, and only, place to set
+per-matchup values. They live in `{GameDir}\BepInEx\config\CrusaderDETweaker\DamageMatrices\`:
 
-- **`CrusaderDETweaker_MeleeDamage.csv`** - Melee damage matrix (unit vs unit)
-- **`CrusaderDETweaker_RangedDamage.csv`** - Ranged damage matrix (projectile types)
-- **`CrusaderDETweaker_EunuchAoeDamage.csv`** - Area-of-effect damage
+- **`CrusaderDETweaker_MeleeDamage.csv`** - Melee damage, unit vs unit
+- **`CrusaderDETweaker_RangedDamage.csv`** - Projectile damage per unit (Arrow, Bolt, Slinger, Javelin)
+- **`CrusaderDETweaker_EunuchAoeDamage.csv`** - Eunuch area-of-effect damage per unit
+- **`CrusaderDETweaker_BallistaDamage.csv`** - Ballista damage per unit
+- **`CrusaderDETweaker_UnitFireDamage.csv`** - Fire damage per unit
+- **`CrusaderDETweaker_BedouinHeal.csv`** - Bedouin healer amount per unit
+- **`CrusaderDETweaker_BuildingFireDamage.csv`** - Fire damage per building type
 
-**When to use:** Reference files for original game damage values. Kept for reference only.
+**Format:** rows (first column) = **defenders**, columns (header row) = **attackers**. Every value of
+0 or more is applied to the game as-is; a negative value (`-1`) leaves the game's own value unchanged.
+Each generated file carries these instructions in its header comments.
+
+**When to use:** any damage change. The global multipliers below then scale on top of whatever the
+matrices set. Files are generated on first launch and never overwritten, so your edits are safe.
 
 ### 3. BepInEx Config (Real-Time Multipliers)
 
@@ -79,6 +90,10 @@ Global multipliers applied during gameplay (no restart needed):
 - **`CivilStructureDamageTakenMultiplier`**: Multiplier for damage to civilian structures
 - **`LowWallCostMultiplier`**: Cost multiplier for low/short walls (default: 0.25)
 - **`HighWallCostMultiplier`**: Cost multiplier for high walls and crenel walls (default: 0.5)
+- **`DemolisherBuildingDamageMultiplier`** / **`SapperBuildingDamageMultiplier`**: Damage these Bedouin units deal to structures
+- **`UnitFireDamageTakenMultiplier`** / **`StructureFireDamageTakenMultiplier`**: Fire damage taken
+- **`BedouinHealMultiplier`**: Healing from Bedouin healers
+- **`DiseaseDamageMultiplier`**: Scales all three disease damage tiers
 
 **Debugging:**
 - **`DebugLogging`** (`[Debug]` section, default: `false`): Enable step-by-step logging for all event hooks. Applies in real-time. Warning: very high log volume during gameplay — only enable when diagnosing hook issues.
@@ -89,8 +104,11 @@ Global multipliers applied during gameplay (no restart needed):
 
 Configurations are applied in this order:
 ```
-Game Defaults → TOML Configs → CSV Overrides → Real-Time Multipliers
+Game Defaults → TOML Configs → CSV Damage Matrices → Real-Time Multipliers
 ```
+
+TOML and CSV are applied at launch (restart required); the CSV matrices apply after the TOML, so a CSV
+value wins for the matchups it covers. The real-time multipliers scale whatever the earlier tiers set.
 
 See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for detailed documentation.
 

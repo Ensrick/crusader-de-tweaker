@@ -178,9 +178,9 @@ int damage = Plugin.UnitApi.GetMeleeDamageFromTo(
 // Returns: 50 (from game's damage table)
 ```
 
-**Used in:** `Config/DamageMatrix/Melee/MeleeDamageMatrixLoader.cs` - Reading base damage values from game's lookup table
+**Used in:** `Config/BepInEx/Systems/Handlers/MeleeDamageMultiplierHandler.cs` - base damage fallback when the event arg is 0. (`MeleeDamageMatrixLoader` only *writes*, via `SetMeleeDamageFromTo`.)
 
-**Note:** This reads from the game's internal damage table. The mod's `DamageCalculator` provides calculated damage based on TOML config, which may differ.
+**Note:** This reads the game's internal damage table, which the mod has already overwritten from `CrusaderDETweaker_MeleeDamage.csv` at load time. There is no separate calculator — the CSV is the only source of per-matchup damage.
 
 ### Cost Methods
 
@@ -536,25 +536,34 @@ BuildingR3EventHooks.OnBuildingSpawn.Observable
 
 Located in `SHCDESE.EventAPI` — `MapLoaderR3EventHooks`.
 
+> ### ⚠ Map hooks fire TWICE per transition
+> Like every R3 event hook, `OnStartMap` and `OnUnloadMap` emit once for `EventHookPhase.Pre` and again
+> for `EventHookPhase.Post`. A subscription with **no** `.Where(...)` phase filter therefore runs its
+> body twice per map load — and the Pre pass happens before the session state you want to write even
+> exists. **Always filter.** The mod filters on `Post` everywhere (see `ConfigLoader.RegisterSessionHooks`).
+
 #### OnStartMap
-Fired after a new game session begins (map loaded, units placed). API calls that require an active session (e.g., `SetNoKnockdownWalls`, `SetAutoTrade`) must be deferred to this event.
+Fired around the start of a new game session (map loaded, units placed). API calls that require an active session (e.g., `SetNoKnockdownWalls`, `SetAutoTrade`) must be deferred to this event, in the `Post` phase.
 
 ```csharp
 MapLoaderR3EventHooks.OnStartMap.Observable
+    .Where(args => args.Phase == EventHookPhase.Post)
     .Subscribe(_ =>
     {
-        // Called once per map load. Re-apply all per-session settings here.
+        // Runs once per map load *per phase* — the filter above is what makes it once.
         Plugin.PlayerApi.SetNoKnockdownWalls(true);
     });
 ```
 
-**Used in:** `Config/Toml/ConfigLoader.cs` - `RegisterSessionHooks()` re-applies all global config settings on each map load.
+**Used in:** `Config/Toml/ConfigLoader.cs` - `RegisterSessionHooks()` re-applies all global config settings on each map load (Post phase). It also subscribes to `OnLoadMap` (Post), which fires after `OnStartMap` for trail/campaign missions and applies map-specific restrictions that would otherwise override our settings.
 
 #### OnUnloadMap
-Fired when a map is unloaded (game session ending or returning to menu).
+Fired when a map is unloaded (game session ending or returning to menu). Same two-phase behavior.
 
 ```csharp
-MapLoaderR3EventHooks.OnUnloadMap.Observable.Subscribe(e => { /* cleanup */ });
+MapLoaderR3EventHooks.OnUnloadMap.Observable
+    .Where(args => args.Phase == EventHookPhase.Post)
+    .Subscribe(_ => { /* cleanup */ });
 ```
 
 > SHCDE-SE uses this internally to clear override arrays (health defaults, housing, fire damage).
@@ -826,10 +835,7 @@ ushort defaultHousing = Plugin.BuildingApi.GetHousingPopulationSpace(eStructs.ST
    - **Pre**: Modify parameters before game logic
    - **Post**: Read results after game logic
 
-7. **Damage Tables**: The game has multiple damage tables:
-   - Melee damage (unit vs unit)
-   - Ranged damage (projectile types)
-   - The mod's `DamageCalculator` provides calculated damage based on TOML config
+7. **Damage Tables**: The game has multiple damage tables (melee unit-vs-unit, ranged per projectile type, Eunuch AOE, ballista, unit/building fire, Bedouin heal). The mod overwrites them at load from the seven CSV matrices in `DamageMatrices\` — rows = defenders, columns = attackers, values >= 0 applied, `-1` skipped.
 
 ## Additional Resources
 
