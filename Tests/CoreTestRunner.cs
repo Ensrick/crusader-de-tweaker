@@ -3,13 +3,12 @@
 // PURPOSE: Orchestrates all unit tests for core logic components.
 //
 // USAGE:
-// - Call RunAllTests() during initialization (currently disabled in Plugin.cs)
+// - Called by Plugin.cs during initialization as an on-load QA self-check
 // - Returns true if all tests pass, false otherwise
 // - Individual test suites can be run independently
 //
 // TEST SUITES:
-// - PropertyHandler, PropertyRegistry, EntityProcessor: Core system tests (always valid)
-// - UnitTagRegistry: Tests the deactivated tag system data structure (still passes standalone)
+// - PropertyHandler, PropertyRegistry, EntityProcessor: Core system tests
 //
 // IMPORTANT FOR AI AGENTS:
 // - Tests use BepInEx logger for output (visible in LogOutput.log)
@@ -40,8 +39,7 @@ namespace CrusaderDETweaker.Tests
                 // Run each test suite
                 RunSuite("PropertyHandler", PropertyHandlerTest.RunTests),
                 RunSuite("PropertyRegistry", PropertyRegistryTest.RunTests),
-                RunSuite("EntityProcessor", EntityProcessorTest.RunTests),
-                RunSuite("UnitTagRegistry", UnitTagRegistryTest.RunTests)
+                RunSuite("EntityProcessor", EntityProcessorTest.RunTests)
             };
 
             // Summary

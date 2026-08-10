@@ -50,8 +50,6 @@ namespace CrusaderDETweaker
     {
         private static readonly IConfigSystem[] ConfigSystems = new IConfigSystem[]
         {
-            // DEACTIVATED: Tag system is too complex for automated management within context limits
-            // new UnitTagsConfigSystem(),  // Load tags FIRST (before units, so tag interactions are ready)
             new GlobalConfigSystem(),
             new UnitConfigSystem(),
             new StructureConfigSystem(),

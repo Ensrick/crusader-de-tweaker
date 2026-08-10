@@ -37,10 +37,6 @@ namespace CrusaderDETweaker.Config.Toml
         internal static string Units => Path.Combine(ConfigDir, "CrusaderDETweaker_Units.toml");
         internal static string Structures => Path.Combine(ConfigDir, "CrusaderDETweaker_Structures.toml");
         internal static string Globals => Path.Combine(ConfigDir, "CrusaderDETweaker_GameplaySettings.toml");
-        internal static string UnitTags => Path.Combine(ConfigDir, "CrusaderDETweaker_UnitTags.toml");
-        internal static string UnitTagsGenerated => Path.Combine(ConfigDir, "CrusaderDETweaker_UnitTags.generated.toml");
-        internal static string UnitTagsAliases => Path.Combine(ConfigDir, "CrusaderDETweaker_UnitTags_Aliases.json");
-        internal static string AutoGen => Path.Combine(ConfigDir, "CrusaderDETweaker_AutoGen.toml");
 
         // Future file ideas
         //internal static string UnitsMilitary => Path.Combine(ConfigDir, "CrusaderDETweaker_Units_Military.toml");

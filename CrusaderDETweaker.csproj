@@ -167,11 +167,6 @@
     <Compile Include="Config\Toml\Systems\GlobalConfigSystem.cs" />
     <Compile Include="Config\Toml\Systems\StructureConfigSystem.cs" />
     <Compile Include="Config\Toml\Systems\UnitConfigSystem.cs" />
-    <Compile Include="Config\Toml\UnitTags\UnitTagsConfigSystem.cs" />
-    <Compile Include="Config\Toml\UnitTags\UnitTagsConfigGenerator.cs" />
-    <Compile Include="Config\Toml\UnitTags\UnitTagsConfigGenerator.Discovery.cs" />
-    <Compile Include="Config\Toml\UnitTags\UnitTagsConfigLoader.cs" />
-    <Compile Include="Config\Toml\UnitTags\AutoGenConfig.cs" />
     <!-- Core/Helpers - Utility classes -->
     <Compile Include="Config\Toml\Core\Helpers\ConfigFileHelper.cs" />
     <Compile Include="Config\Toml\Core\Helpers\ConfigHelpers.cs" />
@@ -200,10 +195,7 @@
     <Compile Include="Config\Toml\Units\Properties\ArabHorsemanRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinCamelLancerRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinHeavyCamelRunSpeedBonusProperty.cs" />
-    <Compile Include="Config\Toml\Units\Properties\TagsProperty.cs" />
     <Compile Include="Config\Toml\Units\UnitPropertyRegistry.cs" />
-    <Compile Include="Data\UnitTagInteraction.cs" />
-    <Compile Include="Tests\UnitTagInteractionTest.cs" />
     <Compile Include="Tests\CoreTestRunner.cs" />
     <Compile Include="Tests\PropertyHandlerTest.cs" />
     <Compile Include="Tests\PropertyRegistryTest.cs" />
