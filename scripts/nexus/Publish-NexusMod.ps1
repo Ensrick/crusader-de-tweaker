@@ -65,6 +65,11 @@ param(
     [string]$GameDomain = 'strongholdcrusaderdefinitiveedition',
 
     [int]$ModId,
+    # The v3 "mod file" id to add a new version to. This is the GraphQL groupId (what the site's
+    # Manage Files calls a "file"), NOT the legacy v1 file_id and NOT the file uid. Leave it unset
+    # and the script auto-resolves the newest MAIN file's group from -ModId. -FileId is a
+    # deprecated alias kept for older call sites.
+    [int]$GroupId,
     [int]$FileId,
     [string]$FilePath,
     [string]$Version,
@@ -106,6 +111,54 @@ function Resolve-ApiKey {
 }
 
 $script:ApiKey = Resolve-ApiKey -Explicit $ApiKey
+
+# ---------------------------------------------------------------------------
+# v3 identity resolution.
+#
+# The v3 world keys everything by large uids/group-ids, NOT the game-scoped
+# numbers you see in the site URL:
+#   * /mods/{id}/changelogs           wants the MOD UID   (e.g. 34183644708902), not 38.
+#   * /mod-files/{id}/versions        wants the FILE GROUP id (GraphQL groupId, e.g. 7531742),
+#                                     not the legacy file_id (519) and not the file uid.
+# Both are discoverable from the game-scoped -ModId via the GraphQL v2 API, so callers only
+# ever need to pass -ModId. (Verified against api.nexusmods.com 2026-08-11 while shipping 2.6.0;
+# the earlier version of this script 404'd because it fed the legacy file_id to the versions route.)
+# ---------------------------------------------------------------------------
+function Invoke-NexusGraphQL {
+    param([string]$Query, [hashtable]$Variables)
+    $headers = @{ 'apikey' = $script:ApiKey; 'User-Agent' = 'crusader-de-tweaker/Publish-NexusMod.ps1'; 'Content-Type' = 'application/json' }
+    $body = @{ query = $Query; variables = $Variables } | ConvertTo-Json -Depth 8
+    $resp = Invoke-RestMethod -Method Post -Uri 'https://api.nexusmods.com/v2/graphql' -Headers $headers -Body $body
+    # StrictMode: probe for the property before reading it (a clean response has no 'errors').
+    if (($resp.PSObject.Properties.Name -contains 'errors') -and $resp.errors) {
+        throw "GraphQL error: $($resp.errors | ConvertTo-Json -Depth 6 -Compress)"
+    }
+    return $resp.data
+}
+
+function Get-GameId {
+    param([string]$Domain)
+    $headers = @{ 'apikey' = $script:ApiKey; 'User-Agent' = 'crusader-de-tweaker/Publish-NexusMod.ps1' }
+    $g = Invoke-RestMethod -Method Get -Uri "https://api.nexusmods.com/v1/games/$Domain.json" -Headers $headers
+    return [string]$g.id
+}
+
+function Resolve-ModContext {
+    <# Returns @{ GameId; ModUid; Files=@(@{GroupId;FileId;Uid;Version;Category;Date}) } for a
+       game-scoped mod id. Files come from GraphQL modFiles (the source of the group ids). #>
+    param([int]$ModIdScoped, [string]$Domain)
+    $gameId = Get-GameId -Domain $Domain
+    $modData = Invoke-NexusGraphQL -Query 'query($m:ID!,$g:ID!){ mod(modId:$m, gameId:$g){ uid name } }' `
+                                   -Variables @{ m = "$ModIdScoped"; g = $gameId }
+    if (-not $modData.mod) { throw "Mod $ModIdScoped not found in game '$Domain'." }
+    $filesData = Invoke-NexusGraphQL -Query 'query($m:ID!,$g:ID!){ modFiles(modId:$m, gameId:$g){ uid fileId groupId version category date } }' `
+                                     -Variables @{ m = "$ModIdScoped"; g = $gameId }
+    return @{
+        GameId = $gameId
+        ModUid = [string]$modData.mod.uid
+        Files  = @($filesData.modFiles)
+    }
+}
 
 function Invoke-NexusApi {
     <# Calls an api.nexusmods.com/v3 path with the apikey header. Returns parsed JSON.
@@ -170,46 +223,67 @@ function Invoke-Validate {
 # ---------------------------------------------------------------------------
 function Invoke-ListFiles {
     if (-not $ModId) { throw "-ModId is required for list-files." }
-    $data = Invoke-NexusApi -Method Get -Path "/games/$GameDomain/mods/$ModId/files"
-    $files = if ($data.PSObject.Properties.Name -contains 'data') { $data.data } else { $data }
-    Write-Host "Files for $GameDomain mod $ModId :" -ForegroundColor Cyan
-    foreach ($f in $files) {
-        $fid = if ($f.PSObject.Properties.Name -contains 'file_id') { $f.file_id } elseif ($f.PSObject.Properties.Name -contains 'id') { $f.id } else { '?' }
-        $ver = if ($f.PSObject.Properties.Name -contains 'version') { $f.version } else { '' }
-        $cat = if ($f.PSObject.Properties.Name -contains 'category_name') { $f.category_name } elseif ($f.PSObject.Properties.Name -contains 'file_category') { $f.file_category } else { '' }
-        $nm  = if ($f.PSObject.Properties.Name -contains 'name') { $f.name } else { '' }
-        Write-Host ("  FileId {0,-8} v{1,-12} [{2,-8}] {3}" -f $fid, $ver, $cat, $nm)
+    $ctx = Resolve-ModContext -ModIdScoped $ModId -Domain $GameDomain
+    Write-Host "Files for $GameDomain mod $ModId (mod uid $($ctx.ModUid)) :" -ForegroundColor Cyan
+    Write-Host ("  {0,-10} {1,-10} {2,-12} {3}" -f 'GroupId', 'v1 fileId', 'category', 'version') -ForegroundColor Gray
+    foreach ($f in ($ctx.Files | Sort-Object date)) {
+        Write-Host ("  {0,-10} {1,-10} {2,-12} {3}" -f $f.groupId, $f.fileId, $f.category, $f.version)
     }
-    Write-Host "`nUse the FileId of the slot you want to add a new version to." -ForegroundColor Gray
+    $mains = @($ctx.Files | Where-Object { $_.category -eq 'MAIN' })
+    if ($mains) {
+        $newest = $mains | Sort-Object date | Select-Object -Last 1
+        Write-Host "`nPublish targets the newest MAIN group by default: GroupId $($newest.groupId) (v$($newest.version))." -ForegroundColor Gray
+        Write-Host "Pass -GroupId to target a specific one. (GroupId is the id the versions API needs, NOT the v1 fileId.)" -ForegroundColor Gray
+    }
 }
 
 # ---------------------------------------------------------------------------
 # Action: publish — the 7-step upload flow (faithful to upload-action).
 # ---------------------------------------------------------------------------
 function Invoke-Publish {
-    if (-not $FileId)   { throw "-FileId is required for publish (the file slot to add a version to; use -Action list-files to find it)." }
+    if (-not $ModId)    { throw "-ModId is required for publish (the game-scoped mod id, e.g. 38)." }
     if (-not $FilePath) { throw "-FilePath is required for publish." }
     if (-not $Version)  { throw "-Version is required for publish." }
     if (-not (Test-Path $FilePath)) { throw "File not found: $FilePath" }
-    if ($Changelog -and -not $ModId) { throw "-ModId is required when -Changelog is set (the changelog call is POST /mods/{ModId}/changelogs)." }
+
+    # Resolve the v3 identities the write endpoints need (mod uid + file group id).
+    $ctx = Resolve-ModContext -ModIdScoped $ModId -Domain $GameDomain
+    $script:ModUid = $ctx.ModUid
+
+    # Target group: -GroupId, else deprecated -FileId (only if it happens to be a real group),
+    # else auto-pick the newest MAIN file's group.
+    $targetGroup = $null
+    if ($GroupId) {
+        $targetGroup = $GroupId
+    } elseif ($FileId -and ($ctx.Files | Where-Object { [int]$_.groupId -eq $FileId })) {
+        $targetGroup = $FileId  # caller passed a real group id via the legacy param
+    } else {
+        if ($FileId) { Write-Host "  (-FileId $FileId is not a file-group id; auto-resolving the newest MAIN group instead)" -ForegroundColor Yellow }
+        $mains = @($ctx.Files | Where-Object { $_.category -eq 'MAIN' })
+        if (-not $mains) { throw "No MAIN file found on mod $ModId to add a version to. Pass -GroupId explicitly (see -Action list-files)." }
+        $targetGroup = ($mains | Sort-Object date | Select-Object -Last 1).groupId
+    }
 
     $file = Get-Item -LiteralPath $FilePath
     $fileName = $file.Name
     $sizeBytes = $file.Length
     $name = if ($DisplayName) { $DisplayName } else { $fileName }
+    $groupVer = ($ctx.Files | Where-Object { [int]$_.groupId -eq [int]$targetGroup } | Select-Object -First 1).version
 
     Write-Host "=== Nexus publish plan ===" -ForegroundColor Cyan
-    Write-Host "  Game/Mod/File : $GameDomain / mod $ModId / file slot $FileId"
+    Write-Host "  Game/Mod      : $GameDomain / mod $ModId (uid $($ctx.ModUid))"
+    Write-Host "  File group    : $targetGroup (currently v$groupVer)"
     Write-Host "  Upload        : $fileName ($([math]::Round($sizeBytes/1KB,1)) KB)"
     Write-Host "  Version       : $Version   (bump mod version: $UpdateModVersion)"
     Write-Host "  Category      : $Category   (archive existing: $ArchiveExisting)"
     Write-Host "  Changelog     : $([bool]$Changelog)"
     Write-Host "  NOTE: mod DESCRIPTION is not editable via API — refresh it on the website." -ForegroundColor Yellow
 
-    if (-not $PSCmdlet.ShouldProcess("$GameDomain mod $ModId file $FileId", "Upload $fileName as v$Version")) {
+    if (-not $PSCmdlet.ShouldProcess("$GameDomain mod $ModId file-group $targetGroup", "Upload $fileName as v$Version")) {
         Write-Host "`n[dry run] No network writes performed. Remove -WhatIf to publish." -ForegroundColor Yellow
         return
     }
+    $script:TargetGroup = $targetGroup
 
     # --- Step 1: create multipart upload ---
     Write-Host "`n[1/7] Creating multipart upload..." -ForegroundColor White
@@ -286,14 +360,14 @@ function Invoke-Publish {
     if ($null -ne $AllowModManagerDownload)   { $body.allow_mod_manager_download   = [bool]$AllowModManagerDownload }
     if ($null -ne $ShowRequirementsPopup)     { $body.show_requirements_pop_up      = [bool]$ShowRequirementsPopup }
 
-    $ver = Invoke-NexusApi -Method Post -Path "/mod-files/$FileId/versions" -Body $body
+    $ver = Invoke-NexusApi -Method Post -Path "/mod-files/$($script:TargetGroup)/versions" -Body $body
     $versionId = $ver.data.version.id
     Write-Host "  version_id=$versionId" -ForegroundColor Green
 
-    # --- Step 7: changelog (optional) ---
-    if ($Changelog -and $ModId) {
+    # --- Step 7: changelog (optional) — POST /mods/{modUid}/changelogs (mod UID, not the id) ---
+    if ($Changelog) {
         Write-Host "[7/7] Posting changelog..." -ForegroundColor White
-        Invoke-NexusApi -Method Post -Path "/mods/$ModId/changelogs" -Body @{
+        Invoke-NexusApi -Method Post -Path "/mods/$($script:ModUid)/changelogs" -Body @{
             version   = $Version
             changelog = $Changelog
         } | Out-Null
@@ -302,7 +376,7 @@ function Invoke-Publish {
         Write-Host "[7/7] No changelog (skipped)." -ForegroundColor Gray
     }
 
-    Write-Host "`nPublished v$Version to $GameDomain mod $ModId (file slot $FileId, version_id $versionId)." -ForegroundColor Green
+    Write-Host "`nPublished v$Version to $GameDomain mod $ModId (file-group $($script:TargetGroup), version_id $versionId)." -ForegroundColor Green
     Write-Host "Remember: refresh the mod DESCRIPTION by hand on the website if it changed." -ForegroundColor Yellow
 }
 

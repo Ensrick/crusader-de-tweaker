@@ -1,12 +1,12 @@
 {
-	"GUID": "CrusaderDETweaker",
-    "Author": "ensrick",
-    "Name": "Crusader DE Tweaker",
-	"Description": "Comprehensive gameplay property configuration system for Stronghold Crusader Definitive Edition",
-    "Version": "2.5.0",
-    "SupportedGameVersions": [
-        "2.8.0.0"
-    ],
-    "Website": "https://gitlab.com/ensrick7/crusader-de-tweaker", 
-	"Manifest": 1
+  "GUID": "CrusaderDETweaker",
+  "Author": "ensrick",
+  "Name": "Crusader DE Tweaker",
+  "Description": "Comprehensive gameplay property configuration system for Stronghold Crusader Definitive Edition",
+  "Version": "2.6.0",
+  "SupportedGameVersions": [
+    "2.8.0.0"
+  ],
+  "Website": "https://gitlab.com/ensrick7/crusader-de-tweaker",
+  "Manifest": 1
 }

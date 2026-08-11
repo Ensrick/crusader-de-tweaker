@@ -119,67 +119,79 @@ namespace CrusaderDETweaker.Config.Toml
                     ApplyAllGlobalConfigs();
                 });
 
-            // When a unit with RequiresHorse = true (per config) spawns for the local player,
+            // When a unit with RequiresHorse = true (per config) appears for the local player,
             // link it to an available stable slot so the stable accurately tracks the unit.
+            // Two arrival paths (see MakeTroopRecruitHook.cs / UnitTransitionDispatcher.cs):
+            //   - spawned units fire OnUnitCreate (Post);
+            //   - RECRUITED units never do — they arrive via OnUnitTransition, re-raised by the
+            //     dispatcher after the transformation finished so GetGlobalId/owner reads are valid.
             UnitR3EventHooks.OnUnitCreate.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(args =>
-                {
-                    try
-                    {
-                        eChimps unitType = args.UnitType;
-                        if (!Units.Properties.RequiresHorseProperty.HorseRequiringUnits.Contains(unitType))
-                            return;
+                .Subscribe(args => TryLinkUnitToStable(args.UnitType, (int)args.ReturnValue));
 
-                        int unitId = (int)args.ReturnValue;
-                        int localPlayerId = Plugin.PlayerApi?.GetLocalPlayerId() ?? -1;
-                        if (Plugin.UnitApi?.GetOwner(unitId) != localPlayerId)
-                            return;
-
-                        // Reuse static list to prevent garbage collection allocation on every unit spawn
-                        if (_reusableStableList == null) _reusableStableList = new List<int>();
-                        _reusableStableList.Clear();
-                        
-                        Plugin.BuildingApi?.GetAllBuildings(_reusableStableList, null, eStructs.STRUCT_STABLES);
-                        int stableId = -1;
-                        foreach (int bid in _reusableStableList)
-                        {
-                            if (Plugin.BuildingApi.GetOwner(bid) == localPlayerId)
-                            {
-                                stableId = bid;
-                                break;
-                            }
-                        }
-                        if (stableId < 0) return;
-
-                        // Find the first empty stable slot (global ID <= 0 means empty)
-                        int emptySlot = -1;
-                        for (int slot = 0; slot < 4; slot++)
-                        {
-                            if (Plugin.BuildingApi.GetStablesUnitGlobalIdLink(stableId, slot) <= 0)
-                            {
-                                emptySlot = slot;
-                                break;
-                            }
-                        }
-                        if (emptySlot < 0) return;
-
-                        int unitGlobalId = Plugin.UnitApi?.GetGlobalId(unitId) ?? -1;
-                        if (unitGlobalId < 0) return;
-
-                        Plugin.BuildingApi?.SetStablesUnitIdLink(stableId, emptySlot, unitId, unitGlobalId);
-                        Plugin.Logger.LogDebug($"[StableTracking] Linked {unitType} (id={unitId}) to stable {stableId} slot {emptySlot}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Plugin.Logger.LogError($"[StableTracking] Error linking unit to stable: {ex.Message}");
-                    }
-                });
+            Config.Core.UnitTransitionDispatcher.TransitionSettled +=
+                (unitId, newType) => TryLinkUnitToStable(newType, unitId);
 
             UnitCapHandler.Subscribe(_unitCaps);
             BuildingCapHandler.Subscribe(_buildingCaps);
 
-            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnStartMap + OnLoadMap + OnBuildingSpawn + OnUnitCreate hooks.");
+            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnStartMap + OnLoadMap + OnBuildingSpawn + OnUnitCreate + OnUnitTransition hooks.");
+        }
+
+        /// <summary>
+        /// Link one horse-requiring unit of the local player to the first empty slot of their
+        /// first stable. No-op for unit types without RequiresHorse = true, non-local owners,
+        /// or when no stable/slot is available.
+        /// </summary>
+        private static void TryLinkUnitToStable(eChimps unitType, int unitId)
+        {
+            try
+            {
+                if (!Units.Properties.RequiresHorseProperty.HorseRequiringUnits.Contains(unitType))
+                    return;
+
+                int localPlayerId = Plugin.PlayerApi?.GetLocalPlayerId() ?? -1;
+                if (Plugin.UnitApi?.GetOwner(unitId) != localPlayerId)
+                    return;
+
+                // Reuse static list to prevent garbage collection allocation on every unit spawn
+                if (_reusableStableList == null) _reusableStableList = new List<int>();
+                _reusableStableList.Clear();
+
+                Plugin.BuildingApi?.GetAllBuildings(_reusableStableList, null, eStructs.STRUCT_STABLES);
+                int stableId = -1;
+                foreach (int bid in _reusableStableList)
+                {
+                    if (Plugin.BuildingApi.GetOwner(bid) == localPlayerId)
+                    {
+                        stableId = bid;
+                        break;
+                    }
+                }
+                if (stableId < 0) return;
+
+                // Find the first empty stable slot (global ID <= 0 means empty)
+                int emptySlot = -1;
+                for (int slot = 0; slot < 4; slot++)
+                {
+                    if (Plugin.BuildingApi.GetStablesUnitGlobalIdLink(stableId, slot) <= 0)
+                    {
+                        emptySlot = slot;
+                        break;
+                    }
+                }
+                if (emptySlot < 0) return;
+
+                int unitGlobalId = Plugin.UnitApi?.GetGlobalId(unitId) ?? -1;
+                if (unitGlobalId < 0) return;
+
+                Plugin.BuildingApi?.SetStablesUnitIdLink(stableId, emptySlot, unitId, unitGlobalId);
+                Plugin.Logger.LogDebug($"[StableTracking] Linked {unitType} (id={unitId}) to stable {stableId} slot {emptySlot}");
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogError($"[StableTracking] Error linking unit to stable: {ex.Message}");
+            }
         }
 
         /// <summary>

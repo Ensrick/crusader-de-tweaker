@@ -90,9 +90,6 @@ namespace CrusaderDETweaker.Config.Toml.Core
 
                     if (TryParseValue(rawValue, out var userValue))
                     {
-                        if (ShouldOmitFromGeneration(userValue))
-                            return false;
-
                         // A value that just equals the game default is migrated to the no-op
                         // sentinel, so unmodified stats stop overriding and read as "untouched".
                         if (numeric && hasDefault && AreValuesEqual(userValue, gameDefault))
@@ -248,15 +245,6 @@ namespace CrusaderDETweaker.Config.Toml.Core
         internal virtual bool ValidateValue(TValue value)
         {
             return true; // By default, all values are valid
-        }
-
-        /// <summary>
-        /// Whether this value should be omitted from generated config files.
-        /// Override to strip default/zero entries during migration cleanup.
-        /// </summary>
-        internal virtual bool ShouldOmitFromGeneration(TValue value)
-        {
-            return false;
         }
 
         /// <summary>

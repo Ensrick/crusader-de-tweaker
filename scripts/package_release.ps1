@@ -52,6 +52,14 @@ if (Test-Path $stagingPlugin) {
 Copy-Item $gamePlugin $stagingPlugin -Recurse -Force
 Write-Host "  plugins\CrusaderDETweaker\" -ForegroundColor Green
 
+# --- Strip dev-only artifacts: debug symbols (.pdb) and library XML docs are never
+#     needed at runtime and only bloat the end-user download (the .pdb alone is ~0.5 MB). ---
+$stripped = Get-ChildItem $stagingPlugin -Recurse -Include '*.pdb', '*.xml' -File -ErrorAction SilentlyContinue
+foreach ($f in $stripped) {
+    Remove-Item $f.FullName -Force
+    Write-Host "  (stripped $($f.Name) - dev artifact, not shipped)" -ForegroundColor Gray
+}
+
 # --- Guard: configs must not ship ---
 if (Test-Path $stagingConfig) {
     Write-Host "Staging still contains a BepInEx\config folder - it would ship personal settings to users." -ForegroundColor Red

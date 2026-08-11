@@ -111,6 +111,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Config\Core\IConfigSystem.cs" />
+    <Compile Include="Config\Core\UnitTransitionDispatcher.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixLoader.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixPaths.cs" />

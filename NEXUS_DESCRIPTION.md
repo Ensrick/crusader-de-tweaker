@@ -1,6 +1,22 @@
-Version 2.4.1
+Version 2.6.0
 
-Updated for SHC DE v2.7!
+Updated for SHC DE v2.8!
+
+[b]2.6.0:[/b]
+[list]
+[*][b]UnitHealthMultiplier now works on recruited troops.[/b] The health multiplier only reached units spawned into the world, so soldiers recruited at the Barracks or Mercenary Post (and assigned workers, and disbanded peasants) never got it. They do now, applied once the unit finishes transforming - including enemy troops recruited during a match.
+[*][b]Horse units recruited mid-match now link to a stable[/b] the same way map-placed cavalry always did.
+[*][b]A building cost you set to 0 is kept.[/b] Setting a structure's GoldCost (or any cost) to 0 for a free building used to get wiped on the next launch. It now sticks; only -1 means "leave the game default alone".
+[*]Large internal cleanup and rebuild against the latest Script Extender (game v2.8). No change to your configs - your existing values are migrated automatically.
+[/list]
+
+[b]2.5.0:[/b]
+[list]
+[*][b]Unit MaxCount is now enforced for recruited troops.[/b] Caps previously ignored units recruited from the Barracks / Mercenary Post. An over-cap recruit is now refused before any gold is spent, and a "recruit as many as possible" order is trimmed to the room left. MaxCount = 0 means a unit genuinely cannot be recruited.
+[*][b]Fix: building MaxCount no longer locks up over time.[/b] The cap was also counting buildings pending deletion, so a capped building type could become unplaceable after a minute of normal play. Fixed.
+[*][b]Fix: DiseaseDamageMultiplier now actually changes disease damage[/b] - it was being overwritten right after it was applied.
+[*][b]Removed: EnemyHealthModifier[/b] (added in 2.4.0). It wrote the lobby "Enemy Health" value after the session had already been built, so it never affected live AI health. It is removed rather than left as a silent no-op; an orphan EnemyHealthModifier line in an old config is harmless and is cleaned up on the next config regeneration.
+[/list]
 
 [b]2.4.1:[/b]
 [list]

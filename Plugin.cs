@@ -107,6 +107,15 @@ namespace CrusaderDETweaker
 
         private bool _isInitialized;
 
+        // Unity frame pump for the transition dispatcher: recruited/transitioned units can only
+        // be modified after the native transformation completes, so per-unit work queued by
+        // OnUnitTransition is drained here, on a later frame.
+        private void Update()
+        {
+            // Fully qualified: inside this class, bare "Config" binds to BaseUnityPlugin.Config.
+            CrusaderDETweaker.Config.Core.UnitTransitionDispatcher.Drain();
+        }
+
         private void Awake()
         {
             Logger = base.Logger;
@@ -143,6 +152,10 @@ namespace CrusaderDETweaker
                     Logger.LogError("Failed to get Unit or Building API � mod cannot function.");
                     return;
                 }
+
+                // One-frame deferral bridge for OnUnitTransition (recruits/workers/disband).
+                // Must be up before config systems subscribe their TransitionSettled consumers.
+                CrusaderDETweaker.Config.Core.UnitTransitionDispatcher.Initialize();
 
                 // Initialize all config systems (TOML and CSV) using unified interface
                 ConfigManager.Initialize(runValidation: true);

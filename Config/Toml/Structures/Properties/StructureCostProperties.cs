@@ -64,10 +64,10 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
             return true;
         }
 
-        internal override bool ShouldOmitFromGeneration(int value)
-        {
-            return value == 0;
-        }
+        // NOTE: 0 is a legitimate explicit override (a free building). Only the -1 sentinel means
+        // "leave the game value unchanged", so 0 must survive generation/migration. An earlier
+        // ShouldOmitFromGeneration(value == 0) override here silently deleted user 0-overrides
+        // during migration — do not reintroduce it.
     }
 
     internal class GoldCostProperty : StructureCostPropertyBase
