@@ -1,6 +1,12 @@
-Version 2.6.0
+Version 2.6.1
 
-Updated for SHC DE v2.8!
+Updated for SHC DE v2.8.0.1 (the 11 Aug game patch)!
+
+[b]2.6.1:[/b]
+[list]
+[*][b]Fixes the crash when starting a game after the 11 Aug game update.[/b] The game patched to 2.8.0.1, which broke Script Extender 1.40.0 - any mod using it crashed the game when a match started loading. This build is made for Script Extender 1.41.0.
+[*][b]Requires Script Extender 1.41.0[/b] - update SE first, then this mod. No gameplay changes and no config changes.
+[/list]
 
 [b]2.6.0:[/b]
 [list]

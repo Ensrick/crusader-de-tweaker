@@ -3,9 +3,9 @@
   "Author": "ensrick",
   "Name": "Crusader DE Tweaker",
   "Description": "Comprehensive gameplay property configuration system for Stronghold Crusader Definitive Edition",
-  "Version": "2.6.0",
+  "Version": "2.6.1",
   "SupportedGameVersions": [
-    "2.8.0.0"
+    "2.8.0.1"
   ],
   "Website": "https://gitlab.com/ensrick7/crusader-de-tweaker",
   "Manifest": 1
