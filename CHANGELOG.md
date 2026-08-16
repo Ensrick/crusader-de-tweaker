@@ -1,7 +1,15 @@
-2.6.1 - Rebuilt for game patch 2.8.0.1 / SHCDE-SE 1.41.0 (2026-08-12):
+Unreleased (2.7.0) - Multiplayer config sync (in development, NOT shipped):
 
-       - **Fix: crash when starting a game after the 2026-08-11 game update.** The game patched to 2.8.0.1, which broke Script Extender 1.40.0's native bindings - any SE-dependent mod crashed the game at session start. This build is compiled against SHCDE-SE 1.41.0 (built for 2.8.0.1) and declares `SupportedGameVersions: 2.8.0.1`. **Requires Script Extender 1.41.0** - update it before updating this mod (currently available from the SE GitLab releases page; Nexus/Workshop copies of SE may lag behind).
-       - No gameplay changes. SE 1.41.0's `SetStablesUnitIdLink` is now bidirectional upstream; the mod's single call site recompiles cleanly against the new signature.
+       - **New: automatic host config sync in multiplayer.** The mod registers a "Unit Stat Editor" tab in SHCDE-SE's lobby Mod Settings hub (SE 1.41.0+). When the host has "Sync my configs to all players" enabled (default on), every joining player automatically receives and applies the host's unit stats, structure stats and all 7 damage matrices for that session - no more manual config file sharing. Built on SE's [SyncHostOnly] lobby settings sync (verified sender identity, automatic push to late joiners); the ~130 KB config set travels as one gzipped ~15-20 KB blob, well under the transport's 512 KB ceiling. Clients re-apply their own configs when the session ends; values the host overrode that a client's files leave at the -1 sentinel keep the host's values until the game restarts (logged as a warning). NOT synced in v1: the real-time multipliers cfg (`CrusaderDETweaker_GlobalMultipliers.cfg`) - clients keep their own.
+       - New files: `Config/Sync/ConfigSyncManager.cs`, `Config/Sync/ConfigSyncLobbySettings.cs`, `Override/ScriptExtenderUI/CDTLobbySettings.xaml`; `ConfigPaths`/`MatrixPaths` gained a session override directory that redirects all config reads to the host's synced files. UNTESTED in a real multiplayer session as of 2026-08-13.
+
+2.6.1 - Rebuilt for game patch 2.8.0.1 / SHCDE-SE 1.41.0, gatehouse write disabled (2026-08-15):
+
+       - **Fix: crash when starting a game after the 2026-08-11 game update.** Two independent causes, both addressed:
+         1. The game patched to 2.8.0.1, which broke Script Extender 1.40.0's native bindings. This build is compiled against SHCDE-SE 1.41.0 (built for 2.8.0.1) and declares `SupportedGameVersions: 2.8.0.1`. **Requires Script Extender 1.41.0** - update it before updating this mod (currently available from the SE GitLab releases page; Nexus/Workshop copies of SE may lag behind).
+         2. Even on the matched SE 1.41.0 stack, applying the `[Gatehouse]` globals at session start crashed the game (per-write trace pinpointed `GateHouseCloseDistance.SetValue`; it is an SE assembly-immediate patch into `c_game_gatehouse_handler`, which 2.8.0.1 recompiled). Since generated configs bake a value for every `[Gatehouse]` key, **every user crashed at every skirmish start**. The two gatehouse writes are now skipped; a user-authored override logs a warning that it is ignored until the Script Extender ships a fix. All other globals (siege, stealth, stables, pathfinding, food, disease) still apply.
+       - Session-start global writes now log each write by name (debug logging on), so any future patch-break names its culprit in the log.
+       - SE 1.41.0's `SetStablesUnitIdLink` is now bidirectional upstream; the mod's single call site recompiles cleanly against the new signature.
 
 2.6.0 - Health multiplier + stable-linking reach recruited units, structure cost 0-override preserved, dead-code overhaul (2026-08-11):
 

@@ -4,8 +4,9 @@ Updated for SHC DE v2.8.0.1 (the 11 Aug game patch)!
 
 [b]2.6.1:[/b]
 [list]
-[*][b]Fixes the crash when starting a game after the 11 Aug game update.[/b] The game patched to 2.8.0.1, which broke Script Extender 1.40.0 - any mod using it crashed the game when a match started loading. This build is made for Script Extender 1.41.0.
-[*][b]Requires Script Extender 1.41.0[/b] - update SE first, then this mod. No gameplay changes and no config changes.
+[*][b]Fixes the crash when starting a game after the 11 Aug game update.[/b] Two causes: the 2.8.0.1 patch broke Script Extender 1.40.0 (this build is made for SE 1.41.0), and applying the [Gatehouse] settings at match start crashed even on the new SE.
+[*][b]Requires Script Extender 1.41.0[/b] - update SE first, then this mod.
+[*][b]Gatehouse settings are temporarily ignored.[/b] GateHouseCloseDistance / GateHouseReOpenDistance crash the game if written on 2.8.0.1, so the mod skips them (a log warning tells you if your override is affected). Everything else applies normally. They return once the Script Extender ships a fix.
 [/list]
 
 [b]2.6.0:[/b]

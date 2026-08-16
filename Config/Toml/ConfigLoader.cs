@@ -209,7 +209,7 @@ namespace CrusaderDETweaker.Config.Toml
                 var tomlModel = Tomlyn.Toml.ToModel(tomlString);
 
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadGameGlobals...");
-                LoadGameGlobals(tomlModel);
+                LoadGameGlobals(tomlModel, dbg);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadPeasantSpawning...");
                 LoadPeasantSpawning(tomlModel);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadPlayerOptions...");
@@ -226,60 +226,112 @@ namespace CrusaderDETweaker.Config.Toml
             }
         }
 
-        private static void LoadGameGlobals(TomlTable tomlModel)
+        private static void LoadGameGlobals(TomlTable tomlModel, bool dbg)
         {
+            // Per-write trace: with [Logging.Disk] InstantFlushing the last logged name identifies
+            // the exact global write a session-start freeze/crash dies in (2.8.0.1 triage).
+            void Trace(string name) { if (dbg) Plugin.Logger.LogInfo($"[GlobalConfig]   -> {name}"); }
+
             if (tomlModel.TryGetValue("Siege Engines", out var siegeObj) && siegeObj is TomlTable siegeTable)
             {
                 if (siegeTable.TryGetValue("SiegeEngineRestockStoneAmount", out var craValue) && craValue is long cra)
+                {
+                    Trace("CatapultRestockStoneAmount");
                     Plugin.GlobalsApi?.CatapultRestockStoneAmount?.SetValue((ushort)ClampInteger("Siege Engines", "SiegeEngineRestockStoneAmount", cra, ushort.MinValue, ushort.MaxValue));
+                }
 
                 if (siegeTable.TryGetValue("SiegeEngineRestockStoneCost", out var crcValue) && crcValue is long crc)
+                {
+                    Trace("CatapultRestockStoneCost");
                     Plugin.GlobalsApi?.CatapultRestockStoneCost?.SetValue((ushort)ClampInteger("Siege Engines", "SiegeEngineRestockStoneCost", crc, ushort.MinValue, ushort.MaxValue));
+                }
 
                 if (siegeTable.TryGetValue("SiegeEngineInitialStoneAmount", out var cisValue) && cisValue is long cis)
+                {
+                    Trace("CatapultInitialStoneAmount");
                     Plugin.GlobalsApi?.CatapultInitialStoneAmount?.SetValue((byte)ClampInteger("Siege Engines", "SiegeEngineInitialStoneAmount", cis, byte.MinValue, byte.MaxValue));
+                }
             }
 
             if (tomlModel.TryGetValue("Stealth", out var stealthObj) && stealthObj is TomlTable stealthTable)
             {
                 if (stealthTable.TryGetValue("StealthDetectionRange", out var adrValue) && adrValue is long adr)
+                {
+                    Trace("AssassinDetectionRange");
                     Plugin.GlobalsApi?.AssassinDetectionRange?.SetValue((ushort)ClampInteger("Stealth", "StealthDetectionRange", adr, ushort.MinValue, ushort.MaxValue));
+                }
 
                 if (stealthTable.TryGetValue("StealthTransparencyThreshold", out var attValue) && attValue is long att)
+                {
+                    Trace("AssassinTransparencyThreshold");
                     Plugin.GlobalsApi?.AssassinTransparencyThreshold?.SetValue((ushort)ClampInteger("Stealth", "StealthTransparencyThreshold", att, ushort.MinValue, ushort.MaxValue));
+                }
             }
 
             if (tomlModel.TryGetValue("Stables", out var stablesObj) && stablesObj is TomlTable stablesTable)
             {
                 if (stablesTable.TryGetValue("StablesHorseRegenTickTarget", out var srtValue) && srtValue is long srt)
+                {
+                    Trace("StablesHorseRegenTickTarget");
                     Plugin.GlobalsApi?.StablesHorseRegenTickTarget?.SetValue((short)ClampInteger("Stables", "StablesHorseRegenTickTarget", srt, short.MinValue, short.MaxValue));
+                }
 
                 if (stablesTable.TryGetValue("StablesHorsesCap", out var shcValue) && shcValue is long shc)
+                {
+                    Trace("StablesHorsesCap");
                     Plugin.GlobalsApi?.StablesHorsesCap?.SetValue((sbyte)ClampInteger("Stables", "StablesHorsesCap", shc, sbyte.MinValue, sbyte.MaxValue));
+                }
             }
 
             if (tomlModel.TryGetValue("Gatehouse", out var gateObj) && gateObj is TomlTable gateTable)
             {
+                // DISABLED since game patch 2.8.0.1: writing either gatehouse global crashes
+                // the game at session start (proven by the per-write trace, 2026-08-15: the
+                // process dies inside GateHouseCloseDistance.SetValue). Both are SE
+                // ManagedAssemblyImmediate patches into c_game_gatehouse_handler - two
+                // instructions 9 bytes apart that 2.8.0.1 recompiled; SE re-encodes the whole
+                // instruction on write, so this cannot be made safe from this side. Reads are
+                // safe and are used below to warn users whose override is being ignored.
+                // Re-enable when SHCDE-SE ships a fix.
                 if (gateTable.TryGetValue("GateHouseCloseDistance", out var ghcValue) && ghcValue is long ghc)
-                    Plugin.GlobalsApi?.GateHouseCloseDistance?.SetValue((ushort)ClampInteger("Gatehouse", "GateHouseCloseDistance", ghc, ushort.MinValue, ushort.MaxValue));
+                {
+                    Trace("GateHouseCloseDistance (SKIPPED - crashes on game 2.8.0.1)");
+                    var current = Plugin.GlobalsApi?.GateHouseCloseDistance?.GetValue();
+                    if (current.HasValue && current.Value != ghc)
+                        Plugin.Logger.LogWarning($"[GlobalConfig] GateHouseCloseDistance override ({ghc}) IGNORED - writing it crashes the game since patch 2.8.0.1. Game value stays {current.Value} until the Script Extender ships a fix.");
+                }
 
                 if (gateTable.TryGetValue("GateHouseReOpenDistance", out var ghrValue) && ghrValue is long ghr)
-                    Plugin.GlobalsApi?.GateHouseReOpenDistance?.SetValue((ushort)ClampInteger("Gatehouse", "GateHouseReOpenDistance", ghr, ushort.MinValue, ushort.MaxValue));
+                {
+                    Trace("GateHouseReOpenDistance (SKIPPED - crashes on game 2.8.0.1)");
+                    var current = Plugin.GlobalsApi?.GateHouseReOpenDistance?.GetValue();
+                    if (current.HasValue && current.Value != ghr)
+                        Plugin.Logger.LogWarning($"[GlobalConfig] GateHouseReOpenDistance override ({ghr}) IGNORED - writing it crashes the game since patch 2.8.0.1. Game value stays {current.Value} until the Script Extender ships a fix.");
+                }
             }
 
             if (tomlModel.TryGetValue("Pathfinding", out var pfObj) && pfObj is TomlTable pfTable)
             {
                 if (pfTable.TryGetValue("PathfindingMaxTilesConstraint", out var pfValue) && pfValue is long pfConstraint)
+                {
+                    Trace("PathfindingMaxTilesConstraint");
                     Plugin.GlobalsApi?.PathfindingMaxTilesConstraint?.SetValue((ushort)ClampInteger("Pathfinding", "PathfindingMaxTilesConstraint", pfConstraint, ushort.MinValue, ushort.MaxValue));
+                }
             }
 
             if (tomlModel.TryGetValue("Food Consumption", out var fcObj) && fcObj is TomlTable fcTable)
             {
                 if (fcTable.TryGetValue("FoodConsumptionTickThreshold", out var fctValue) && fctValue is long fct)
+                {
+                    Trace("FoodConsumptionTickThreshold");
                     Plugin.GlobalsApi?.FoodConsumptionTickThreshold?.SetValue((int)ClampInteger("Food Consumption", "FoodConsumptionTickThreshold", fct, int.MinValue, int.MaxValue));
+                }
 
                 if (fcTable.TryGetValue("FoodConsumptionRate", out var fcrValue) && fcrValue is long fcr)
+                {
+                    Trace("FoodConsumptionRate (PlayerApi)");
                     Plugin.PlayerApi?.FoodConsumptionRate?.SetValue((int)ClampInteger("Food Consumption", "FoodConsumptionRate", fcr, int.MinValue, int.MaxValue));
+                }
             }
 
             if (tomlModel.TryGetValue("Disease", out var diseaseObj) && diseaseObj is TomlTable diseaseTable)
@@ -292,14 +344,25 @@ namespace CrusaderDETweaker.Config.Toml
                 float diseaseMult = BepInExConfigManager.FireAndHeal?.DiseaseDamageMultiplier?.Value ?? 1.0f;
 
                 if (diseaseTable.TryGetValue("DiseaseDamage1", out var dd1Value) && dd1Value is long dd1)
+                {
+                    Trace("DiseaseDamage1");
                     Plugin.GlobalsApi?.DiseaseDamage1?.SetValue(ScalePositiveInt32("Disease", "DiseaseDamage1", dd1, diseaseMult));
+                }
 
                 if (diseaseTable.TryGetValue("DiseaseDamage2", out var dd2Value) && dd2Value is long dd2)
+                {
+                    Trace("DiseaseDamage2");
                     Plugin.GlobalsApi?.DiseaseDamage2?.SetValue(ScalePositiveInt32("Disease", "DiseaseDamage2", dd2, diseaseMult));
+                }
 
                 if (diseaseTable.TryGetValue("DiseaseDamage3", out var dd3Value) && dd3Value is long dd3)
+                {
+                    Trace("DiseaseDamage3");
                     Plugin.GlobalsApi?.DiseaseDamage3?.SetValue(ScalePositiveInt32("Disease", "DiseaseDamage3", dd3, diseaseMult));
+                }
             }
+
+            if (dbg) Plugin.Logger.LogInfo("[GlobalConfig]   LoadGameGlobals complete.");
         }
 
         private static void LoadPeasantSpawning(TomlTable tomlModel)
