@@ -1,6 +1,15 @@
-Version 2.6.1
+Version 2.6.2
 
-Updated for SHC DE v2.8.0.1 (the 11 Aug game patch)!
+Updated for SHC DE v2.8.2 (the 24 Aug hotfix) and Script Extender 1.44.0!
+
+[b]2.6.2:[/b]
+[list]
+[*][b]Gold-only recruits: WeaponType = "NONE".[/b] Set a European unit's WeaponType (and ArmorType, if it has one) to "NONE" to remove the equipment requirement and hire it for gold only, like the Arabian mercenaries. Deleting the line never did this - a missing key means "use the game default" and the line comes back on the next launch.
+[*][b]RequiresHorse now works for Arabian and Bedouin mercenaries[/b] (Horse Archer, Camel Lancer, Heavy Camel, or any Mercenary Post unit). The game itself only checks horses for the 7 Barracks units, so the mod now enforces it: the hire is refused when you have no free stable horse, a batch order is trimmed to the horses available, and the recruit occupies a stable slot until it dies. The Mercenary Post hover shows no horse icon (that UI is hard-wired to the Barracks).
+[*][b]Fix: stable linking scans all of your stables[/b], not just the first, and never links a unit twice.
+[*][b]Fix: a misspelled WeaponType / ArmorType no longer silently makes the unit free[/b] - it is logged and the game value is kept.
+[*][b]Built for Script Extender 1.44.0[/b] - update SE first, then this mod. Gatehouse settings remain disabled in this build.
+[/list]
 
 [b]2.6.1:[/b]
 [list]
