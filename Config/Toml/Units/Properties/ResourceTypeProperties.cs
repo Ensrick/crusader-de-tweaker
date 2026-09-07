@@ -67,13 +67,23 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
 
         protected override void SetToAPI(eChimps unit, string value)
         {
+            // An unknown name leaves the game's requirement untouched: a typo must not silently
+            // turn the unit into a gold-only hire. NONE / "" / STORED_NULL remove the requirement.
+            if (!TryParseResource(value, out eGoods32 resource))
+            {
+                Plugin.Logger.LogWarning(
+                    $"[Set {Name}] Unknown resource '{value}' for {unit} - keeping the game default. " +
+                    "Valid: STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS, STORED_SPEARS, STORED_PIKES, STORED_MACES, " +
+                    "STORED_LEATHER_ARMOUR, STORED_METAL_ARMOUR, or NONE (no requirement).");
+                return;
+            }
+
             ErrorHandlingHelper.TryExecute(
                 $"Set {Name}",
                 unit.ToString(),
                 () =>
                 {
                     var costs = Plugin.UnitApi.GetUnitGoodCosts(unit);
-                    eGoods32 resource = ParseResource(value);
 
                     // Update the appropriate slot
                     switch (SlotIndex)
@@ -105,7 +115,8 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
 
         internal override bool ValidateValue(string value)
         {
-            return !string.IsNullOrEmpty(value);
+            // "" is a legal value ("no requirement", same as NONE); only a missing string is invalid.
+            return value != null;
         }
 
         /// <summary>
@@ -119,40 +130,57 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
             return TryGetFromAPI(unit, out defaultValue);
         }
 
-        private eGoods32 ParseResource(string resourceType)
-        {
-            if (string.IsNullOrEmpty(resourceType))
-                return eGoods32.STORED_NULL;
+        /// <summary>
+        /// User-facing keyword for "no resource required" (gold-only hire). "" and STORED_NULL are
+        /// accepted as synonyms. Deleting the line does NOT do this - a missing key means "no
+        /// override" and the game default is re-added on the next launch.
+        /// </summary>
+        internal const string NoneKeyword = "NONE";
 
-            if (!TypeConverter.TryParseEnum<eGoods>(resourceType, out var goodType))
-            {
-                Plugin.Logger.LogWarning($"Invalid resource type '{resourceType}', using STORED_NULL");
-                return eGoods32.STORED_NULL;
-            }
+        /// <summary>
+        /// Parse a resource name from the TOML. Returns false for an unknown name so the caller can
+        /// leave the game's requirement untouched instead of zeroing it.
+        /// </summary>
+        private static bool TryParseResource(string resourceType, out eGoods32 resource)
+        {
+            resource = eGoods32.STORED_NULL;
+            if (resourceType == null)
+                return false;
+
+            string name = resourceType.Trim();
+            if (name.Length == 0
+                || name.Equals(NoneKeyword, StringComparison.OrdinalIgnoreCase)
+                || name.Equals("NULL", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (!TypeConverter.TryParseEnum<eGoods>(name, out var goodType))
+                return false;
 
             int enumValue = (int)goodType;
 
             // Allow special case: _SE_REQUIRE_HORSE = -1
             if (enumValue == -1)
             {
-                return (eGoods32)enumValue;
+                resource = (eGoods32)enumValue;
+                return true;
             }
 
             // For other values, validate they're in the normal range
             if (enumValue >= 0 && enumValue < (int)eGoods32.Count)
             {
-                return (eGoods32)enumValue;
+                resource = (eGoods32)enumValue;
+                return true;
             }
 
-            Plugin.Logger.LogWarning($"Resource type '{resourceType}' (enum value {enumValue}) out of valid range, using STORED_NULL");
-            return eGoods32.STORED_NULL;
+            return false;
         }
     }
 
     /// <summary>
     /// Handles the WeaponType property for Crusader units.
     /// This is Resource1Type (slot 0) - always a weapon resource for recruitable units.
-    /// Examples: STORED_SWORDS, STORED_BOWS, STORED_XBOWS, STORED_PIKES, STORED_MACES
+    /// Examples: STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS, STORED_PIKES, STORED_MACES.
+    /// "NONE" removes the requirement (gold-only hire, like the Arabian mercenaries).
     /// </summary>
     internal class WeaponTypeProperty : ResourceTypePropertyBase
     {
@@ -178,12 +206,15 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
     // Resource4Type - replaced by RequiresHorseProperty (boolean wrapper).
 
     /// <summary>
-    /// Handles the RequiresHorse property for Crusader cavalry units.
-    /// This is Resource4Type (slot 3) - represented as boolean for clarity.
-    /// True = unit requires horse (_SE_REQUIRE_HORSE), False = no horse required
+    /// Handles the RequiresHorse property for recruitable units.
+    /// For the 7 Barracks units (Archer..Knight) this is Resource4Type (slot 3) of the game's EU
+    /// good-cost table, where -1 (_SE_REQUIRE_HORSE) is the game's own "needs a stable horse"
+    /// marker, so the Barracks enforces it natively. Arabian / Bedouin mercenaries have no row in
+    /// that table (SHCDE-SE exposes exactly 7 and silently ignores writes past them); for them the
+    /// requirement is enforced by MakeTroopRecruitHook at hire time (see StableTracking).
     ///
     /// HorseRequiringUnits tracks which unit types were set to RequiresHorse = true via config.
-    /// Used by ConfigLoader to link newly spawned units to stable slots via SetStablesUnitIdLink.
+    /// Consumed by StableTracking (recruit gate + linking spawned/recruited units to a stable slot).
     /// </summary>
     internal class RequiresHorseProperty : PropertyHandler<eChimps, bool>
     {
@@ -226,22 +257,31 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
 
         protected override void SetToAPI(eChimps unit, bool value)
         {
-            ErrorHandlingHelper.TryExecute(
-                "Set RequiresHorse",
-                unit.ToString(),
-                () =>
-                {
-                    var costs = Plugin.UnitApi.GetUnitGoodCosts(unit);
+            if (Config.Core.StableTracking.GameEnforcesHorseCost(unit))
+            {
+                // Barracks unit: write the game's own marker so the native purchase check applies.
+                ErrorHandlingHelper.TryExecute(
+                    "Set RequiresHorse",
+                    unit.ToString(),
+                    () =>
+                    {
+                        var costs = Plugin.UnitApi.GetUnitGoodCosts(unit);
 
-                    // Set Resource4 based on boolean value
-                    costs.cost4 = value ? (eGoods32)(-1) : eGoods32.STORED_NULL;
+                        // Set Resource4 based on boolean value
+                        costs.cost4 = value ? (eGoods32)(-1) : eGoods32.STORED_NULL;
 
-                    Plugin.UnitApi.SetUnitGoodCosts(unit, costs);
-                }
-            );
+                        Plugin.UnitApi.SetUnitGoodCosts(unit, costs);
+                    }
+                );
+            }
+            else if (value)
+            {
+                // No good-cost row exists for this unit; the recruit hook enforces the horse instead.
+                Plugin.Logger.LogDebug($"[Set RequiresHorse] {unit} is not a Barracks unit - horse requirement enforced by the mod at hire time.");
+            }
 
-            // Update the tracked set so the OnUnitCreate stable-linking hook
-            // knows which unit types need a stable slot assignment.
+            // Update the tracked set so the recruit gate and the stable-linking hooks
+            // know which unit types need a stable slot.
             if (value)
                 HorseRequiringUnits.Add(unit);
             else

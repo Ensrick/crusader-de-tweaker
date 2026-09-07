@@ -75,9 +75,13 @@ namespace CrusaderDETweaker.Config.Toml.Core
             sb.AppendLine("# Health:        Maximum hit points");
             sb.AppendLine("# Speed:         Movement speed (smaller values = faster)");
             sb.AppendLine("# GoldCost:      Recruitment cost in gold (Crusader units only)");
-            sb.AppendLine("# WeaponType:    Equipment slot 1 — resource required to recruit (e.g. STORED_SWORDS, STORED_BOWS)");
-            sb.AppendLine("# ArmorType:     Equipment slot 2 — resource required to recruit (e.g. STORED_METAL_ARMOUR)");
-            sb.AppendLine("# RequiresHorse: Whether this unit consumes a stable horse slot (true/false)");
+            sb.AppendLine("# WeaponType:    Equipment slot 1 — resource required to recruit (STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS,");
+            sb.AppendLine("#                  STORED_SPEARS, STORED_PIKES, STORED_MACES). \"NONE\" = no weapon needed (gold-only hire, like");
+            sb.AppendLine("#                  Arabian mercenaries). Deleting the line does NOT do that: a missing key = \"use game default\".");
+            sb.AppendLine("# ArmorType:     Equipment slot 2 — resource required to recruit (STORED_METAL_ARMOUR, STORED_LEATHER_ARMOUR, or \"NONE\")");
+            sb.AppendLine("# RequiresHorse: true = hiring needs a free stable horse and the unit occupies that slot until it dies.");
+            sb.AppendLine("#                  Add \"RequiresHorse = true\" to any recruitable unit's section - Barracks units are checked by");
+            sb.AppendLine("#                  the game, Mercenary Post units (Horse Archer, Camel Lancer, ...) by the mod at hire time.");
             sb.AppendLine("# ShieldHealth:  Shield durability for the Bedouin Demolisher");
             sb.AppendLine("# MaxCount:      Limit on units of this type alive at once for the local player.");
             sb.AppendLine("#                  -1 = unlimited (default), 0 = disabled (every spawn removed), >0 = max alive. Excess removed on spawn.");
@@ -99,7 +103,8 @@ namespace CrusaderDETweaker.Config.Toml.Core
             sb.AppendLine("#   Set any other number to override it. The '# Default:' comment after each value shows the");
             sb.AppendLine("#   game's current default and is refreshed every launch.");
             sb.AppendLine("#   (Applies to Health, Speed, GoldCost, ShieldHealth and armor multipliers. WeaponType,");
-            sb.AppendLine("#    ArmorType and RequiresHorse are written directly. MaxCount: see above — there -1 = unlimited.)");
+            sb.AppendLine("#    ArmorType and RequiresHorse are written directly (\"NONE\" removes an equipment requirement).");
+            sb.AppendLine("#    MaxCount: see above — there -1 = unlimited.)");
         }
 
         private static void WriteStructureHeader(StringBuilder sb)

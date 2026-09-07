@@ -224,9 +224,9 @@ SellLevel = 0
 Health = -1 # Default: 20000       # -1 = use game default; set a number to override
 Speed = -1 # Default: 1
 GoldCost = 5000 # Default: 40       # example override: 5000-gold Knights
-WeaponType = "STORED_SWORDS"       # equipment requirements are set directly (no -1)
-ArmorType = "STORED_METAL_ARMOUR"
-RequiresHorse = true               # links unit to a stable slot on spawn
+WeaponType = "STORED_SWORDS"       # equipment requirements are set directly (no -1); "NONE" = no weapon needed
+ArmorType = "STORED_METAL_ARMOUR"  # "NONE" = no armour needed (gold-only hire, like Arabian mercenaries)
+RequiresHorse = true               # hiring needs a free stable horse; the unit occupies that slot
 MaxCount = 20                      # cap (separate convention: -1 = unlimited, 0 = disabled)
 
 [CHIMP_TYPE_ARCHER]
@@ -244,9 +244,9 @@ MaxCount = -1                      # -1 = unlimited (default)
 [*][b]Health[/b] — Unit max health
 [*][b]Speed[/b] — Movement speed (some special units cannot be modified)
 [*][b]GoldCost[/b] — Recruitment cost (Crusader recruitable units only)
-[*][b]WeaponType[/b] — Weapon resource: STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS, STORED_PIKES, STORED_MACES, STORED_SPEARS
-[*][b]ArmorType[/b] — Armor resource: STORED_METAL_ARMOUR, STORED_LEATHER_ARMOUR
-[*][b]RequiresHorse[/b] — Cavalry units only. When true, hooks unit spawn to link it to a stable slot.
+[*][b]WeaponType[/b] — Weapon resource: STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS, STORED_PIKES, STORED_MACES, STORED_SPEARS, or [b]"NONE"[/b] for no weapon requirement (gold-only hire, like the Arabian mercenaries). Deleting the line does NOT remove the requirement: a missing key means "use the game default" and the line is re-added on the next launch.
+[*][b]ArmorType[/b] — Armor resource: STORED_METAL_ARMOUR, STORED_LEATHER_ARMOUR, or [b]"NONE"[/b].
+[*][b]RequiresHorse[/b] — When true, hiring needs a free stable horse and the unit occupies that stable slot until it dies. Add [b]RequiresHorse = true[/b] to any recruitable unit's section: Barracks units are checked by the game itself, Mercenary Post units (Horse Archer, Camel Lancer, Heavy Camel, ...) by the mod at hire time (the hire is refused when no horse is free; a batch request is trimmed to the free horses). The Mercenary Post hover shows no horse icon - that UI is hard-wired to the Barracks.
 [*][b]MaxCount[/b] — Limit on units of this type alive at once for the local player. [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (cannot be recruited at all), [b]>0[/b] = max alive at once. Recruiting at/over the cap is refused up front (no gold spent); a request for more than the remaining room is trimmed to fit.
 [/list]
 

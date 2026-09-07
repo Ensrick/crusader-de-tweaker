@@ -1,7 +1,11 @@
 // Config/BepInEx/Systems/Handlers/MakeTroopRecruitHook.cs
 //
-// PURPOSE: Enforce per-unit-type MaxCount caps at RECRUIT time by hooking the game's
-//          EngineInterface.GameAction(MakeTroop) command.
+// PURPOSE: Gate recruits at RECRUIT time by hooking the game's EngineInterface.GameAction(MakeTroop)
+//          command. Two independent gates:
+//            1. per-unit-type MaxCount caps;
+//            2. the RequiresHorse requirement for units the game does not gate itself (Arabian /
+//               Bedouin mercenaries: the native horse check exists only for the 7 Barracks units,
+//               see Config/Core/StableTracking.cs) - refused when no stable horse slot is free.
 //
 // WHY THIS IS NEEDED (and why UnitCapHandler's OnUnitCreate path is not enough):
 //   SHCDE-SE raises OnUnitCreate only from c_game_unit_spawn_ex. Recruiting a soldier from the
@@ -29,6 +33,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using CrusaderDETweaker.Config.BepInEx;
+using CrusaderDETweaker.Config.Core; // StableTracking
 using MonoMod.RuntimeDetour;
 using SHCDESE.Interop; // eChimps
 
@@ -51,6 +56,11 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
         // once the finished soldier appears in the live total.
         private static readonly Dictionary<eChimps, List<DateTime>> _pending = new Dictionary<eChimps, List<DateTime>>();
         private static readonly TimeSpan PendingLifetime = TimeSpan.FromSeconds(15);
+
+        // Same idea for stable horses: an approved horse-requiring hire occupies its slot only once
+        // the recruit has transformed and StableTracking linked it, so reservations bridge the gap.
+        // One shared list - a horse is a horse regardless of which unit type takes it.
+        private static readonly List<DateTime> _pendingHorses = new List<DateTime>();
 
         /// <summary>
         /// Install the MakeTroop detour once. Safe to call at plugin init: this only patches a
@@ -105,42 +115,61 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                 bool dbg = BepInExConfigManager.DebugLogging?.Value ?? false;
                 eChimps unitType = (eChimps)state;
 
-                // Only types the user actually capped (>= 0) are tracked; everything else is unlimited.
-                if (_caps == null || !_caps.TryGetValue(unitType, out int cap))
+                // Gate 1: only types the user actually capped (>= 0); everything else is unlimited.
+                // Gate 2: RequiresHorse = true on a unit whose horse cost the game does not enforce.
+                int cap = 0;
+                bool capped = _caps != null && _caps.TryGetValue(unitType, out cap);
+                bool horseGated = StableTracking.ModEnforcesHorseCost(unitType);
+                if (!capped && !horseGated)
                     return tramp(command, structureID, state, value2);
 
                 int localId = Plugin.PlayerApi?.GetLocalPlayerId() ?? -1;
                 if (localId <= 0)
                     return tramp(command, structureID, state, value2);
 
-                PrunePending(unitType);
-                int live = UnitCapHandler.CountPlayerUnitsOfType(localId, unitType);
-                int pending = PendingCount(unitType);
-                int remaining = cap - (live + pending);
+                // amount >= 1000 is the Ctrl "as many as possible" request: grant up to the tightest gate.
+                bool recruitMax = amount >= 1000;
+                int allowed = recruitMax ? int.MaxValue : amount;
+                string detail = "";
 
-                if (remaining <= 0)
+                if (capped)
                 {
-                    if (dbg)
-                        Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop blocked {unitType}: live={live} pending={pending} cap={cap} (requested {amount}).");
-                    return 0; // cap reached; cap == 0 means disabled (always blocked)
+                    PrunePending(unitType);
+                    int live = UnitCapHandler.CountPlayerUnitsOfType(localId, unitType);
+                    int pending = PendingCount(unitType);
+                    allowed = Math.Min(allowed, cap - (live + pending));
+                    detail += $" live={live} pending={pending} cap={cap}";
                 }
 
-                // amount >= 1000 is the Ctrl "as many as possible" request: grant up to the cap.
-                int allowed = (amount >= 1000) ? remaining : Math.Min(amount, remaining);
-                if (allowed <= 0)
-                    return 0;
+                if (horseGated)
+                {
+                    PruneHorsePending();
+                    int freeHorses = StableTracking.CountFreeSlots(localId) - _pendingHorses.Count;
+                    allowed = Math.Min(allowed, freeHorses);
+                    detail += $" freeHorses={freeHorses}";
+                }
 
-                Reserve(unitType, allowed);
+                if (allowed <= 0)
+                {
+                    // Cap reached (cap == 0 means disabled, always blocked) or no free stable horse.
+                    if (dbg)
+                        Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop blocked {unitType}: requested {amount};{detail}.");
+                    return 0;
+                }
+                if (allowed == int.MaxValue) allowed = amount; // unreachable in practice: a gate always bounds it
+
+                if (capped) Reserve(unitType, allowed);
+                if (horseGated) ReserveHorses(allowed);
 
                 if (allowed != amount)
                 {
                     if (dbg)
-                        Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop trimmed {unitType}: requested {amount} -> {allowed} (live={live} pending={pending} cap={cap}).");
+                        Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop trimmed {unitType}: requested {amount} -> {allowed};{detail}.");
                     return tramp(command, allowed, state, value2);
                 }
 
                 if (dbg)
-                    Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop allowed {unitType}: {allowed} (live={live} pending={pending} cap={cap}).");
+                    Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop allowed {unitType}: {allowed};{detail}.");
             }
             catch (Exception ex)
             {
@@ -171,6 +200,18 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
             DateTime now = DateTime.UtcNow;
             list.RemoveAll(t => t <= now);
             if (list.Count == 0) _pending.Remove(unitType);
+        }
+
+        private static void ReserveHorses(int amount)
+        {
+            DateTime expiry = DateTime.UtcNow + PendingLifetime;
+            for (int i = 0; i < amount; i++) _pendingHorses.Add(expiry);
+        }
+
+        private static void PruneHorsePending()
+        {
+            DateTime now = DateTime.UtcNow;
+            _pendingHorses.RemoveAll(t => t <= now);
         }
     }
 }
