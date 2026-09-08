@@ -76,7 +76,7 @@ Config/
     ├── Units/Properties/
     └── Structures/Properties/
 Data/                        # UnitCategories, StructureCategories, StructureTypeHelpers, ProjectileType
-Tests/                       # CoreTestRunner + PropertyHandler/PropertyRegistry/EntityProcessor suites
+Tests/                       # CoreTestRunner + PropertyHandler/PropertyRegistry/EntityProcessor/CsvHelper suites
 scripts/                     # Build/release automation
 ```
 
@@ -319,17 +319,18 @@ Enable debug: `BepInEx\config\BepInEx.cfg` → `LogLevels = ..., Debug`
 handlers only, make no game-API calls, and log PASS/FAIL to `BepInEx\LogOutput.log`. A regression in
 core logic shows up in the log immediately. Do not gate or remove it.
 
-Three suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**. Look for:
+Four suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**. Look for:
 ```
 === CORE LOGIC UNIT TEST SUITE ===
   [PASS] PropertyHandler: N test(s)
   [PASS] PropertyRegistry: N test(s)
   [PASS] EntityProcessor: N test(s)
-=== ALL 3 TEST SUITES PASSED ===
+  [PASS] CsvHelper: N test(s)
+=== ALL 4 TEST SUITES PASSED ===
 ```
 
 Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/PropertyRegistryTest.cs`,
-`Tests/EntityProcessorTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
+`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
 
 ---
 
@@ -409,5 +410,5 @@ from it at build time. **To bump the version, edit `PluginInfo.cs` only.**
 3. **Three-tier config**: TOML → CSV matrices → BepInEx multipliers
 4. **CSV is the only damage tier**; rows = defenders, columns = attackers; `-1` = leave unchanged
 5. **Build**: `.\scripts\build.ps1`
-6. **Test**: Launch game, check `LogOutput.log` (the 3 test suites run on load)
+6. **Test**: Launch game, check `LogOutput.log` (the 4 test suites run on load)
 7. **AI dev comments** at top of every .cs file

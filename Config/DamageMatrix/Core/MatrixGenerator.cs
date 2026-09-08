@@ -49,8 +49,18 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
                 // Step 1: If file already exists, reformat it in place (preserves user values)
                 if (System.IO.File.Exists(FilePath))
                 {
-                    Plugin.Logger.LogInfo($"Matrix already exists, reformatting: {FilePath}");
-                    CsvHelper.ReformatMatrix(FilePath);
+                    try
+                    {
+                        Plugin.Logger.LogInfo($"Matrix already exists, reformatting: {FilePath}");
+                        CsvHelper.ReformatMatrix(FilePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        // Never write back a file we could not parse: the user's file stays as it is.
+                        Plugin.Logger.LogError(
+                            $"[CSV] {FilePath} could not be parsed and was left unchanged: {ex.GetBaseException().Message}. " +
+                            "Fix the header row (empty first cell, then one attacker name per column) or delete the file to regenerate defaults.");
+                    }
                     return false;
                 }
 

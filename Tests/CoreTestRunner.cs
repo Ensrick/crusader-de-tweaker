@@ -39,7 +39,8 @@ namespace CrusaderDETweaker.Tests
                 // Run each test suite
                 RunSuite("PropertyHandler", PropertyHandlerTest.RunTests),
                 RunSuite("PropertyRegistry", PropertyRegistryTest.RunTests),
-                RunSuite("EntityProcessor", EntityProcessorTest.RunTests)
+                RunSuite("EntityProcessor", EntityProcessorTest.RunTests),
+                RunSuite("CsvHelper", CsvHelperTest.RunTests)
             };
 
             // Summary
