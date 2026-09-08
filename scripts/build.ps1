@@ -42,7 +42,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Build THIS checkout, whatever the caller's current directory is. MSBuild is invoked with a
+# relative "CrusaderDETweaker.csproj", so without this a second checkout (e.g. a git worktree)
+# silently built and deployed the other tree (2026-09-07).
+Set-Location (Split-Path $PSScriptRoot -Parent)
+
 Write-Host "=== Building CrusaderDETweaker ===" -ForegroundColor Cyan
+Write-Host "  Project: $(Get-Location)" -ForegroundColor Gray
 Write-Host ""
 
 # Find MSBuild (VS 2022 uses MSBuild, not dotnet build for .NET Framework projects)
