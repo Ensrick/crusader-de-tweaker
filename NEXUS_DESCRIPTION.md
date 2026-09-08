@@ -1,6 +1,11 @@
-Version 2.6.2
+Version 2.6.3
 
 Updated for SHC DE v2.8.2 (the 24 Aug hotfix) and Script Extender 1.44.0!
+
+[b]2.6.3:[/b]
+[list]
+[*][b]Fix: damage CSVs saved from Excel / Google Sheets no longer lose their header row on launch.[/b] Spreadsheets save the blank line under the comment block as a line of commas; the mod took that as the header, turned the real header (Arrow, Bolt, ...) into a row of -1s and wrote it back, after which every value was skipped ("Could not parse header '' as ProjectileType", Applied=0). Such lines are now ignored, and a file the mod cannot parse is left untouched with a clear error. If yours is already broken: put the attacker names back on the header line and delete the -1 row, or delete the CSV to regenerate it.
+[/list]
 
 [b]2.6.2:[/b]
 [list]
@@ -8,7 +13,6 @@ Updated for SHC DE v2.8.2 (the 24 Aug hotfix) and Script Extender 1.44.0!
 [*][b]RequiresHorse now works for Arabian and Bedouin mercenaries[/b] (Horse Archer, Camel Lancer, Heavy Camel, or any Mercenary Post unit). The game itself only checks horses for the 7 Barracks units, so the mod now enforces it: the hire is refused when you have no free stable horse, a batch order is trimmed to the horses available, and the recruit occupies a stable slot until it dies. The Mercenary Post hover shows no horse icon (that UI is hard-wired to the Barracks).
 [*][b]Fix: stable linking scans all of your stables[/b], not just the first, and never links a unit twice.
 [*][b]Fix: a misspelled WeaponType / ArmorType no longer silently makes the unit free[/b] - it is logged and the game value is kept.
-[*][b]Fix: damage CSVs saved from Excel / Google Sheets no longer lose their header row on launch.[/b] Spreadsheets save the blank line under the comment block as a line of commas; the mod took that as the header, turned the real header (Arrow, Bolt, ...) into a row of -1s and wrote it back, after which every value was skipped ("Could not parse header '' as ProjectileType", Applied=0). Such lines are now ignored, and a file the mod cannot parse is left untouched with a clear error. If yours is already broken: put the attacker names back on the header line and delete the -1 row, or delete the CSV to regenerate it.
 [*][b]Built for Script Extender 1.44.0[/b] - update SE first, then this mod. Gatehouse settings remain disabled in this build.
 [/list]
 
