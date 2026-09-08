@@ -82,7 +82,8 @@ namespace CrusaderDETweaker.Config.Toml.Core
             sb.AppendLine("# RequiresHorse: true = hiring needs a free stable horse and the unit occupies that slot until it dies.");
             sb.AppendLine("#                  Add \"RequiresHorse = true\" to any recruitable unit's section - Barracks units are checked by");
             sb.AppendLine("#                  the game, Mercenary Post units (Horse Archer, Camel Lancer, ...) by the mod at hire time.");
-            sb.AppendLine("# ShieldHealth:  Shield durability for the Bedouin Demolisher");
+            sb.AppendLine("# ShieldHealth:  Shield durability for the Bedouin Demolisher. The game stores it in 16 bits: maximum 65535");
+            sb.AppendLine("#                  (a larger value is clamped to 65535 and logged).");
             sb.AppendLine("# MaxCount:      Limit on units of this type alive at once for the local player.");
             sb.AppendLine("#                  -1 = unlimited (default), 0 = disabled (every spawn removed), >0 = max alive. Excess removed on spawn.");
             sb.AppendLine("#");

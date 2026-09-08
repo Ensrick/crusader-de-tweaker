@@ -272,10 +272,51 @@ namespace CrusaderDETweaker.Config.Toml.Core
                 result = (TValue)Convert.ChangeType(tomlValue, typeof(TValue));
                 return true;
             }
+            catch (OverflowException)
+            {
+                // The value does not fit the game's field width (e.g. ShieldHealth is 16-bit, max
+                // 65535). A failed parse used to fall through to "fresh entry" on the next launch and
+                // was rewritten as the -1 sentinel, silently discarding the user's edit (Nexus report
+                // 2026-09-08). Clamp a too-large value to the maximum and say so; a value below the
+                // minimum (negative for an unsigned field) is nonsense and is rejected with a warning.
+                return TryClampToRange(tomlValue, out result);
+            }
             catch
             {
                 return false;
             }
+        }
+
+        private bool TryClampToRange(object tomlValue, out TValue result)
+        {
+            result = default(TValue);
+            var type = typeof(TValue);
+            var maxField = type.GetField("MaxValue");
+            var minField = type.GetField("MinValue");
+            if (maxField == null || minField == null)
+                return false;
+
+            decimal value, max, min;
+            try
+            {
+                value = Convert.ToDecimal(tomlValue);
+                max = Convert.ToDecimal(maxField.GetValue(null));
+                min = Convert.ToDecimal(minField.GetValue(null));
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (value > max)
+            {
+                result = (TValue)Convert.ChangeType(max, type);
+                Plugin.Logger.LogWarning($"[{Name}] {tomlValue} is above the game's maximum for this property; clamped to {result}.");
+                return true;
+            }
+
+            Plugin.Logger.LogWarning($"[{Name}] {tomlValue} is below the game's minimum ({min}) for this property; value ignored.");
+            return false;
         }
 
         /// <summary>

@@ -39,6 +39,9 @@ namespace CrusaderDETweaker.Tests
             Test_TryParseValue_DoubleToFloat();
             Test_TryParseValue_StringToString();
             Test_TryParseValue_InvalidType();
+            Test_TryParseValue_LongAboveUShortMaxClamps();
+            Test_TryParseValue_LongBelowUShortMinRejected();
+            Test_TryParseValue_LongInUShortRangeConverts();
 
             // Test FormatValue
             Test_FormatValue_String();
@@ -99,6 +102,32 @@ namespace CrusaderDETweaker.Tests
             bool success = handler.TryParseValue(42L, out int result);
             
             AssertTrue("TryParseValue_LongToInt", success && result == 42);
+        }
+
+        private static void Test_TryParseValue_LongAboveUShortMaxClamps()
+        {
+            // Nexus report 2026-09-08: ShieldHealth (16-bit) set to 100000 was rewritten as -1 every
+            // launch because the long -> ushort conversion overflowed. It must clamp to 65535 instead.
+            var handler = new MockUShortPropertyHandler("ShieldHealth");
+            bool success = handler.TryParseValue(100000L, out ushort result);
+
+            AssertTrue("TryParseValue_LongAboveUShortMaxClamps", success && result == ushort.MaxValue);
+        }
+
+        private static void Test_TryParseValue_LongBelowUShortMinRejected()
+        {
+            var handler = new MockUShortPropertyHandler("ShieldHealth");
+            bool success = handler.TryParseValue(-5L, out ushort result);
+
+            AssertTrue("TryParseValue_LongBelowUShortMinRejected", !success);
+        }
+
+        private static void Test_TryParseValue_LongInUShortRangeConverts()
+        {
+            var handler = new MockUShortPropertyHandler("ShieldHealth");
+            bool success = handler.TryParseValue(60000L, out ushort result);
+
+            AssertTrue("TryParseValue_LongInUShortRangeConverts", success && result == 60000);
         }
 
         private static void Test_TryParseValue_DoubleToFloat()
@@ -422,6 +451,24 @@ namespace CrusaderDETweaker.Tests
             public new bool TryParseValue(object tomlValue, out int result) => base.TryParseValue(tomlValue, out result);
             public new bool ValidateValue(int value) => base.ValidateValue(value);
             public new bool CanApplyTo(TestEntity entity) => base.CanApplyTo(entity);
+        }
+
+        /// <summary>
+        /// 16-bit property handler for testing (mirrors ShieldHealth / run-speed bonuses).
+        /// </summary>
+        private class MockUShortPropertyHandler : PropertyHandler<TestEntity, ushort>
+        {
+            public MockUShortPropertyHandler(string name) : base(name) { }
+
+            protected override bool TryGetFromAPI(TestEntity entity, out ushort value)
+            {
+                value = 40000;
+                return true;
+            }
+
+            protected override void SetToAPI(TestEntity entity, ushort value) { }
+
+            public new bool TryParseValue(object tomlValue, out ushort result) => base.TryParseValue(tomlValue, out result);
         }
 
         /// <summary>

@@ -1,6 +1,11 @@
-Version 2.6.3
+Version 2.6.4
 
 Updated for SHC DE v2.8.2 (the 24 Aug hotfix) and Script Extender 1.44.0!
+
+[b]2.6.4:[/b]
+[list]
+[*][b]Fix: a Demolisher ShieldHealth above 65535 no longer resets to -1 every launch.[/b] The game stores shield health in 16 bits (default 40000, maximum 65535). A larger value failed to convert, and the config migration silently rewrote the line as "-1 = use default" on every game start. Too-large values are now clamped to the maximum and written back as such, with a warning in the log; the same applies to every other integer stat. Values within range were never affected.
+[/list]
 
 [b]2.6.3:[/b]
 [list]
