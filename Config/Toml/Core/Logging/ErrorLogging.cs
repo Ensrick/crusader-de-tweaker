@@ -141,6 +141,20 @@ namespace CrusaderDETweaker.Config.Toml.Core
         }
 
         /// <summary>
+        /// Log a TOML syntax error in the GameplaySettings (globals) file. One bad line makes the whole
+        /// file unparseable, so NOTHING in it applies - say so in plain words, with the parser's
+        /// line,column diagnostics. The usual symptom report is "my trade prices / siege stones do
+        /// nothing" with a `#` dropped from a `# default: N` comment (Nexus, 2026-09).
+        /// </summary>
+        public static void LogGlobalsSyntaxError(string path, Exception ex)
+        {
+            Plugin.Logger.LogError(
+                $"SYNTAX ERROR in {path}: NOTHING in this file is applied (siege engines, stealth, trade prices, " +
+                "gameplay options, auto-trade...) until it is fixed. Everything after a '#' is a comment - keep the '#', " +
+                $"e.g. `BuyPrice = 52  # default: 155`. Parser output (line,column): {ex.Message}");
+        }
+
+        /// <summary>
         /// Log a config file generation exception (failed to generate default config).
         /// Uses LogError level as this is a critical failure.
         /// </summary>

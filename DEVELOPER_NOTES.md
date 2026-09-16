@@ -63,7 +63,8 @@ CSV is applied last of the file tiers, so it is the authority for per-matchup da
 native state — anything through `GameGlobalsManager`, and the `PlayerApi` setters for gameplay options,
 trade prices and auto-trade — must NOT be written during SHCDE-SE `LibraryLoaded`; that is an
 ACCESS_VIOLATION. `GlobalConfigSystem.Load()` therefore only registers hooks, and
-`ConfigLoader.ApplyAllGlobalConfigs()` runs from the `OnStartMap`/`OnLoadMap` **Post** handlers.
+`ConfigLoader.ApplyAllGlobalConfigs()` runs from the `OnStartMap` / `OnLoadMap` / `OnLoadSave` **Post** handlers
+(the last one covers loading a saved game, which SHCDE-SE raises as its own event; added in v2.6.5).
 
 API *reads* during generation are a different case: they are performed on every launch (see
 `PropertyHandler.TryGetOriginalValue` → `TryGetFromAPI`) and they work. So do the unit/structure

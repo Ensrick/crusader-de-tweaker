@@ -1,6 +1,13 @@
-Version 2.6.4
+Version 2.6.5
 
 Updated for SHC DE v2.8.2 (the 24 Aug hotfix) and Script Extender 1.44.0!
+
+[b]2.6.5:[/b]
+[list]
+[*][b]Fix: the GameplaySettings file (siege-engine stones, trade prices, stealth, gameplay options, auto-trade) now also applies when you load a saved game.[/b] It was only applied when starting a new game or map, so a session resumed from a save kept vanilla values for all of it. Reported on Nexus (weapon prices and siege-engine stones "stay vanilla").
+[*][b]A syntax error in CrusaderDETweaker_GameplaySettings.toml is now reported clearly[/b] in BepInEx\LogOutput.log ("SYNTAX ERROR in ... NOTHING in this file is applied", with the line number). Everything after a # is a comment: "BuyPrice = 52  # default: 155" is right, "BuyPrice = 52 default: 155" (no #) breaks the whole file, and every setting in it stays vanilla.
+[*]The log now shows every trade price it applied, with a read-back from the game ("STORED_BOWS: buy 155 -> 52, sell 75 -> 25 (read back 52/25)"), and the siege-engine stone values it wrote.
+[/list]
 
 [b]2.6.4:[/b]
 [list]

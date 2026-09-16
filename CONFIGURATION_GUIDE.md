@@ -25,6 +25,8 @@ Files:
 
 [b]Note:[/b] Config files are generated on first launch and migrated on updates — your values are preserved, and new properties are added automatically. Delete a file to reset it to defaults.
 
+[b]Comments:[/b] everything after a [b]#[/b] is a comment. When you change a value, keep the [b]#[/b] in front of the "default:" note: [b]BuyPrice = 52  # default: 155[/b] is correct, [b]BuyPrice = 52 default: 155[/b] is a syntax error, and one syntax error makes the game ignore the [b]whole[/b] file (every setting in it stays vanilla). The log then shows [b]SYNTAX ERROR in ...[/b] with the line number.
+
 
 [size=5][b]Load Order[/b][/size]
 [code]
@@ -163,7 +165,7 @@ CampPeasantsCap = 24                  # Max peasants waiting at the campfire. 0 
 
 [b]Trade Prices[/b]
 
-Override the market buy/sell price for individual goods. [b]0 = use the game's default price[/b] (no override). Requires a Trade Post. Re-applied on each map load.
+Override the market buy/sell price for individual goods. [b]0 = use the game's default price[/b] (no override). Requires a Trade Post. Re-applied at every session start: new game, trail / campaign map, and loading a saved game (v2.6.5+; earlier versions skipped loaded saves). Every applied price is logged with a read-back from the game, e.g. [b][Trade Prices] STORED_BOWS: buy 155 -> 52, sell 75 -> 25 (read back 52/25)[/b].
 [code]
 ["Trade Prices".STORED_WOOD_PLANKS]
 BuyPrice = 0   # default: 20  — gold paid when buying
@@ -319,7 +321,7 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [*][b]Multipliers stack[/b] — UnitMeleeDamageTakenMultiplier and StructureDamageTakenMultiplier both apply independently
 [*][b]Minimum damage is always 1[/b] — setting multipliers to 0 still results in 1 damage
 [*][b]Wall costs[/b] use multipliers in the CFG, not values in the TOML
-[*][b]Auto Trade[/b] requires a Trade Post and is re-applied on each map load
+[*][b]Auto Trade[/b] requires a Trade Post and is re-applied at every session start (including a loaded save)
 [*][b]Check BepInEx\LogOutput.log[/b] in the game directory for errors
 [/list]
 

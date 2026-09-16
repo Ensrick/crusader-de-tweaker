@@ -212,7 +212,7 @@ BepInExConfigManager.Initialize(...)  ← Multipliers, unit caps, wall costs
     ↓
 CoreTestRunner.RunAllTests()      ← runs EVERY launch as a QA self-check (see Unit Tests)
     ↓
-OnStartMap / OnLoadMap (Post) fire  ← session-state writes happen here
+OnStartMap / OnLoadMap / OnLoadSave (Post) fire  ← session-state writes happen here
 ```
 
 Systems, in order (`ConfigManager.ConfigSystems`): `GlobalConfigSystem`, `UnitConfigSystem`,
@@ -237,7 +237,9 @@ and the session-scoped `Plugin.PlayerApi` setters (`SetNoKnockdownWalls`, `SetAu
 options, trade prices, disease tiers) write native memory that no session owns yet, causing a native
 `ACCESS_VIOLATION`. The crash appears inside SHCDE-SE's own init in the log — misleading; the cause is
 our write. These are why `GlobalConfigSystem.Load()` only calls `ConfigLoader.RegisterSessionHooks()`
-and defers `ApplyAllGlobalConfigs()` to the `OnStartMap`/`OnLoadMap` **Post** hooks.
+and defers `ApplyAllGlobalConfigs()` to the `OnStartMap`/`OnLoadMap`/`OnLoadSave` **Post** hooks. `OnLoadSave`
+(SE's `DLL_LoadSaveGame` detour) is a separate session-start path from `OnStartMap`; dropping it means a session
+resumed from a save gets none of the GameplaySettings file (v2.6.5 fix).
 
 Known crash from violating this:
 - `ApplyAllGlobalConfigs` calling `GameGlobalsManager.SetValue()` at load time

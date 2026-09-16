@@ -27,7 +27,10 @@ namespace CrusaderDETweaker.Config.Toml
     /// 2. Matching entity names to game enums (eChimps, eStructs)
     /// 3. Applying property values using registered property handlers
     /// 4. Handling errors gracefully (invalid entities, missing properties, etc.)
-    /// 
+    /// 5. Registering the session hooks that (re-)apply the GameplaySettings file: OnStartMap,
+    ///    OnLoadMap and OnLoadSave (all Post) plus the local player's market spawn. A save-game
+    ///    load is its own SE event and MUST stay subscribed (v2.6.5 fix).
+    ///
     /// Units and structures are each applied by a dedicated entry point (ApplyAllUnitConfigs /
     /// ApplyAllStructureConfigs) that shares the EntityProcessor pipeline. Property handlers are
     /// obtained from the appropriate registry (UnitPropertyRegistry or StructurePropertyRegistry).
@@ -105,6 +108,19 @@ namespace CrusaderDETweaker.Config.Toml
                     ApplyAllGlobalConfigs();
                 });
 
+            // Loading a SAVED game goes through DLL_LoadSaveGame, which SHCDE-SE raises as its own
+            // OnLoadSave event (its LuaManager runs a separate "LoadSave" init there, distinct from the
+            // "NewGame" init it runs on OnStartMap). Without this subscription a session resumed from a
+            // save never got trade prices, siege-engine globals, gameplay options or auto-trade applied
+            // (Nexus report 2026-09: "weapon prices / siege stones stay vanilla"). Editor loads skipped.
+            MapLoaderR3EventHooks.OnLoadSave.Observable
+                .Where(args => args.Phase == EventHookPhase.Post && !args.LoadingEditorMap)
+                .Subscribe(args =>
+                {
+                    Plugin.Logger.LogInfo($"[GlobalConfig] OnLoadSave (Post) fired for '{args.FileName}' — applying session-specific global settings...");
+                    ApplyAllGlobalConfigs();
+                });
+
             // SetAutoTrade requires the marketplace to be active. Subscribe to building spawns so
             // auto-trade is applied the moment the local player's market is built (or re-spawned
             // from a save). Skips AI players via PlayerId check.
@@ -136,7 +152,7 @@ namespace CrusaderDETweaker.Config.Toml
             UnitCapHandler.Subscribe(_unitCaps);
             BuildingCapHandler.Subscribe(_buildingCaps);
 
-            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnStartMap + OnLoadMap + OnBuildingSpawn + OnUnitCreate + OnUnitTransition hooks.");
+            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnStartMap + OnLoadMap + OnLoadSave + OnBuildingSpawn + OnUnitCreate + OnUnitTransition hooks.");
         }
 
         /// <summary>
@@ -148,11 +164,21 @@ namespace CrusaderDETweaker.Config.Toml
 
             bool dbg = BepInExConfigManager.DebugLogging?.Value ?? false;
 
+            TomlTable tomlModel;
             try
             {
                 var tomlString = ConfigFileHelper.ReadConfigFile(ConfigPaths.Globals);
-                var tomlModel = Tomlyn.Toml.ToModel(tomlString);
+                tomlModel = Tomlyn.Toml.ToModel(tomlString);
+            }
+            catch (Exception ex)
+            {
+                // One syntax error takes the WHOLE file out: nothing below can run. Say so plainly.
+                Core.ErrorLogging.LogGlobalsSyntaxError(ConfigPaths.Globals, ex);
+                return;
+            }
 
+            try
+            {
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadGameGlobals...");
                 LoadGameGlobals(tomlModel, dbg);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadPeasantSpawning...");
@@ -176,6 +202,7 @@ namespace CrusaderDETweaker.Config.Toml
             // Per-write trace: with [Logging.Disk] InstantFlushing the last logged name identifies
             // the exact global write a session-start freeze/crash dies in (2.8.0.1 triage).
             void Trace(string name) { if (dbg) Plugin.Logger.LogInfo($"[GlobalConfig]   -> {name}"); }
+            string Fmt(object v) => v is long l ? l.ToString() : "-";
 
             if (tomlModel.TryGetValue("Siege Engines", out var siegeObj) && siegeObj is TomlTable siegeTable)
             {
@@ -196,6 +223,13 @@ namespace CrusaderDETweaker.Config.Toml
                     Trace("CatapultInitialStoneAmount");
                     Plugin.GlobalsApi?.CatapultInitialStoneAmount?.SetValue((byte)ClampInteger("Siege Engines", "SiegeEngineInitialStoneAmount", cis, byte.MinValue, byte.MaxValue));
                 }
+
+                // One line of evidence per session start: the stone values that were written. This is
+                // NOT a read-back (ManagedAssemblyImmediate.GetValue returns its own cache after SetValue).
+                siegeTable.TryGetValue("SiegeEngineRestockStoneAmount", out var craLogged);
+                siegeTable.TryGetValue("SiegeEngineRestockStoneCost", out var crcLogged);
+                siegeTable.TryGetValue("SiegeEngineInitialStoneAmount", out var cisLogged);
+                Plugin.Logger.LogInfo($"[Siege Engines] Applied: RestockStoneAmount={Fmt(craLogged)}, RestockStoneCost={Fmt(crcLogged)}, InitialStoneAmount={Fmt(cisLogged)} (game defaults 20 / 10 / 20)");
             }
 
             if (tomlModel.TryGetValue("Stealth", out var stealthObj) && stealthObj is TomlTable stealthTable)
@@ -505,8 +539,21 @@ namespace CrusaderDETweaker.Config.Toml
 
                 if (changed)
                 {
+                    var before = currentPriceOpt.Value;
                     Plugin.PlayerApi?.SetTradeBasePrice(good, currentPrice);
                     applied++;
+
+                    // Genuine read-back: GetTradeBasePrice dereferences the game's price table, so a
+                    // mismatch here means the write did not land. Log evidence for bug reports.
+                    var after = Plugin.PlayerApi?.GetTradeBasePrice(good);
+                    string readBack = after.HasValue ? $"{after.Value.BuyPrice}/{after.Value.SellPrice}" : "n/a";
+                    bool landed = after.HasValue
+                        && after.Value.BuyPrice == currentPrice.BuyPrice
+                        && after.Value.SellPrice == currentPrice.SellPrice;
+                    if (landed)
+                        Plugin.Logger.LogInfo($"[Trade Prices] {kvp.Key}: buy {before.BuyPrice} -> {currentPrice.BuyPrice}, sell {before.SellPrice} -> {currentPrice.SellPrice} (read back {readBack})");
+                    else
+                        Plugin.Logger.LogWarning($"[Trade Prices] {kvp.Key}: wrote buy {currentPrice.BuyPrice} / sell {currentPrice.SellPrice} but read back {readBack} - the write did not take effect");
                 }
             }
 

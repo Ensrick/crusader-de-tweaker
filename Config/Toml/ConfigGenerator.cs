@@ -171,7 +171,9 @@ namespace CrusaderDETweaker.Config.Toml
                 }
                 catch (Exception ex)
                 {
-                    Plugin.Logger.LogWarning($"Could not parse existing global config for migration, leaving unchanged: {ex.Message}");
+                    // Leave the user's file untouched (never overwrite their edits), but shout: the same
+                    // parse failure also skips the whole file at every session start.
+                    Core.ErrorLogging.LogGlobalsSyntaxError(ConfigPaths.Globals, ex);
                     return;
                 }
             }
@@ -221,6 +223,11 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine("# ========================================");
                 sb.AppendLine("# Crusader DE Tweaker - Globals Configuration");
                 sb.AppendLine("# ========================================");
+                sb.AppendLine("# Everything after a '#' is a comment - keep the '#' when you change a value:");
+                sb.AppendLine("#   BuyPrice = 52  # default: 155     (correct)");
+                sb.AppendLine("#   BuyPrice = 52 default: 155        (syntax error: the WHOLE file is ignored)");
+                sb.AppendLine("# A syntax error is reported in BepInEx\\LogOutput.log as 'SYNTAX ERROR in ...' with the line number.");
+                sb.AppendLine("# Applied at every session start: new game, trail / campaign map, and loading a saved game.");
                 sb.AppendLine();
 
                 sb.AppendLine("[\"Siege Engines\"]");
@@ -317,7 +324,8 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine("# ========================================");
                 sb.AppendLine("# BuyPrice:  gold paid per unit when buying at the market. 0 = use game default (no override).");
                 sb.AppendLine("# SellPrice: gold received per unit when selling at the market. 0 = use game default (no override).");
-                sb.AppendLine("# Requires a Trade Post. Re-applied on each map load.");
+                sb.AppendLine("# Requires a Trade Post. Re-applied at every session start (new game, trail / campaign map, loaded save).");
+                sb.AppendLine("# Keep the '# default: N' comment intact when you edit a value - the '#' matters.");
                 sb.AppendLine();
 
                 // Hardcoded defaults captured from live game session via LogTradePriceDefaults().
