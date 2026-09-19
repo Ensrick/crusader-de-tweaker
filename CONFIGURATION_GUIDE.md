@@ -329,10 +329,10 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [size=5][b]Reporting a Problem[/b][/size]
 Bug reports go through the issue tracker, not the comments: a comment cannot hold a log file, and without the log almost nothing can be investigated. Either site works, use the one you already have an account on:
 [list]
-[*][url=https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new]Open an issue on GitLab[/url] (main repository)
-[*][url=https://github.com/Ensrick/crusader-de-tweaker/issues/new/choose]Open an issue on GitHub[/url] (mirror)
+[*][url=https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new?issuable_template=Bug%20report]Report a bug on GitLab[/url] (main repository) - [url=https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new?issuable_template=Feature%20request]feature request[/url]
+[*][url=https://github.com/Ensrick/crusader-de-tweaker/issues/new/choose]Report a bug on GitHub[/url] (mirror) - pick "Bug report" or "Feature request"
 [/list]
-The "Bug report" form asks for everything step by step. Have these ready before you start:
+Both links open a pre-filled form that asks for everything step by step. Have these ready before you start:
 [list=1]
 [*][b]The log.[/b] Launch the game, do the thing that fails once (for example: start a new skirmish, build a catapult, press restock, open the market), then quit and copy [b]BepInEx\LogOutput.log[/b] from the game folder. It is overwritten on every launch, so copy it right after that session. Attach it to the issue by dragging it into a text box.
 [*][b]The config file you edited[/b], the whole file (for example CrusaderDETweaker_GameplaySettings.toml).
@@ -340,7 +340,7 @@ The "Bug report" form asks for everything step by step. Have these ready before 
 [*][b]Game mode:[/b] new skirmish, loaded save, trail / campaign mission, or multiplayer. The mod applies settings at different moments in each.
 [*][b]What you changed, what you expected, what happened[/b], with the exact keys and values.
 [/list]
-Since v2.6.5 the log records every value the mod writes and, for trade prices, reads back from the game, so one log from one session usually shows exactly where a setting stops working. Feature requests use the "Feature request" form on the same pages.
+Since v2.6.5 the log records every value the mod writes and, for trade prices, reads back from the game, so one log from one session usually shows exactly where a setting stops working.
 
 
 [size=5][b]Source Code[/b][/size]

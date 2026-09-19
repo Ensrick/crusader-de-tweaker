@@ -116,8 +116,8 @@ See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for detailed documentation.
 
 Use the issue form on either site (the form walks you through what is needed):
 
-- [GitLab issues](https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new) (main repository)
-- [GitHub issues](https://github.com/Ensrick/crusader-de-tweaker/issues/new/choose) (mirror)
+- [Bug report on GitLab](https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new?issuable_template=Bug%20report) (main repository) / [feature request](https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new?issuable_template=Feature%20request)
+- [Bug report on GitHub](https://github.com/Ensrick/crusader-de-tweaker/issues/new/choose) (mirror)
 
 Every report needs `BepInEx\LogOutput.log` from a session that shows the problem (copy it right after that session, it is overwritten on every launch), the config file you edited, and the mod / Script Extender / game versions. The "Reporting a Problem" section of [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) has the full checklist.
 
