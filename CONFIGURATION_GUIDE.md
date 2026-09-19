@@ -326,6 +326,23 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [/list]
 
 
+[size=5][b]Reporting a Problem[/b][/size]
+Bug reports go through the issue tracker, not the comments: a comment cannot hold a log file, and without the log almost nothing can be investigated. Either site works, use the one you already have an account on:
+[list]
+[*][url=https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new]Open an issue on GitLab[/url] (main repository)
+[*][url=https://github.com/Ensrick/crusader-de-tweaker/issues/new/choose]Open an issue on GitHub[/url] (mirror)
+[/list]
+The "Bug report" form asks for everything step by step. Have these ready before you start:
+[list=1]
+[*][b]The log.[/b] Launch the game, do the thing that fails once (for example: start a new skirmish, build a catapult, press restock, open the market), then quit and copy [b]BepInEx\LogOutput.log[/b] from the game folder. It is overwritten on every launch, so copy it right after that session. Attach it to the issue by dragging it into a text box.
+[*][b]The config file you edited[/b], the whole file (for example CrusaderDETweaker_GameplaySettings.toml).
+[*][b]Versions:[/b] mod version (log line "Loading [Crusader DE Tweaker x.y.z]"), Script Extender version (BepInEx\plugins\000shcdese\info.json), game version (bottom of the main menu).
+[*][b]Game mode:[/b] new skirmish, loaded save, trail / campaign mission, or multiplayer. The mod applies settings at different moments in each.
+[*][b]What you changed, what you expected, what happened[/b], with the exact keys and values.
+[/list]
+Since v2.6.5 the log records every value the mod writes and, for trade prices, reads back from the game, so one log from one session usually shows exactly where a setting stops working. Feature requests use the "Feature request" form on the same pages.
+
+
 [size=5][b]Source Code[/b][/size]
-This mod is open source. Browse the code, report a bug, or contribute:
-[url=https://gitlab.com/ensrick7/crusader-de-tweaker]gitlab.com/ensrick7/crusader-de-tweaker[/url]
+This mod is open source. Browse the code or contribute:
+[url=https://gitlab.com/ensrick7/crusader-de-tweaker]gitlab.com/ensrick7/crusader-de-tweaker[/url] (mirror: [url=https://github.com/Ensrick/crusader-de-tweaker]github.com/Ensrick/crusader-de-tweaker[/url])

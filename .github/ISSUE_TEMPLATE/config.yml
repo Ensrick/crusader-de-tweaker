@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Configuration guide
+    url: https://github.com/Ensrick/crusader-de-tweaker/blob/main/CONFIGURATION_GUIDE.md
+    about: Every config file and setting, with the game defaults. Check it before reporting.
+  - name: Same tracker on GitLab
+    url: https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues
+    about: The mod's main repository. Either site is fine, use the one you already have an account on.

@@ -112,10 +112,19 @@ value wins for the matchups it covers. The real-time multipliers scale whatever 
 
 See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for detailed documentation.
 
+## Reporting a Bug
+
+Use the issue form on either site (the form walks you through what is needed):
+
+- [GitLab issues](https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new) (main repository)
+- [GitHub issues](https://github.com/Ensrick/crusader-de-tweaker/issues/new/choose) (mirror)
+
+Every report needs `BepInEx\LogOutput.log` from a session that shows the problem (copy it right after that session, it is overwritten on every launch), the config file you edited, and the mod / Script Extender / game versions. The "Reporting a Problem" section of [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) has the full checklist.
+
 ## Contributing
 
 Contributions are welcome!  
-- Report issues via GitLab Issues.  
+- Bug reports and feature requests go through the issue forms above.  
 - For code contributions, submit a Merge Request with clear descriptions of your changes.  
 - Include your GitLab username when contributing for proper credit.
 

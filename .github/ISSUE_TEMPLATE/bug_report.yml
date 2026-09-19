@@ -1,0 +1,105 @@
+name: Bug report
+description: Something in the mod does not work as documented. The form walks you through what is needed.
+title: "[Bug] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A report **with the log file attached** can usually be answered within a day.
+        A report without one usually cannot be investigated at all, so please follow the steps.
+
+        **Before you fill this in:** reproduce the problem once, then quit the game and copy
+        `BepInEx\LogOutput.log` out of the game folder. The log is overwritten on every launch.
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod version
+      description: From `BepInEx\plugins\CrusaderDETweaker\info.json`, or the log line `Loading [Crusader DE Tweaker x.y.z]`.
+      placeholder: "2.6.5"
+    validations:
+      required: true
+  - type: input
+    id: se-version
+    attributes:
+      label: Script Extender version
+      description: From `BepInEx\plugins\000shcdese\info.json`, or the log line `Loading [SHCDE-SE x.y.z]`.
+      placeholder: "1.44.0"
+    validations:
+      required: true
+  - type: input
+    id: game-version
+    attributes:
+      label: Game version
+      description: Shown at the bottom of the main menu.
+      placeholder: "V2.8.2"
+    validations:
+      required: true
+  - type: dropdown
+    id: game-mode
+    attributes:
+      label: Game mode where it happens
+      description: The mod applies settings at different moments in each mode, so this matters.
+      options:
+        - New skirmish game
+        - Loaded save game
+        - Trail / campaign mission
+        - Multiplayer
+        - Map editor
+    validations:
+      required: true
+  - type: textarea
+    id: config-change
+    attributes:
+      label: What you changed
+      description: File name plus the exact lines you edited, copied from the file.
+      placeholder: |
+        CrusaderDETweaker_GameplaySettings.toml
+        ["Trade Prices".STORED_BOWS]
+        BuyPrice = 52  # default: 155
+      render: toml
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you did in the game, in order, after launching it.
+      placeholder: |
+        1. Started a new skirmish (Custom Skirmish, any map).
+        2. Built a Trade Post and opened the market.
+        3. Looked at the buy price of Bows.
+    validations:
+      required: true
+  - type: textarea
+    id: expected-actual
+    attributes:
+      label: What you expected, and what happened instead
+      placeholder: |
+        Expected: Bows cost 52 gold.
+        Actual: Bows still cost 155 gold.
+    validations:
+      required: true
+  - type: checkboxes
+    id: attachments
+    attributes:
+      label: Attachments
+      description: Drag the files into any text box above or below. Both are required.
+      options:
+        - label: I attached `BepInEx\LogOutput.log` from a session that shows the problem.
+          required: true
+        - label: I attached the config file I edited (the whole file, not a snippet).
+          required: true
+  - type: textarea
+    id: other-mods
+    attributes:
+      label: Other mods installed
+      description: List the folders in `BepInEx\plugins`.
+      placeholder: |
+        000shcdese
+        CrusaderDETweaker
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, saves, or a note if this used to work in an earlier version.

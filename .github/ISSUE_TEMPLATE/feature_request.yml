@@ -1,0 +1,27 @@
+name: Feature request
+description: A setting or behaviour you would like the mod to have.
+title: "[Feature] "
+labels: ["feature", "triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you want to be able to configure or change
+      description: Describe it in game terms (unit, building, price, rule), not in code terms.
+      placeholder: "Let me set how many stones a trebuchet starts with, separately from a catapult."
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: What you are trying to achieve in your games with it.
+    validations:
+      required: true
+  - type: input
+    id: mod-version
+    attributes:
+      label: Mod version you are on
+      placeholder: "2.6.5"
+    validations:
+      required: true
