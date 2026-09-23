@@ -6,7 +6,8 @@
 // - ValidateConfigFilePath(): Validates file paths before use (prevents security issues)
 // - ConfigFileExists(): Checks if config file exists (with path validation)
 // - ReadConfigFile(): Reads config file content (with validation and error handling)
-// - WriteConfigFile(): Writes config file content (creates directory if needed)
+// - WriteConfigFile(): Writes config file content atomically via Config/Core/AtomicFileWriter
+//   (creates directory if needed, skips the write when content is unchanged)
 //
 // IMPORTANT FOR AI AGENTS:
 // - All config file operations should go through this class for consistency
@@ -129,14 +130,9 @@ namespace CrusaderDETweaker.Config.Toml.Core
                 throw new ArgumentException(errorMessage, nameof(filePath));
             }
 
-            // Ensure directory exists
-            var directory = Path.GetDirectoryName(filePath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-            }
-
-            File.WriteAllText(filePath, content);
+            // Atomic (tmp + replace, previous content kept as .bak) and skipped when unchanged:
+            // this runs on every launch against the user's own edited files.
+            CrusaderDETweaker.Config.Core.AtomicFileWriter.WriteIfChanged(filePath, content);
         }
     }
 }

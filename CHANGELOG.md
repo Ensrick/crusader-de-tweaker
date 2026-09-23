@@ -10,6 +10,13 @@ Unreleased (2.7.0) - Multiplayer config sync (in development, NOT shipped):
        - `info.json` `SupportedGameVersions` now lists 2.8.0.2 (the build SE 2.8.0 targets) and 2.8.2.
        - Build: new `ShcdeseDir` MSBuild property (defaults to the installed SE) so the plugin can be compiled against an extracted SE release before installing it.
        - No gameplay or config-format change; existing config files are untouched.
+       - Maintenance (no gameplay change):
+         - **Config files are written atomically and only when their content changed.** Every launch regenerates / migrates the TOML and CSV files in place; that used a plain overwrite, so a crash or kill mid-write could leave an empty or half-written config. Writes now go to `<file>.tmp` and are swapped in with the previous content kept as `<file>.bak` (`Config/Core/AtomicFileWriter.cs`, shared by `ConfigFileHelper.WriteConfigFile` and `CsvHelper.WriteMatrix`); an unchanged file is not touched at all.
+         - **A TOML syntax error in the Units or Structures file is now a plain-English ERROR** (`SYNTAX ERROR in ...: NOTHING in this file is applied`, with the parser's line,column), at launch (migration) and at apply time, the same as the GameplaySettings file since 2.6.5. It used to be a warning at launch plus a raw exception dump. The file is still left untouched.
+         - Recruit gate (`MakeTroopRecruitHook`): the reservation lists are now updated under a lock, so the count-check-reserve step is atomic even if the game ever calls the recruit command from two threads.
+         - Error-message text fix (a garbled character in the "Failed to get Unit or Building API" error).
+         - Build / release tooling: the build now outputs to `bin\<Configuration>\` instead of the game folder; `scripts/deploy.ps1` installs it (refuses while the game runs, backs up replaced files, never touches `BepInEx\config`). `package_release.ps1` builds from a clean tree and verifies the payload and versions instead of zipping the live game folder. New `scripts/ship.ps1` runs the whole ship (preflight, build, package, tag, GitHub + GitLab releases, Steam Workshop, Nexus, deploy) as named, verified, re-runnable stages, dry run by default. `reset_configs.ps1` backs up first and asks for confirmation. The build no longer rewrites the tracked `info.json`. The mod-menu icon and Workshop preview/description now live in the repo (`Override/`, `workshop/`).
+         - Docs: 4 on-load test suites (not 3), `CLAUDE.md` links, config-path comments (the game's `BepInEx\config`, not `%APPDATA%`).
 
 2.6.5 - Gameplay settings now apply when loading a save; syntax errors are called out (2026-09-16):
 

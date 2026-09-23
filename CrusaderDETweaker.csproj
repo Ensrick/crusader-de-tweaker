@@ -19,35 +19,29 @@
     <ShcdeseDir Condition=" '$(ShcdeseDir)' == '' ">$(GameDir)\BepInEx\plugins\000shcdese</ShcdeseDir>
   </PropertyGroup>
   <!-- ============================================================================================
-       CRITICAL BUILD PATH CONFIGURATION
+       BUILD OUTPUT vs DEPLOY
        ============================================================================================
-       
-       BepInEx loads plugins from folders matching their plugin GUID. The plugin GUID is defined
-       in Plugin.cs as [BepInPlugin("CrusaderDETweaker", ...)].
-       
-       REQUIREMENTS:
-       - Plugin GUID: "CrusaderDETweaker" (defined in Plugin.cs)
-       - Plugin folder: BepInEx/plugins/CrusaderDETweaker/
-       - DLL location: BepInEx/plugins/CrusaderDETweaker/CrusaderDETweaker.dll
-       - Config file: BepInEx/config/CrusaderDETweaker.cfg
-       
-       BOTH Debug AND Release builds MUST output to the SAME folder:
-       GamePath\BepInEx\plugins\CrusaderDETweaker\
-       
-       DO NOT:
-       - Use different folders for Debug vs Release
-       - Change the GUID without updating ALL build paths
-       - Use "ensrick.crusaderdetweaker" (this was an old incorrect GUID)
-       
-       If you see a DLL in plugins/ensrick.crusaderdetweaker/, it's from an old build and should
-       be deleted. Only plugins/CrusaderDETweaker/ is the correct location.
+
+       The build writes to the repo only: bin\$(Configuration)\ (both Debug and Release). It never
+       writes into the game folder. Installing is a separate, explicit step:
+
+         .\scripts\deploy.ps1            copies bin\Release\ into <GameDir>\BepInEx\plugins\CrusaderDETweaker\
+         .\scripts\build.ps1 -Deploy     build, then deploy.ps1
+
+       deploy.ps1 refuses while the game is running, backs up the replaced plugin files, and never
+       touches BepInEx\config. Override the output folder with /p:OutputPath=... (the ship pipeline
+       builds into dist\).
+
+       Identity (unchanged):
+       - Plugin GUID: "CrusaderDETweaker" (PluginInfo.cs); BepInEx folder: BepInEx/plugins/CrusaderDETweaker/
+       - User configs: BepInEx/config/CrusaderDETweaker/ (GlobalMultipliers .cfg, TOML files, DamageMatrices\*.csv)
+       - Do not use "ensrick.crusaderdetweaker" (an old, incorrect GUID).
        ============================================================================================ -->
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <!-- Debug OutputPath: MUST match plugin GUID "CrusaderDETweaker" -->
-    <OutputPath>$(GameDir)\BepInEx\plugins\CrusaderDETweaker\</OutputPath>
+    <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -56,9 +50,7 @@
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <!-- Release OutputPath: MUST match plugin GUID "CrusaderDETweaker" (same as Debug) -->
-    <!-- CRITICAL: Both Debug and Release use the SAME folder. This is intentional. -->
-    <OutputPath>$(GameDir)\BepInEx\plugins\CrusaderDETweaker\</OutputPath>
+    <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -123,6 +115,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Config\Core\AtomicFileWriter.cs" />
     <Compile Include="Config\Core\IConfigSystem.cs" />
     <Compile Include="Config\Core\StableTracking.cs" />
     <Compile Include="Config\Core\UnitTransitionDispatcher.cs" />
@@ -220,13 +213,24 @@
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
+  <!-- Plugin-folder payload besides the DLLs. The output folder is a complete
+       BepInEx\plugins\CrusaderDETweaker\ tree (scripts/deploy.ps1 and the packager copy it as is).
+       info.json is stamped with PluginInfo.PLUGIN_VERSION in the OUTPUT copy by scripts/build.ps1. -->
+  <ItemGroup>
+    <None Include="info.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Override\Assets\GUI\Sprites\CrusaderDETweaker.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
   <!-- Post-build cleanup: Remove unnecessary System.* DLLs that are already in .NET Framework runtime -->
   <Target Name="CleanupUnnecessaryDlls" AfterTargets="Build">
     <ItemGroup>
-      <FilesToDelete Include="$(OutputPath)System.Buffers.dll" />
-      <FilesToDelete Include="$(OutputPath)System.Memory.dll" />
-      <FilesToDelete Include="$(OutputPath)System.Numerics.Vectors.dll" />
-      <FilesToDelete Include="$(OutputPath)System.Runtime.CompilerServices.Unsafe.dll" />
+      <FilesToDelete Include="$(OutDir)System.Buffers.dll" />
+      <FilesToDelete Include="$(OutDir)System.Memory.dll" />
+      <FilesToDelete Include="$(OutDir)System.Numerics.Vectors.dll" />
+      <FilesToDelete Include="$(OutDir)System.Runtime.CompilerServices.Unsafe.dll" />
     </ItemGroup>
     <Delete Files="@(FilesToDelete)" ContinueOnError="true" />
     <Message Text="Cleaned up unnecessary System.* DLLs (these are part of .NET Framework runtime)" Importance="normal" />

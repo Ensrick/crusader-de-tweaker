@@ -1,32 +1,37 @@
 # scripts/build.ps1
 #
-# PURPOSE: Build the CrusaderDETweaker BepInEx plugin using MSBuild.
+# PURPOSE: Build the CrusaderDETweaker BepInEx plugin using MSBuild. Building never writes into the
+#          game folder; -Deploy hands the result to deploy.ps1 afterwards.
 #
 # USAGE:
-#   .\scripts\build.ps1                    # Standard release build
-#   .\scripts\build.ps1 -Configuration Debug
-#   .\scripts\build.ps1 -GamePath "D:\Games\SHCDE"
+#   .\scripts\build.ps1                          # Release build -> bin\Release\
+#   .\scripts\build.ps1 -Configuration Debug     # -> bin\Debug\
+#   .\scripts\build.ps1 -Deploy                  # build, then .\scripts\deploy.ps1
+#   .\scripts\build.ps1 -OutputPath dist\x -Rebuild -ShcdeseDir <extracted SE>\BepInEx\plugins\000shcdese
 #
 # PARAMETERS:
 #   -Configuration  Build configuration (Release/Debug). Default: Release
-#   -Deploy         [Unused - kept for compatibility]
-#   -GamePath       Override Steam game install path
+#   -Deploy         After a successful build, run deploy.ps1 (copies the output into the game's
+#                   BepInEx\plugins\CrusaderDETweaker\; refuses while the game runs; never touches config)
+#   -GamePath       Game install used for the reference assemblies (read-only) and by -Deploy
+#   -ShcdeseDir     Compile against this SHCDE-SE folder instead of the installed one
+#   -OutputPath     Output folder (default bin\<Configuration>\). Relative paths are repo-relative.
+#   -Rebuild        Full rebuild instead of an incremental build (used for release packaging)
 #
 # OUTPUT:
-#   DLL built directly to: {GamePath}\BepInEx\plugins\CrusaderDETweaker\CrusaderDETweaker.dll
-#   This matches VS 2022 behavior - no separate copy step needed.
+#   <OutputPath>\ = a complete plugin folder: CrusaderDETweaker.dll, Tomlyn.dll, info.json,
+#   Override\Assets\GUI\Sprites\CrusaderDETweaker.png (+ .pdb / Tomlyn.xml dev artifacts).
+#   info.json in the OUTPUT is stamped with PluginInfo.PLUGIN_VERSION; the tracked info.json is never
+#   rewritten (a mismatch is reported here and fails package_release.ps1 / ship.ps1 preflight).
 #
 # EXIT CODES:
-#   0 = Build succeeded
-#   1 = Build failed (check MSBuild output for errors)
+#   0 = Build (and deploy, if requested) succeeded
+#   1 = Build or deploy failed
 #
 # IMPORTANT FOR AI AGENTS:
 # - This is the PRIMARY build script - use for all builds
-# - Output goes directly to game folder (defined in .csproj OutputPath)
-# - Cleans up old DLLs from deprecated folder locations
-# - Requires Visual Studio 2022 MSBuild (checks Community/Pro/Enterprise paths)
-# - Falls back to 'dotnet build' if MSBuild not found
-# - After successful build, run launch_game.ps1 to test
+# - Requires Visual Studio 2022 MSBuild (Community/Pro/Enterprise); falls back to 'dotnet build'
+# - After a build, deploy with deploy.ps1 (or -Deploy) and test with launch_game.ps1
 #
 # DEPENDENCIES:
 # - Visual Studio 2022 with .NET Framework 4.8.1 targeting pack
@@ -37,158 +42,92 @@
 param(
     [string]$Configuration = "Release",
     [switch]$Deploy = $false,
-    [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+    [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
+    [string]$ShcdeseDir = "",
+    [string]$OutputPath = "",
+    [switch]$Rebuild = $false
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot '_release_common.ps1')
 
 # Build THIS checkout, whatever the caller's current directory is. MSBuild is invoked with a
 # relative "CrusaderDETweaker.csproj", so without this a second checkout (e.g. a git worktree)
-# silently built and deployed the other tree (2026-09-07).
-Set-Location (Split-Path $PSScriptRoot -Parent)
+# silently built the other tree (2026-09-07). Push/Pop so a calling script keeps its location.
+Push-Location $script:RepoRoot
+try {
+    if (-not $OutputPath) { $OutputPath = "bin\$Configuration" }
+    if (-not [IO.Path]::IsPathRooted($OutputPath)) { $OutputPath = Join-Path $script:RepoRoot $OutputPath }
+    # No trailing backslash: it would escape the closing quote PowerShell adds around a path with
+    # spaces. MSBuild appends the slash itself (EnsureTrailingSlash).
+    $OutputPath = $OutputPath.TrimEnd('\')
 
-Write-Host "=== Building CrusaderDETweaker ===" -ForegroundColor Cyan
-Write-Host "  Project: $(Get-Location)" -ForegroundColor Gray
-Write-Host ""
-
-# Find MSBuild (VS 2022 uses MSBuild, not dotnet build for .NET Framework projects)
-$msbuildPath = $null
-$vsPaths = @(
-    "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe",
-    "C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe",
-    "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
-)
-
-foreach ($path in $vsPaths) {
-    if (Test-Path $path) {
-        $msbuildPath = $path
-        break
-    }
-}
-
-if ($null -eq $msbuildPath) {
-    Write-Host "MSBuild not found. Trying dotnet build..." -ForegroundColor Yellow
-    dotnet build CrusaderDETweaker.csproj --configuration $Configuration -p:GameDir="$GamePath"
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Build failed! Please use Visual Studio 2022 or install MSBuild." -ForegroundColor Red
-        exit 1
-    }
-} else {
-    Write-Host "Using MSBuild: $msbuildPath" -ForegroundColor Gray
-    Write-Host "Configuration: $Configuration" -ForegroundColor Gray
+    Write-Host "=== Building CrusaderDETweaker ===" -ForegroundColor Cyan
+    Write-Host "  Project: $script:RepoRoot" -ForegroundColor Gray
+    Write-Host "  Output : $OutputPath" -ForegroundColor Gray
+    if ($ShcdeseDir) { Write-Host "  SHCDE-SE: $ShcdeseDir" -ForegroundColor Gray }
     Write-Host ""
-    
-    # Restore packages
-    Write-Host "Restoring NuGet packages..." -ForegroundColor Yellow
-    & $msbuildPath /t:Restore /p:Configuration=$Configuration "/p:GameDir=$GamePath" CrusaderDETweaker.csproj | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Package restore failed!" -ForegroundColor Red
-        exit 1
-    }
-    
-    # Build
-    Write-Host "Building project..." -ForegroundColor Yellow
-    & $msbuildPath /t:Build /p:Configuration=$Configuration "/p:GameDir=$GamePath" CrusaderDETweaker.csproj
-    
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "Build failed!" -ForegroundColor Red
-        exit 1
-    }
-}
 
-# ============================================================================================
-# CRITICAL: Plugin GUID and Build Path Configuration
-# ============================================================================================
-# 
-# Plugin GUID: "CrusaderDETweaker" (defined in Plugin.cs)
-# Plugin folder: BepInEx/plugins/CrusaderDETweaker/
-# DLL location: BepInEx/plugins/CrusaderDETweaker/CrusaderDETweaker.dll
-# 
-# BOTH Debug AND Release builds output to the SAME folder (this is intentional).
-# BepInEx loads plugins from folders matching their GUID, so the folder name MUST match
-# the plugin GUID exactly.
-# 
-# DO NOT:
-# - Use different folders for Debug vs Release
-# - Change the GUID without updating ALL build paths
-# - Use "ensrick.crusaderdetweaker" (this was an old incorrect GUID)
-# ============================================================================================
+    $props = @("/p:Configuration=$Configuration", "/p:GameDir=$GamePath", "/p:OutputPath=$OutputPath")
+    if ($ShcdeseDir) { $props += "/p:ShcdeseDir=$ShcdeseDir" }
+    $target = if ($Rebuild) { 'Rebuild' } else { 'Build' }
 
-# Remove old DLL from wrong location (ensrick.crusaderdetweaker folder) to avoid conflicts
-$oldDllPath = Join-Path $GamePath "BepInEx\plugins\ensrick.crusaderdetweaker\CrusaderDETweaker.dll"
-if (Test-Path $oldDllPath) {
-    Write-Host ""
-    Write-Host "Removing old DLL from incorrect location..." -ForegroundColor Yellow
-    Write-Host "  Old location: $oldDllPath" -ForegroundColor Gray
-    Write-Host "  Reason: Plugin GUID changed from 'ensrick.crusaderdetweaker' to 'CrusaderDETweaker'" -ForegroundColor Gray
-    Remove-Item $oldDllPath -Force -ErrorAction SilentlyContinue
-    Write-Host "  Old DLL removed (was from old GUID structure)" -ForegroundColor Green
-}
-
-# DLL is built directly to game folder (matching VS 2022 behavior)
-# Both Debug and Release builds output to the same location: plugins\CrusaderDETweaker\
-# This MUST match the plugin GUID "CrusaderDETweaker" defined in Plugin.cs
-$dllPath = Join-Path $GamePath "BepInEx\plugins\CrusaderDETweaker\CrusaderDETweaker.dll"
-
-if (Test-Path $dllPath) {
-    $dllSize = (Get-Item $dllPath).Length
-    Write-Host ""
-    Write-Host "Build successful!" -ForegroundColor Green
-    Write-Host "  DLL: $dllPath ($dllSize bytes)" -ForegroundColor Green
-    Write-Host "  (Built directly to game folder, matching VS 2022 behavior)" -ForegroundColor Gray
-
-    # Stamp info.json's Version from the single source of truth (PluginInfo.cs), then copy
-    # it to the plugin folder. This keeps info.json, the BepInPlugin attribute, and the
-    # assembly version in lockstep — the version is edited in exactly one place.
-    $infoJsonSource = Join-Path $PSScriptRoot "..\info.json"
-    $infoJsonDest = Join-Path $GamePath "BepInEx\plugins\CrusaderDETweaker\info.json"
-    $pluginInfoPath = Join-Path $PSScriptRoot "..\PluginInfo.cs"
-    if (Test-Path $infoJsonSource) {
-        if (Test-Path $pluginInfoPath) {
-            $verMatch = Select-String -Path $pluginInfoPath -Pattern 'PLUGIN_VERSION\s*=\s*"([^"]+)"'
-            if ($verMatch) {
-                $version = $verMatch.Matches[0].Groups[1].Value
-                $info = Get-Content $infoJsonSource -Raw | ConvertFrom-Json
-                if ($info.Version -ne $version) {
-                    $info.Version = $version
-                    ($info | ConvertTo-Json -Depth 10) | Set-Content $infoJsonSource -Encoding UTF8
-                    Write-Host "  Stamped info.json Version = $version (from PluginInfo.cs)" -ForegroundColor Green
-                }
-            }
-        }
-        Copy-Item $infoJsonSource $infoJsonDest -Force
-        Write-Host "  Copied info.json to plugin folder." -ForegroundColor Green
-    }
-} else {
-    # Fallback: check bin\Release\ in case OutputPath wasn't applied
-    $fallbackPath = "bin\$Configuration\CrusaderDETweaker.dll"
-    if (Test-Path $fallbackPath) {
-        Write-Host ""
-        Write-Host "Build successful (fallback location)!" -ForegroundColor Green
-        Write-Host "  DLL: $fallbackPath" -ForegroundColor Green
-        Write-Host "  Note: DLL was built to bin\Release\ instead of game folder." -ForegroundColor Yellow
-        Write-Host "  This suggests OutputPath in .csproj wasn't applied correctly." -ForegroundColor Yellow
-        
-        # Deploy to game folder if requested
-        if ($Deploy) {
-            Write-Host ""
-            Write-Host "Deploying DLL to game folder..." -ForegroundColor Yellow
-            $pluginPath = Join-Path $GamePath "BepInEx\plugins\CrusaderDETweaker"
-            
-            if (-not (Test-Path $pluginPath)) {
-                New-Item -ItemType Directory -Path $pluginPath -Force | Out-Null
-                Write-Host "  Created plugin directory: $pluginPath" -ForegroundColor Gray
-            }
-            
-            Copy-Item $fallbackPath $dllPath -Force
-            Write-Host "  Deployed to: $dllPath" -ForegroundColor Green
-            Write-Host "  Deployment complete!" -ForegroundColor Green
+    $msbuildPath = Find-MSBuild
+    if ($null -eq $msbuildPath) {
+        Write-Host "MSBuild not found. Trying dotnet build..." -ForegroundColor Yellow
+        $dnProps = $props | ForEach-Object { $_ -replace '^/p:', '-p:' }
+        dotnet build CrusaderDETweaker.csproj --configuration $Configuration @dnProps
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Build failed! Please use Visual Studio 2022 or install MSBuild." -ForegroundColor Red
+            exit 1
         }
     } else {
-        Write-Host "Build completed but DLL not found at expected path!" -ForegroundColor Red
-        Write-Host "  Expected: $dllPath" -ForegroundColor Red
-        Write-Host "  Fallback: $fallbackPath" -ForegroundColor Red
+        Write-Host "Using MSBuild: $msbuildPath" -ForegroundColor Gray
+        Write-Host "Configuration: $Configuration ($target)" -ForegroundColor Gray
+        Write-Host ""
+
+        Write-Host "Restoring NuGet packages..." -ForegroundColor Yellow
+        & $msbuildPath /t:Restore @props CrusaderDETweaker.csproj | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Package restore failed!" -ForegroundColor Red
+            exit 1
+        }
+
+        Write-Host "Building project..." -ForegroundColor Yellow
+        & $msbuildPath "/t:$target" /v:minimal /nologo @props CrusaderDETweaker.csproj
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Build failed!" -ForegroundColor Red
+            exit 1
+        }
+    }
+
+    # Plugin GUID "CrusaderDETweaker" (PluginInfo.cs) = the BepInEx plugin folder name deploy.ps1 targets.
+    $dllPath = Join-Path $OutputPath "CrusaderDETweaker.dll"
+    if (-not (Test-Path $dllPath)) {
+        Write-Host "Build completed but DLL not found: $dllPath" -ForegroundColor Red
         exit 1
     }
+
+    # Stamp the OUTPUT info.json from the single source of truth (PluginInfo.cs). The tracked
+    # info.json is left byte-for-byte alone; if it disagrees, say so (packaging will refuse).
+    $version = Get-PluginVersion
+    $infoOut = Join-Path $OutputPath 'info.json'
+    Set-InfoJsonVersion $infoOut $version
+    $srcInfoVersion = Get-InfoJsonVersion (Join-Path $script:RepoRoot 'info.json')
+    if ($srcInfoVersion -ne $version) {
+        Write-Host "  WARNING: info.json says $srcInfoVersion but PluginInfo.cs says $version - update info.json (package/ship refuse a mismatch)." -ForegroundColor Yellow
+    }
+
+    Write-Host ""
+    Write-Host "Build successful!" -ForegroundColor Green
+    Write-Host "  DLL: $dllPath ($((Get-Item $dllPath).Length) bytes), version $version" -ForegroundColor Green
+} finally {
+    Pop-Location
 }
 
+if ($Deploy) {
+    Write-Host ""
+    & (Join-Path $PSScriptRoot 'deploy.ps1') -SourceDir $OutputPath -GamePath $GamePath
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+}
+exit 0

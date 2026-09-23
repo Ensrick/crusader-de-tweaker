@@ -2,8 +2,8 @@
   <PropertyGroup>
     <!--
       Root of the Stronghold Crusader: Definitive Edition install. The build resolves the game's
-      BepInEx, SHCDE-SE (000shcdese) and Unity assemblies from here, and deploys the plugin into
-      "$(GameDir)\BepInEx\plugins\CrusaderDETweaker\".
+      BepInEx, SHCDE-SE (000shcdese) and Unity assemblies from here (read-only). The build output goes to
+      bin\$(Configuration)\; scripts\deploy.ps1 installs it into "$(GameDir)\BepInEx\plugins\CrusaderDETweaker\".
 
       The default below is the standard Steam location. If your install is elsewhere, override it
       without editing this file:

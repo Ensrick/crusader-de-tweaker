@@ -148,10 +148,33 @@ namespace CrusaderDETweaker.Config.Toml.Core
         /// </summary>
         public static void LogGlobalsSyntaxError(string path, Exception ex)
         {
+            LogTomlSyntaxError(path, "siege engines, stealth, trade prices, gameplay options, auto-trade...",
+                "BuyPrice = 52  # default: 155", ex);
+        }
+
+        /// <summary>
+        /// Log a TOML syntax error in any config file, loudly and in plain words: the whole file is skipped
+        /// (not applied, not migrated) until it parses again. <paramref name="whatIsLost"/> names the
+        /// settings the user loses; <paramref name="example"/> is a correctly commented line from that file.
+        /// </summary>
+        public static void LogTomlSyntaxError(string path, string whatIsLost, string example, Exception ex)
+        {
             Plugin.Logger.LogError(
-                $"SYNTAX ERROR in {path}: NOTHING in this file is applied (siege engines, stealth, trade prices, " +
-                "gameplay options, auto-trade...) until it is fixed. Everything after a '#' is a comment - keep the '#', " +
-                $"e.g. `BuyPrice = 52  # default: 155`. Parser output (line,column): {ex.Message}");
+                $"SYNTAX ERROR in {path}: NOTHING in this file is applied ({whatIsLost}) until it is fixed. " +
+                $"Everything after a '#' is a comment - keep the '#', e.g. `{example}`. " +
+                $"Parser output (line,column): {ex.Message}");
+        }
+
+        /// <summary>Syntax error in the Units TOML: every per-unit stat and MaxCount is skipped.</summary>
+        public static void LogUnitsSyntaxError(string path, Exception ex)
+        {
+            LogTomlSyntaxError(path, "every unit's stats, costs and MaxCount", "Health = -1  # Default: 100", ex);
+        }
+
+        /// <summary>Syntax error in the Structures TOML: every per-building stat and MaxCount is skipped.</summary>
+        public static void LogStructuresSyntaxError(string path, Exception ex)
+        {
+            LogTomlSyntaxError(path, "every building's health, costs, housing and MaxCount", "GoldCost = -1  # Default: 0", ex);
         }
 
         /// <summary>

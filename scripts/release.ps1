@@ -1,69 +1,57 @@
 # scripts/release.ps1
 #
-# PURPOSE: Full release pipeline for CrusaderDETweaker.
-#          Runs all steps in order: build → backup → package.
+# PURPOSE: Local release rehearsal: back up your configs, then run ship.ps1's LOCAL stages
+#          (preflight -> build -> package). Nothing is uploaded, pushed or deployed.
+#
+# The full ship (tag, GitHub/GitLab releases, Steam Workshop, Nexus, deploy) is scripts/ship.ps1:
+#   .\scripts\ship.ps1                           # dry run of every stage
+#   .\scripts\ship.ps1 -Version 2.6.6 -Publish   # the real thing
 #
 # USAGE:
 #   .\scripts\release.ps1                          # Auto-named backup (timestamp)
 #   .\scripts\release.ps1 -BackupName "pre-v2.2"   # Named backup
-#   .\scripts\release.ps1 -GamePath "D:\Games\SHCDE"
+#   .\scripts\release.ps1 -AllowDirty              # rehearse with uncommitted changes
 #
-# STEPS:
-#   1. Build        — compiles the plugin DLL
-#   2. Backup       — saves current configs to Backups\<name> (safety net)
-#   3. Package      — stages the plugin folder and zips it
-#
-# HISTORY: Until v2.4.0 this pipeline had three more steps (reset configs →
-# launch game to regenerate pristine defaults → restore personal configs)
-# because the zip shipped config files. As of v2.4.1 the zip is plugin-only —
-# extracting an upgrade over an install used to overwrite users' personalized
-# configs with the shipped defaults. Configs now come from first-launch
-# generation + on-update migration, so the reset/launch/restore dance is gone.
-# reset_configs.ps1 / restore_configs.ps1 remain available as standalone tools.
+# HISTORY: Until v2.4.0 this pipeline reset configs, launched the game to regenerate pristine
+# defaults and restored personal configs, because the zip shipped config files. Since v2.4.1 the zip
+# is plugin-only. Since 2.6.6 packaging builds from a clean tree into dist\ instead of zipping the
+# live game plugin folder.
 #
 # PARAMETERS:
 #   -BackupName     Name for the config backup. Defaults to timestamp.
 #   -GamePath       Override Steam game install path.
+#   -ShcdeseDir     Compile against this SHCDE-SE folder instead of the installed one.
+#   -AllowDirty     Pass through to ship.ps1 (dry run only).
 #
 
 param(
     [string]$BackupName = "",
-    [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition"
+    [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
+    [string]$ShcdeseDir = "",
+    [switch]$AllowDirty
 )
 
 $ErrorActionPreference = "Stop"
 $ScriptsDir = $PSScriptRoot
 
-# Resolve backup name
 if ($BackupName -eq "") {
     $BackupName = Get-Date -Format "yyyy-MM-dd_HHmmss"
 }
 
 Write-Host ""
 Write-Host "=======================================" -ForegroundColor Cyan
-Write-Host "  CrusaderDETweaker Release Pipeline   " -ForegroundColor Cyan
+Write-Host "  CrusaderDETweaker Release Rehearsal  " -ForegroundColor Cyan
 Write-Host "=======================================" -ForegroundColor Cyan
-Write-Host "  Backup name : $BackupName"            -ForegroundColor White
-Write-Host ""
 
-# --- Step 1: Build ---
-Write-Host "[1/3] Building..." -ForegroundColor Yellow
-& (Join-Path $ScriptsDir "build.ps1") -GamePath $GamePath
-if ($LASTEXITCODE -ne 0) { Write-Host "BUILD FAILED. Aborting." -ForegroundColor Red; exit 1 }
-Write-Host ""
-
-# --- Step 2: Backup configs (safety net; nothing in the pipeline touches them anymore) ---
-Write-Host "[2/3] Backing up configs as '$BackupName'..." -ForegroundColor Yellow
+Write-Host "[1/2] Backing up configs as '$BackupName'..." -ForegroundColor Yellow
 & (Join-Path $ScriptsDir "backup_configs.ps1") -Name $BackupName -GamePath $GamePath
 if ($LASTEXITCODE -ne 0) { Write-Host "BACKUP FAILED. Aborting." -ForegroundColor Red; exit 1 }
 Write-Host ""
 
-# --- Step 3: Package release ---
-Write-Host "[3/3] Packaging release..." -ForegroundColor Yellow
-& (Join-Path $ScriptsDir "package_release.ps1") -GamePath $GamePath
-if ($LASTEXITCODE -ne 0) { Write-Host "PACKAGE FAILED. Aborting." -ForegroundColor Red; exit 1 }
-
-Write-Host ""
-Write-Host "=======================================" -ForegroundColor Green
-Write-Host "  Release pipeline complete!           " -ForegroundColor Green
-Write-Host "=======================================" -ForegroundColor Green
+Write-Host "[2/2] ship.ps1 local stages (preflight, build, package)..." -ForegroundColor Yellow
+$shipArgs = @{ Stage = @('preflight', 'build', 'package'); GamePath = $GamePath }
+if ($ShcdeseDir) { $shipArgs.ShcdeseDir = $ShcdeseDir }
+if ($AllowDirty) { $shipArgs.AllowDirty = $true }
+& (Join-Path $ScriptsDir "ship.ps1") @shipArgs
+if ($LASTEXITCODE -ne 0) { Write-Host "RELEASE REHEARSAL FAILED." -ForegroundColor Red; exit 1 }
+exit 0

@@ -1,4 +1,4 @@
-# CLAUDE.MD - AI Agent Reference
+# CLAUDE.md - AI Agent Reference
 
 > **Purpose**: Primary reference for AI coding agents working on this codebase.
 > **Last Updated**: August 2026 (post dead-code overhaul)
@@ -7,7 +7,7 @@
 
 ## Quick Start (30 Seconds)
 
-1. **Build**: `.\scripts\build.ps1`
+1. **Build**: `.\scripts\build.ps1` (to `bin\Release\`; never writes the game folder), then `.\scripts\deploy.ps1` with the game closed
 2. **Test**: `.\scripts\launch_game.ps1` → Check BepInEx console for test output
 3. **Pattern**: PropertyHandler for properties, Template Method pattern
 4. **Config**: Three tiers - TOML (per-entity stats) → CSV (per-matchup damage) → BepInEx (real-time multipliers)
@@ -40,7 +40,8 @@
 - Call `Plugin.UnitApi` directly (use PropertyHandler)
 - Add complex lookup tables or ML systems
 - Skip error handling
-- Change Plugin GUID or hand-edit the version outside `PluginInfo.cs`
+- Change Plugin GUID, or bump the version anywhere but `PluginInfo.cs` + `info.json` (kept equal; preflight checks)
+- Write a user config with `File.WriteAllText`: use `Config/Core/AtomicFileWriter` (via `ConfigFileHelper.WriteConfigFile` / `CsvHelper.WriteMatrix`)
 - **Write game state or touch `GameGlobalsManager` during `LibraryLoaded` / `ConfigManager.Initialize()`** — that causes a native ACCESS_VIOLATION crash. No game session exists yet. See "Initialization Flow" for what IS safe there (API *reads* during TOML generation are, and are relied on).
 
 ---
@@ -52,7 +53,7 @@ PluginInfo.cs                # Single source of truth: GUID / name / version
 Plugin.cs                    # BepInEx entry point
 Config/
 ├── ConfigManager.cs         # Orchestrates the 4 IConfigSystems
-├── Core/                    # IConfigSystem
+├── Core/                    # IConfigSystem, AtomicFileWriter, StableTracking, UnitTransitionDispatcher
 ├── BepInEx/                 # Real-time multipliers (event hooks, no restart)
 │   ├── Core/                # BepInExConfigHelper, ConfigSystemInitializer, IBepInExConfigSystem
 │   ├── BepInExConfigManager.cs
@@ -77,12 +78,10 @@ Config/
     └── Structures/Properties/
 Data/                        # UnitCategories, StructureCategories, StructureTypeHelpers, ProjectileType
 Tests/                       # CoreTestRunner + PropertyHandler/PropertyRegistry/EntityProcessor/CsvHelper suites
-scripts/                     # Build/release automation
+Override/                    # Shipped plugin-folder assets (SE mod-menu sprite)
+workshop/                    # Steam Workshop preview + description (ship.ps1 workshop stage)
+scripts/                     # build / deploy / package_release / ship (see scripts/README.md)
 ```
-
-> `Config/Backups/legacy_2025-12-26_102826/` contains two dead `.cs` snapshots (`UnitTagInteraction.cs`,
-> `UnitTagsConfigGenerator.cs`). They are NOT in the `.csproj` and are not compiled — a `*.cs` glob will
-> show them, but the systems they belong to were deleted. Ignore them.
 
 ---
 
@@ -149,10 +148,13 @@ CSV damage matrices in: `{GameDir}\BepInEx\config\CrusaderDETweaker\DamageMatric
 Both resolve through BepInEx `Paths.ConfigPath`, which for this game points at the **game directory**,
 e.g. `C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\config\`.
 
-> **Stale code comment:** the XML doc and header comment in `Config/Toml/ConfigPaths.cs` still say
-> `%APPDATA%\BepInEx\config\`. That is wrong — `MatrixPaths.cs` documents the correct behaviour. The
-> only thing genuinely written under `%APPDATA%` is `Plugin.cs`'s `plugin_initialized.ready` marker
-> file, which uses an explicit `SpecialFolder.ApplicationData` path for `launch_game.ps1`.
+> The only thing written under `%APPDATA%` is `Plugin.cs`'s `plugin_initialized.ready` marker file,
+> which uses an explicit `SpecialFolder.ApplicationData` path for `launch_game.ps1`.
+
+Config writes are atomic (`Config/Core/AtomicFileWriter`): `<file>.tmp` then `File.Replace` keeping the
+previous content as `<file>.bak`, and no write at all when the regenerated content is unchanged. A TOML
+syntax error in the Units / Structures / GameplaySettings file is logged as a plain-English `SYNTAX ERROR`
+(`ErrorLogging.LogTomlSyntaxError`) and that file is left untouched.
 
 ---
 
@@ -338,10 +340,19 @@ Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/Pr
 
 ## Common Tasks
 
-### Building
+### Building and deploying
 ```powershell
-.\scripts\build.ps1
+.\scripts\build.ps1             # -> bin\Release\ (repo only)
+.\scripts\deploy.ps1            # -> game plugins folder; refuses while the game runs; never touches config
+.\scripts\build.ps1 -Deploy     # both
 ```
+
+### Shipping
+```powershell
+.\scripts\ship.ps1                          # dry run of every stage (default)
+.\scripts\ship.ps1 -Version 2.6.6 -Publish  # tag + GitHub/GitLab releases + Workshop + Nexus + deploy
+```
+See `scripts/README.md` for the stage list; the payload whitelist is in `scripts/_release_common.ps1`.
 
 ### Testing in Game
 ```powershell
@@ -394,12 +405,13 @@ return ErrorHandlingHelper.TryGetValueWithResult(
 ```csharp
 PluginInfo.PLUGIN_GUID    // "CrusaderDETweaker"
 PluginInfo.PLUGIN_NAME    // "Crusader DE Tweaker"
-PluginInfo.PLUGIN_VERSION // e.g. "2.5.0"
+PluginInfo.PLUGIN_VERSION // e.g. "2.6.6"
 ```
 
 `Plugin.cs` uses them in `[BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]`,
-`Properties/AssemblyInfo.cs` references `PLUGIN_VERSION`, and `scripts/build.ps1` stamps `info.json`
-from it at build time. **To bump the version, edit `PluginInfo.cs` only.**
+`Properties/AssemblyInfo.cs` references `PLUGIN_VERSION`, and `scripts/build.ps1` stamps the OUTPUT copy
+of `info.json` from it (the tracked file is never rewritten). **To bump the version, edit `PluginInfo.cs`
+and `info.json`**; packaging and ship preflight refuse a mismatch.
 
 **Critical**: GUID must match folder `BepInEx/plugins/CrusaderDETweaker/`
 
@@ -411,6 +423,6 @@ from it at build time. **To bump the version, edit `PluginInfo.cs` only.**
 2. **Template Method** pattern for handlers
 3. **Three-tier config**: TOML → CSV matrices → BepInEx multipliers
 4. **CSV is the only damage tier**; rows = defenders, columns = attackers; `-1` = leave unchanged
-5. **Build**: `.\scripts\build.ps1`
+5. **Build**: `.\scripts\build.ps1` then `.\scripts\deploy.ps1`; **ship**: `.\scripts\ship.ps1`
 6. **Test**: Launch game, check `LogOutput.log` (the 4 test suites run on load)
 7. **AI dev comments** at top of every .cs file

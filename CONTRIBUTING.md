@@ -20,22 +20,23 @@ Tomlyn is a NuGet `PackageReference`; Visual Studio restores it automatically, a
 
 ## Quick Start
 
-1. **Read** [CLAUDE.MD](CLAUDE.MD) - Primary development reference
-2. **Build**: `.\scripts\build.ps1`
+1. **Read** [CLAUDE.md](CLAUDE.md) - Primary development reference
+2. **Build**: `.\scripts\build.ps1` (to `bin\Release\`), then `.\scripts\deploy.ps1` with the game closed
 3. **Test**: `.\scripts\launch_game.ps1` → Check console for test results
 
 ## Development Workflow
 
 1. Make changes
-2. Run `.\scripts\build.ps1`
+2. Run `.\scripts\build.ps1 -Deploy` (build to `bin\Release\`, then install into the game; refuses while the game runs)
 3. Test in game with `.\scripts\launch_game.ps1`
 4. Check BepInEx console / `BepInEx\LogOutput.log` for errors and test output
 
-The core-logic test suites (PropertyHandler, PropertyRegistry, EntityProcessor) run automatically on
+The core-logic test suites (PropertyHandler, PropertyRegistry, EntityProcessor, CsvHelper) run automatically on
 every game load via `CoreTestRunner.RunAllTests()`, so a launch is also a regression check — look for
-`ALL 3 TEST SUITES PASSED`.
+`ALL 4 TEST SUITES PASSED`.
 
-Version bumps go in `PluginInfo.cs` and nowhere else; `AssemblyInfo.cs` and `info.json` derive from it.
+Version bumps go in `PluginInfo.cs` and `info.json` (kept equal; `package_release.ps1` / `ship.ps1` refuse a
+mismatch). `AssemblyInfo.cs` derives from `PluginInfo.cs`. Releases go through `.\scripts\ship.ps1`.
 
 ## Code Style
 
@@ -72,7 +73,7 @@ Plugin.Logger.LogDebug("Details");   // Verbose (disabled by default)
 
 | File | Purpose |
 |------|---------|
-| [CLAUDE.MD](CLAUDE.MD) | **Primary AI reference** - architecture, patterns, code examples |
+| [CLAUDE.md](CLAUDE.md) | **Primary AI reference** - architecture, patterns, code examples |
 | [DEVELOPER_NOTES.md](DEVELOPER_NOTES.md) | Critical build info, GUID, version, config order |
 | [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) | Authoritative user-facing config format (all file formats) |
 | [docs/shcde-se/API_REFERENCE.md](docs/shcde-se/API_REFERENCE.md) | SHCDE-SE API documentation |
@@ -87,7 +88,7 @@ Plugin.Logger.LogDebug("Details");   // Verbose (disabled by default)
 
 ## Architecture Overview
 
-See [CLAUDE.MD](CLAUDE.MD) for:
+See [CLAUDE.md](CLAUDE.md) for:
 - Directory structure
 - Configuration system tiers
 - PropertyHandler system

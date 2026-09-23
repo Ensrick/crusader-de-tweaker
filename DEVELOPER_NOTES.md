@@ -14,31 +14,35 @@ Identity and version are single-sourced in `PluginInfo.cs`:
 // PluginInfo.cs
 public const string PLUGIN_GUID    = "CrusaderDETweaker";
 public const string PLUGIN_NAME    = "Crusader DE Tweaker";
-public const string PLUGIN_VERSION = "2.5.0";
+public const string PLUGIN_VERSION = "2.6.6";
 
 // Plugin.cs
 [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
 ```
 
 `Properties/AssemblyInfo.cs` takes `AssemblyVersion`/`AssemblyFileVersion` from `PLUGIN_VERSION`, and
-`scripts/build.ps1` stamps `info.json`'s `Version` from it at build time. **Bump the version in
-`PluginInfo.cs` only** — nothing else needs editing.
+`scripts/build.ps1` stamps the **output** copy of `info.json` from it. The tracked `info.json` is never
+rewritten by a build, so **bump `PluginInfo.cs` and `info.json` together**: `package_release.ps1` and
+`ship.ps1` preflight refuse a mismatch, and packaging verifies the DLL's AssemblyVersion/FileVersion and
+the shipped `info.json` against `PLUGIN_VERSION`.
 
 **GUID**: `"CrusaderDETweaker"`
 
 **DO NOT CHANGE** without updating:
-1. `CrusaderDETweaker.csproj` OutputPath
-2. `scripts/build.ps1` path references
+1. `info.json` `"GUID"`
+2. `scripts/_release_common.ps1` (`$PluginGuid`, payload whitelist) and `scripts/deploy.ps1`
 3. All documentation
 
-### Build Output Location
+### Build Output vs Deploy
 
-**Both Debug AND Release output to:**
+Building never writes into the game folder. Output goes to the repo:
 ```
-{GameDir}\BepInEx\plugins\CrusaderDETweaker\CrusaderDETweaker.dll
+bin\Release\   (or bin\Debug\)   - a complete plugin folder: DLL, Tomlyn.dll, info.json, Override\
 ```
-
-**Why?** BepInEx loads plugins from folders matching their GUID.
+`.\scripts\deploy.ps1` (or `build.ps1 -Deploy`) copies it into
+`{GameDir}\BepInEx\plugins\CrusaderDETweaker\` - BepInEx loads plugins from the folder matching their
+GUID. Deploy refuses while the game runs, backs up replaced files to `dist\deploy-backups\`, and never
+touches `BepInEx\config`. Releases go through `.\scripts\ship.ps1` (see `scripts/README.md`).
 
 ---
 
@@ -90,7 +94,7 @@ TOML property settings and the runtime BepInEx multipliers are separate layers o
 | Mistake | Consequence |
 |---------|-------------|
 | Change GUID without updating paths | Plugin won't load |
-| Hand-edit the version outside `PluginInfo.cs` | `info.json` / assembly version drift |
+| Bump `PluginInfo.cs` without `info.json` (or vice versa) | Packaging/ship preflight refuses the mismatch |
 | Write session state or touch `GameGlobalsManager` during `LibraryLoaded` | Native ACCESS_VIOLATION at startup |
 | Add a global setting to a `Load()` body instead of `ApplyAllGlobalConfigs()` | Crash at startup, or setting silently reset by the map's own rules |
 | Register hooks before configs are loaded | Hooks may observe incomplete settings |
@@ -102,11 +106,11 @@ TOML property settings and the runtime BepInEx multipliers are separate layers o
 
 Before submitting changes:
 
-- [ ] Build succeeds: `.\scripts\build.ps1`
+- [ ] Build succeeds: `.\scripts\build.ps1`, then `.\scripts\deploy.ps1` with the game closed
 - [ ] Game loads plugin (check BepInEx console)
 - [ ] Initializer order check passes: `.\scripts\test_initialization_order.ps1`
 - [ ] Smoke launch passes: `.\scripts\launch_game.ps1`
-- [ ] On-load test suites pass — `LogOutput.log` shows `ALL 3 TEST SUITES PASSED`
+- [ ] On-load test suites pass — `LogOutput.log` shows `ALL 4 TEST SUITES PASSED`
 - [ ] TOML changes apply correctly
 - [ ] CSV values apply for cells >= 0 and are skipped at `-1`
 
@@ -114,5 +118,5 @@ Before submitting changes:
 
 ## Related Documentation
 
-- [CLAUDE.MD](CLAUDE.MD) - Full architecture reference
+- [CLAUDE.md](CLAUDE.md) - Full architecture reference
 - [API_REFERENCE.md](docs/shcde-se/API_REFERENCE.md) - SHCDE-SE API details

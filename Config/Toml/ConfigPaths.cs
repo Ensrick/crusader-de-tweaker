@@ -9,7 +9,7 @@
 // IMPORTANT FOR AI AGENTS:
 // - All TOML file paths should use this class (don't hardcode paths)
 // - Uses BepInEx Paths.ConfigPath for consistent config directory resolution
-// - File paths are in %APPDATA%\BepInEx\config\ (not game directory)
+// - File paths are in the GAME DIRECTORY: {GameDir}\BepInEx\config\CrusaderDETweaker\ (not %APPDATA%)
 //
 using System.IO;
 using BepInEx;
@@ -21,8 +21,8 @@ namespace CrusaderDETweaker.Config.Toml
     ///
     /// Centralizes all TOML file paths to ensure consistency and enable easy path changes.
     ///
-    /// Config files are located in: %APPDATA%\BepInEx\config\CrusaderDETweaker\
-    /// Full path example: C:\Users\[Username]\AppData\Roaming\BepInEx\config\CrusaderDETweaker\CrusaderDETweaker_*.toml
+    /// Config files are located in: {GameDir}\BepInEx\config\CrusaderDETweaker\
+    /// Full path example: C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\config\CrusaderDETweaker\CrusaderDETweaker_*.toml
     ///
     /// This uses BepInEx's Paths.ConfigPath which automatically resolves to the correct config directory.
     /// </summary>
@@ -30,7 +30,7 @@ namespace CrusaderDETweaker.Config.Toml
     {
         /// <summary>
         /// Base config directory path (from BepInEx Paths.ConfigPath + plugin subfolder).
-        /// Typically: %APPDATA%\BepInEx\config\CrusaderDETweaker\
+        /// Typically: {GameDir}\BepInEx\config\CrusaderDETweaker\ (BepInEx resolves ConfigPath to the game folder)
         /// </summary>
         private static string ConfigDir => Path.Combine(Paths.ConfigPath, "CrusaderDETweaker");
 

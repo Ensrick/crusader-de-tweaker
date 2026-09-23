@@ -1,103 +1,129 @@
 # scripts/package_release.ps1
 #
-# PURPOSE: Stage the latest plugin files and pack them into the release zip.
+# PURPOSE: Build a release from a CLEAN tree and pack it into the release zip.
 #
-# NOTE: Config files are deliberately NOT shipped (changed in v2.4.1). The old
-# pipeline zipped freshly-regenerated pristine configs, but a user upgrading by
-# extracting the zip over their install would overwrite their personalized
-# configs with those defaults — losing their settings and contradicting the
-# Nexus description's "your existing config values are kept automatically".
-# The plugin generates defaults on first launch and migrates existing files on
-# every update, so shipping configs buys nothing and risks data loss. This also
-# retires the old reset -> launch -> restore steps in release.ps1.
+#   1. Refuse a dirty git tree (unless -AllowDirty): the zip must be reproducible from a commit.
+#   2. Release rebuild into dist\stage\<version>\build\ (or use -BuildDir from ship.ps1's build stage).
+#   3. Verify the build: exactly the whitelisted files (scripts/_release_common.ps1), and the DLL's
+#      AssemblyVersion + FileVersion and the stamped info.json Version all equal PLUGIN_VERSION.
+#   4. Stage dist\stage\<version>\zip\BepInEx\plugins\CrusaderDETweaker\ and zip it
+#      (-> dist\stage\<version>\Crusader DE Tweaker.zip), then re-verify the zip's entry list.
+#   5. Copy the zip + Nexus BBCode texts to -StagingPath (skipped with -NoReleaseDirCopy). An existing
+#      zip there is renamed to "<zip>.bak.v<its version>", never deleted.
+#
+# NOTE: Config files are deliberately NOT shipped (since v2.4.1): extracting an upgrade over an
+# install would overwrite users' personalized configs. The plugin generates defaults on first launch
+# and migrates existing files on every update.
+#
+# NOTE: Before 2.6.6 this script zipped the LIVE game plugin folder, so whatever was last deployed
+# (a dev build, a stray file) shipped. It never reads the game folder now.
 #
 # USAGE:
 #   .\scripts\package_release.ps1
-#   .\scripts\package_release.ps1 -GamePath "D:\Games\SHCDE"
-#   .\scripts\package_release.ps1 -StagingPath "E:\Mods\Crusader DE Tweaker"
+#   .\scripts\package_release.ps1 -ShcdeseDir <extracted SE>\BepInEx\plugins\000shcdese
+#   .\scripts\package_release.ps1 -NoReleaseDirCopy        # build + zip under dist\ only
 #
 # PARAMETERS:
-#   -GamePath     Override Steam game install path
-#   -StagingPath  Override staging/release folder path
+#   -GamePath          Game install, for reference assemblies only (read-only)
+#   -ShcdeseDir        Compile against this SHCDE-SE folder instead of the installed one
+#   -StagingPath       Release folder that receives the zip + BBCode docs
+#   -BuildDir          Use an existing verified build output instead of building
+#   -AllowDirty        Package even with uncommitted changes (never for a real release)
+#   -NoReleaseDirCopy  Do not copy anything to -StagingPath
+#
+# EXIT CODES: 0 = packaged and verified, 1 = refused / failed
 #
 
 param(
     [string]$GamePath    = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
-    [string]$StagingPath = "D:\Game Mods\Stronghold\Crusader DE Tweaker"
+    [string]$ShcdeseDir  = "",
+    [string]$StagingPath = "D:\Game Mods\Stronghold\Crusader DE Tweaker",
+    [string]$BuildDir    = "",
+    [switch]$AllowDirty,
+    [switch]$NoReleaseDirCopy
 )
 
-$gamePlugin = Join-Path $GamePath    "BepInEx\plugins\CrusaderDETweaker"
-
-$stagingBepInEx      = Join-Path $StagingPath "BepInEx"
-$stagingPlugin       = Join-Path $StagingPath "BepInEx\plugins\CrusaderDETweaker"
-$stagingConfig       = Join-Path $StagingPath "BepInEx\config"
-$zipPath             = Join-Path $StagingPath "Crusader DE Tweaker.zip"
+$ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot '_release_common.ps1')
 
 Write-Host "=== CrusaderDETweaker Package Release ===" -ForegroundColor Cyan
-Write-Host ""
 
-# --- Validate sources ---
-if (-not (Test-Path $gamePlugin)) {
-    Write-Host "Plugin folder not found: $gamePlugin" -ForegroundColor Red
-    exit 1
-}
+try {
+    $version = Get-PluginVersion
+    $srcInfo = Get-InfoJsonVersion (Join-Path $script:RepoRoot 'info.json')
+    if ($srcInfo -ne $version) { throw "info.json Version $srcInfo != PluginInfo.PLUGIN_VERSION $version. Update info.json." }
 
-# --- Refresh plugin staging (rename previous copy aside; never recursive-delete) ---
-Write-Host "Copying plugin..." -ForegroundColor White
-if (Test-Path $stagingPlugin) {
-    $ts = Get-Date -Format "yyyyMMdd-HHmmss"
-    Rename-Item $stagingPlugin "CrusaderDETweaker.bak.$ts"
-    Write-Host "  (previous staging renamed to CrusaderDETweaker.bak.$ts - clear old .bak dirs manually when convenient)" -ForegroundColor Gray
-}
-Copy-Item $gamePlugin $stagingPlugin -Recurse -Force
-Write-Host "  plugins\CrusaderDETweaker\" -ForegroundColor Green
-
-# --- Strip dev-only artifacts: debug symbols (.pdb) and library XML docs are never
-#     needed at runtime and only bloat the end-user download (the .pdb alone is ~0.5 MB). ---
-$stripped = Get-ChildItem $stagingPlugin -Recurse -Include '*.pdb', '*.xml' -File -ErrorAction SilentlyContinue
-foreach ($f in $stripped) {
-    Remove-Item $f.FullName -Force
-    Write-Host "  (stripped $($f.Name) - dev artifact, not shipped)" -ForegroundColor Gray
-}
-
-# --- Guard: configs must not ship ---
-if (Test-Path $stagingConfig) {
-    Write-Host "Staging still contains a BepInEx\config folder - it would ship personal settings to users." -ForegroundColor Red
-    Write-Host "Move it out of BepInEx\ (e.g. rename to ..\config.bak.<date>) and re-run." -ForegroundColor Red
-    exit 1
-}
-
-# --- Guard: renamed .bak plugin dirs must not ship either ---
-$bakDirs = Get-ChildItem (Join-Path $stagingBepInEx 'plugins') -Directory -Filter '*.bak.*' -ErrorAction SilentlyContinue
-if ($bakDirs) {
-    foreach ($d in $bakDirs) {
-        Move-Item $d.FullName (Join-Path $StagingPath $d.Name)
-        Write-Host "  (moved $($d.Name) out of the zip tree)" -ForegroundColor Gray
+    $dirty = Get-GitDirtyLines
+    if ($dirty.Count -and -not $AllowDirty) {
+        throw "Working tree is not clean ($($dirty.Count) change(s)); commit first or pass -AllowDirty:`n  $($dirty -join "`n  ")"
     }
+    if ($dirty.Count) { Write-Host "  WARNING: packaging a DIRTY tree (-AllowDirty) - not a reproducible release." -ForegroundColor Yellow }
+
+    $stageRoot = Get-StageRoot $version
+    if (-not $BuildDir) {
+        $BuildDir = Join-Path $stageRoot 'build'
+        $old = Move-Aside $BuildDir
+        if ($old) { Write-Host "  (previous build moved aside: $old)" -ForegroundColor Gray }
+        $buildArgs = @{ Configuration = 'Release'; GamePath = $GamePath; OutputPath = $BuildDir; Rebuild = $true }
+        if ($ShcdeseDir) { $buildArgs.ShcdeseDir = $ShcdeseDir }
+        & (Join-Path $PSScriptRoot 'build.ps1') @buildArgs
+        if ($LASTEXITCODE -ne 0) { throw 'Build failed.' }
+    }
+
+    $check = Assert-PluginPayload $BuildDir $version
+    Write-Host "  Build verified: $($check.Files.Count) files, AssemblyVersion/FileVersion/info.json = $version" -ForegroundColor Green
+
+    # Zip tree: BepInEx\plugins\CrusaderDETweaker\ with the whitelisted payload only.
+    $zipTree = Join-Path $stageRoot 'zip'
+    $old = Move-Aside $zipTree
+    if ($old) { Write-Host "  (previous zip tree moved aside: $old)" -ForegroundColor Gray }
+    Copy-PluginPayload $BuildDir (Join-Path $zipTree "BepInEx\plugins\$script:PluginGuid")
+
+    $zipPath = Join-Path $stageRoot $script:ZipName
+    $old = Move-Aside $zipPath
+    if ($old) { Write-Host "  (previous zip moved aside: $old)" -ForegroundColor Gray }
+    New-ForwardSlashZip $zipTree $zipPath
+
+    $expected = @($script:PayloadWhitelist | ForEach-Object { "BepInEx/plugins/$script:PluginGuid/" + $_.Replace('\', '/') })
+    $entries = @(Get-ZipEntries $zipPath)
+    $diff = @(Compare-Object $expected $entries)
+    if ($diff.Count) { throw "Zip content mismatch: $($diff | ForEach-Object { "$($_.SideIndicator) $($_.InputObject)" })" }
+    $zipKB = [math]::Round((Get-Item -LiteralPath $zipPath).Length / 1KB, 1)
+    Write-Host "  Zip verified: $zipPath ($zipKB KB, $($entries.Count) entries)" -ForegroundColor Green
+
+    if ($NoReleaseDirCopy) {
+        Write-Host "  (-NoReleaseDirCopy: nothing copied to $StagingPath)" -ForegroundColor Gray
+    } else {
+        New-Item -ItemType Directory -Force -Path $StagingPath | Out-Null
+        $destZip = Join-Path $StagingPath $script:ZipName
+        if (Test-Path -LiteralPath $destZip) {
+            # Name the aside copy after the version it holds, e.g. "Crusader DE Tweaker.zip.bak.v2.6.5".
+            $oldVer = 'unknown'
+            try {
+                Add-Type -AssemblyName System.IO.Compression.FileSystem
+                $z = [IO.Compression.ZipFile]::OpenRead($destZip)
+                try {
+                    $e = @($z.Entries | Where-Object { $_.FullName -like '*/info.json' })[0]
+                    if ($e) {
+                        $r = New-Object IO.StreamReader($e.Open())
+                        try { if ($r.ReadToEnd() -match '"Version"\s*:\s*"([^"]+)"') { $oldVer = $Matches[1] } } finally { $r.Dispose() }
+                    }
+                } finally { $z.Dispose() }
+            } catch { }
+            $aside = "$destZip.bak.v$oldVer"
+            if (Test-Path -LiteralPath $aside) { $aside = "$aside." + (Get-Date -Format 'yyyyMMdd-HHmmss') }
+            Move-Item -LiteralPath $destZip -Destination $aside
+            Write-Host "  (previous release zip moved aside: $aside)" -ForegroundColor Gray
+        }
+        Copy-Item -LiteralPath $zipPath -Destination $destZip
+        Copy-Item (Join-Path $script:RepoRoot "NEXUS_DESCRIPTION.md")   (Join-Path $StagingPath "NEXUS_DESCRIPTION.txt")   -Force
+        Copy-Item (Join-Path $script:RepoRoot "CONFIGURATION_GUIDE.md") (Join-Path $StagingPath "CONFIGURATION_GUIDE.txt") -Force
+        Write-Host "  Copied zip + NEXUS_DESCRIPTION.txt + CONFIGURATION_GUIDE.txt to $StagingPath" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "PACKAGE FAILED: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
 }
 
-# --- Pack BepInEx folder into zip ---
-Write-Host ""
-Write-Host "Packing zip..." -ForegroundColor White
-
-if (Test-Path $zipPath) {
-    Remove-Item $zipPath -Force
-}
-
-# Compress-Archive needs the contents to sit under BepInEx\ in the zip.
-# We compress the BepInEx folder itself so the zip root contains BepInEx\.
-Compress-Archive -Path $stagingBepInEx -DestinationPath $zipPath -CompressionLevel Optimal
-
-$zipSize = [math]::Round((Get-Item $zipPath).Length / 1KB, 1)
-Write-Host "  $zipPath ($zipSize KB)" -ForegroundColor Green
-
-# --- Copy Nexus/Workshop BBCode docs next to the zip for copy/paste during upload ---
-Write-Host ""
-Write-Host "Copying upload docs..." -ForegroundColor White
-$repoRoot = Split-Path $PSScriptRoot -Parent
-Copy-Item (Join-Path $repoRoot "NEXUS_DESCRIPTION.md")   (Join-Path $StagingPath "NEXUS_DESCRIPTION.txt")   -Force
-Copy-Item (Join-Path $repoRoot "CONFIGURATION_GUIDE.md") (Join-Path $StagingPath "CONFIGURATION_GUIDE.txt") -Force
-Write-Host "  NEXUS_DESCRIPTION.txt + CONFIGURATION_GUIDE.txt (BBCode, paste into the Nexus pages)" -ForegroundColor Green
-
-Write-Host ""
-Write-Host "Done. Users can extract '$([System.IO.Path]::GetFileName($zipPath))' directly into their game folder." -ForegroundColor Cyan
+Write-Host "Done. Users extract '$script:ZipName' directly into their game folder." -ForegroundColor Cyan
+exit 0

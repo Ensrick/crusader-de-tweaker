@@ -69,9 +69,15 @@ namespace CrusaderDETweaker.Config.Toml
                     oldMaxCountScheme = !existingRaw.Contains("-1 = unlimited");
                     Plugin.Logger.LogInfo($"Migrating existing unit config: {ConfigPaths.Units}");
                 }
+                catch (Tomlyn.TomlException ex)
+                {
+                    // Leave the user's file untouched, but shout: the loader skips the whole file too.
+                    Core.ErrorLogging.LogUnitsSyntaxError(ConfigPaths.Units, ex);
+                    return;
+                }
                 catch (Exception ex)
                 {
-                    Plugin.Logger.LogWarning($"Could not parse existing unit config for migration, leaving unchanged: {ex.Message}");
+                    Plugin.Logger.LogWarning($"Could not read existing unit config for migration, leaving unchanged: {ex.Message}");
                     return;
                 }
             }
@@ -434,9 +440,18 @@ namespace CrusaderDETweaker.Config.Toml
                     oldMaxCountScheme = !existingRaw.Contains("-1 = unlimited");
                     Plugin.Logger.LogInfo($"Migrating existing {entityTypeName} config: {filePath}");
                 }
+                catch (Tomlyn.TomlException ex)
+                {
+                    // Leave the user's file untouched, but shout: the loader skips the whole file too.
+                    if (filePath == ConfigPaths.Structures)
+                        Core.ErrorLogging.LogStructuresSyntaxError(filePath, ex);
+                    else
+                        Core.ErrorLogging.LogTomlSyntaxError(filePath, $"every {entityTypeName} setting", "MaxCount = -1", ex);
+                    return;
+                }
                 catch (Exception ex)
                 {
-                    Plugin.Logger.LogWarning($"Could not parse existing {entityTypeName} config for migration, leaving unchanged: {ex.Message}");
+                    Plugin.Logger.LogWarning($"Could not read existing {entityTypeName} config for migration, leaving unchanged: {ex.Message}");
                     return;
                 }
             }

@@ -53,10 +53,25 @@ namespace CrusaderDETweaker.Config.Toml
         {
             if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Units)) return;
 
+            TomlTable tomlModel;
             try
             {
-                var tomlString = ConfigFileHelper.ReadConfigFile(ConfigPaths.Units);
-                var tomlModel = Tomlyn.Toml.ToModel(tomlString);
+                tomlModel = Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(ConfigPaths.Units));
+            }
+            catch (Tomlyn.TomlException ex)
+            {
+                // One syntax error takes the WHOLE file out: nothing below can run. Say so plainly.
+                Core.ErrorLogging.LogUnitsSyntaxError(ConfigPaths.Units, ex);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Core.ErrorLogging.LogConfigLoadException("unit configs", ex);
+                return;
+            }
+
+            try
+            {
 
                 var (unitProcessed, unitSkipped, unitErrors) = EntityProcessor.ProcessEntities(
                     tomlModel,
@@ -641,10 +656,25 @@ namespace CrusaderDETweaker.Config.Toml
         {
             if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Structures)) return;
 
+            TomlTable tomlModel;
             try
             {
-                var tomlString = ConfigFileHelper.ReadConfigFile(ConfigPaths.Structures);
-                var tomlModel = Tomlyn.Toml.ToModel(tomlString);
+                tomlModel = Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(ConfigPaths.Structures));
+            }
+            catch (Tomlyn.TomlException ex)
+            {
+                // One syntax error takes the WHOLE file out: nothing below can run. Say so plainly.
+                Core.ErrorLogging.LogStructuresSyntaxError(ConfigPaths.Structures, ex);
+                return;
+            }
+            catch (Exception ex)
+            {
+                Core.ErrorLogging.LogConfigLoadException("structure configs", ex);
+                return;
+            }
+
+            try
+            {
 
                 var (processedCount, skippedCount, errorCount) = EntityProcessor.ProcessEntities(
                     tomlModel,

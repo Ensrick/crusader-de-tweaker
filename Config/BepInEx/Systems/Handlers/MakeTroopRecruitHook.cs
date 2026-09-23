@@ -62,6 +62,13 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
         // One shared list - a horse is a horse regardless of which unit type takes it.
         private static readonly List<DateTime> _pendingHorses = new List<DateTime>();
 
+        // Guards _pending/_pendingHorses so read-count -> check -> reserve is atomic. Every access is
+        // inside Detour, i.e. on whatever thread calls EngineInterface.GameAction. The recruit buttons
+        // call it from Unity's main thread; no second caller is known, but UnitTransitionDispatcher shows
+        // SE events can arrive off-thread, and an uncontended lock costs nothing on a click path.
+        // The trampoline is always called OUTSIDE the lock.
+        private static readonly object _pendingLock = new object();
+
         /// <summary>
         /// Install the MakeTroop detour once. Safe to call at plugin init: this only patches a
         /// static method's entry, it does not read or write game state (the detour BODY runs only
@@ -132,21 +139,31 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                 int allowed = recruitMax ? int.MaxValue : amount;
                 string detail = "";
 
-                if (capped)
+                lock (_pendingLock)
                 {
-                    PrunePending(unitType);
-                    int live = UnitCapHandler.CountPlayerUnitsOfType(localId, unitType);
-                    int pending = PendingCount(unitType);
-                    allowed = Math.Min(allowed, cap - (live + pending));
-                    detail += $" live={live} pending={pending} cap={cap}";
-                }
+                    if (capped)
+                    {
+                        PrunePending(unitType);
+                        int live = UnitCapHandler.CountPlayerUnitsOfType(localId, unitType);
+                        int pending = PendingCount(unitType);
+                        allowed = Math.Min(allowed, cap - (live + pending));
+                        detail += $" live={live} pending={pending} cap={cap}";
+                    }
 
-                if (horseGated)
-                {
-                    PruneHorsePending();
-                    int freeHorses = StableTracking.CountFreeSlots(localId) - _pendingHorses.Count;
-                    allowed = Math.Min(allowed, freeHorses);
-                    detail += $" freeHorses={freeHorses}";
+                    if (horseGated)
+                    {
+                        PruneHorsePending();
+                        int freeHorses = StableTracking.CountFreeSlots(localId) - _pendingHorses.Count;
+                        allowed = Math.Min(allowed, freeHorses);
+                        detail += $" freeHorses={freeHorses}";
+                    }
+
+                    if (allowed == int.MaxValue) allowed = amount; // unreachable in practice: a gate always bounds it
+                    if (allowed > 0)
+                    {
+                        if (capped) Reserve(unitType, allowed);
+                        if (horseGated) ReserveHorses(allowed);
+                    }
                 }
 
                 if (allowed <= 0)
@@ -156,10 +173,6 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                         Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop blocked {unitType}: requested {amount};{detail}.");
                     return 0;
                 }
-                if (allowed == int.MaxValue) allowed = amount; // unreachable in practice: a gate always bounds it
-
-                if (capped) Reserve(unitType, allowed);
-                if (horseGated) ReserveHorses(allowed);
 
                 if (allowed != amount)
                 {

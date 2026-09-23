@@ -48,12 +48,12 @@ namespace CrusaderDETweaker
     /// 
     /// BepInEx loads plugins from folders matching their GUID. This GUID determines:
     /// - Plugin folder: BepInEx/plugins/CrusaderDETweaker/
-    /// - Config file: BepInEx/config/CrusaderDETweaker.cfg
-    /// - Build output: MUST be in plugins/CrusaderDETweaker/CrusaderDETweaker.dll
+    /// - Config folder: BepInEx/config/CrusaderDETweaker/ (GlobalMultipliers .cfg, TOML, DamageMatrices\)
+    /// - Deployed DLL: plugins/CrusaderDETweaker/CrusaderDETweaker.dll (scripts/deploy.ps1)
     /// 
     /// DO NOT CHANGE THIS GUID without updating:
-    /// 1. CrusaderDETweaker.csproj OutputPath (both Debug and Release)
-    /// 2. build.ps1 DLL path references
+    /// 1. PluginInfo.PLUGIN_GUID and info.json "GUID"
+    /// 2. scripts/_release_common.ps1 ($PluginGuid, payload whitelist) and deploy.ps1
     /// 3. All documentation references to the plugin folder name
     /// 
     /// The GUID "CrusaderDETweaker" is the CORRECT and INTENDED value.
@@ -151,7 +151,7 @@ namespace CrusaderDETweaker
 
                 if (UnitApi == null || BuildingApi == null)
                 {
-                    Logger.LogError("Failed to get Unit or Building API � mod cannot function.");
+                    Logger.LogError("Failed to get Unit or Building API - mod cannot function.");
                     return;
                 }
 

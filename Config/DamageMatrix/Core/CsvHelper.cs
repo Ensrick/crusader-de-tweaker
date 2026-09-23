@@ -90,7 +90,8 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
                     sb.AppendLine(string.Join(", ", rowValues));
                 }
 
-                File.WriteAllText(filePath, sb.ToString());
+                // Atomic + skipped when unchanged: the per-launch reformat runs over the user's file.
+                CrusaderDETweaker.Config.Core.AtomicFileWriter.WriteIfChanged(filePath, sb.ToString());
             }
             catch (Exception ex)
             {
