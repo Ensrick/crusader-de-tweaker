@@ -1,10 +1,12 @@
-Version 2.6.5
+Version 2.6.6
 
-Updated for SHC DE v2.8.2 (the 24 Aug hotfix) and Script Extender 1.44.0!
+Updated for SHC DE v2.8.2 and Script Extender 2.8.0!
 
-Requirements
-[url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/36]BepInEx[/url]
-[url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] (1.44.0 or newer)
+[b]2.6.6:[/b]
+[list]
+[*][b]Rebuilt for Script Extender 2.8.0 - update SE first, then this mod.[/b] SE 2.0 replaced an internal library this mod depends on, so 2.6.5 and older do not work on SE 2.x, and 2.6.6 does not work on SE 1.x. With an older SE the mod now refuses to load and says so in BepInEx\LogOutput.log instead of failing mid-game.
+[*]No gameplay or config change; your config files are untouched.
+[/list]
 
 [b]2.6.5:[/b]
 [list]
