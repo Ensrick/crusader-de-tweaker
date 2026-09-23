@@ -262,6 +262,12 @@ function Stage-GitHub {
 }
 
 function Stage-GitLab {
+    # GitLab rejects asset link paths containing spaces ("Filepath is in an invalid format"), so the
+    # GitLab asset is a space-free copy of the release zip. Match on THAT name: the release title also
+    # contains "Crusader DE Tweaker", so a title match would pass for a release with no asset.
+    $glName = "CrusaderDETweaker-$Version.zip"
+    $glZip  = Join-Path $stageRoot $glName
+    $glRx   = [regex]::Escape($glName)
     $existing = $false; $view = ''
     if (Get-Command glab -ErrorAction SilentlyContinue) {
         $r = Invoke-Exe { glab release view $tag -R $GitLabRepo }
@@ -269,7 +275,7 @@ function Stage-GitLab {
         $view = $r.Out -join "`n"
     }
     if ($existing) {
-        if ($view -match 'Crusader.DE.Tweaker') {
+        if ($view -match $glRx) {
             Add-Result 'gitlab' 'SKIP' "release $tag already exists with the zip asset"; return
         }
     }
@@ -280,10 +286,11 @@ function Stage-GitLab {
     }
     $notes = Join-Path $stageRoot 'release-notes.md'
     [IO.File]::WriteAllText($notes, (Get-ReleaseNotes), (New-Object Text.UTF8Encoding($false)))
-    if ($existing) { Invoke-Native 'glab release upload' { glab release upload $tag $zipPath -R $GitLabRepo } | Out-Host }
-    else { Invoke-Native 'glab release create' { glab release create $tag $zipPath -R $GitLabRepo --name (Get-ReleaseTitle) --notes-file $notes } | Out-Host }
+    Copy-Item -LiteralPath $zipPath -Destination $glZip -Force
+    if ($existing) { Invoke-Native 'glab release upload' { glab release upload $tag $glZip -R $GitLabRepo } | Out-Host }
+    else { Invoke-Native 'glab release create' { glab release create $tag $glZip -R $GitLabRepo --name (Get-ReleaseTitle) --notes-file $notes } | Out-Host }
     $view = (Invoke-Native 'glab release view' { glab release view $tag -R $GitLabRepo }) -join "`n"
-    if ($view -notmatch 'Crusader.DE.Tweaker') { throw "verification: glab release view $tag shows no zip asset" }
+    if ($view -notmatch $glRx) { throw "verification: glab release view $tag shows no $glName asset" }
     Add-Result 'gitlab' 'OK' "$GitLabRepo $tag with zip (glab release view verified)"
 }
 
