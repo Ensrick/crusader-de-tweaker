@@ -317,7 +317,8 @@ function Stage-Workshop {
 
     $upArgs = @('-v', '-a', $SteamAppId, '-i', $WorkshopId, '-u', '-s', $wsUpload, '-z', $descCopy, '-c', "Version $Version")
     if (-not $Publish) {
-        Write-Would "`"$UploaderExe`" $(($upArgs | ForEach-Object { if ($_ -match '\s') { "`"$_`"" } else { $_ } }) -join ' ')"
+        $shown = ($upArgs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
+        Write-Would ('"' + $UploaderExe + '" ' + $shown)
         Write-Would "verify: $SteamDir\logs\workshop_log.txt 'Uploaded new content ... for item $WorkshopId' + GetPublishedFileDetails file_size == $mapLen"
         Add-Result 'workshop' 'DRY-RUN' "staged + packaged $map ($mapLen bytes, description $descLen chars); upload to item $WorkshopId not performed"
         return
