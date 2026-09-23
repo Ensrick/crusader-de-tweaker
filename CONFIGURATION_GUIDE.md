@@ -1,4 +1,60 @@
-[center][size=6][b]CrusaderDETweaker - Configuration Guide[/b][/size][/center]
+[center][size=6][b]Crusader DE Tweaker (Unit Stat Editor)[/b][/size][/center]
+
+
+[size=5][b]Reporting a Problem or Requesting a Feature[/b][/size]
+Please use the issue tracker, not the comments: a comment cannot hold a log file, and without the log almost nothing can be investigated. Either site works, use the one you already have an account on. Each link opens a form that walks you through it step by step.
+[list]
+[*][b]Report a bug:[/b] [url=https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new?issuable_template=Bug%20report]on GitLab[/url] (main repository) or [url=https://github.com/Ensrick/crusader-de-tweaker/issues/new?template=bug_report.yml]on GitHub[/url] (mirror)
+[*][b]Request a feature:[/b] [url=https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new?issuable_template=Feature%20request]on GitLab[/url] or [url=https://github.com/Ensrick/crusader-de-tweaker/issues/new?template=feature_request.yml]on GitHub[/url]
+[*][b]Source code:[/b] [url=https://gitlab.com/ensrick7/crusader-de-tweaker]gitlab.com/ensrick7/crusader-de-tweaker[/url] (mirror: [url=https://github.com/Ensrick/crusader-de-tweaker]github.com/Ensrick/crusader-de-tweaker[/url]). Open source, MIT license.
+[/list]
+For a bug report, have these ready:
+[list=1]
+[*][b]The log.[/b] Launch the game, do the thing that fails once (for example: start a new skirmish, build a catapult, press restock, open the market), then quit and copy [b]BepInEx\LogOutput.log[/b] from the game folder. It is overwritten on every launch, so copy it right after that session. Attach it by dragging it into a text box of the form.
+[*][b]The config file you edited[/b], the whole file (for example CrusaderDETweaker_GameplaySettings.toml).
+[*][b]Versions:[/b] mod version (log line "Loading [Crusader DE Tweaker x.y.z]"), Script Extender version (log line "Loading [SHCDE-SE x.y.z]"), game version (bottom of the main menu).
+[*][b]Game mode:[/b] new skirmish, loaded save, trail / campaign mission, or multiplayer. The mod applies settings at different moments in each.
+[*][b]What you changed, what you expected, what happened[/b], with the exact keys and values.
+[/list]
+The log records every value the mod writes and, for trade prices, reads back from the game, so one log from one session usually shows exactly where a setting stops working.
+
+
+[size=5][b]Getting Started (tutorial)[/b][/size]
+[b]1. Install[/b]
+[list=1]
+[*]Install [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/36]BepInEx 5 Bootstrapper[/url].
+[*]Install [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] [b]2.8.0 or newer[/b]: extract SHCDESE.zip into the game folder.
+[*]Extract this mod's zip into the game folder (it contains a BepInEx folder; merge it with the existing one).
+[*]Launch the game once and go to the main menu, then quit. This creates the config files in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\[/b].
+[/list]
+Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 4 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
+
+[b]2. Your first change: make Knights cost 5000 gold[/b]
+[list=1]
+[*]Open [b]CrusaderDETweaker_Units.toml[/b] in a text editor (Notepad works).
+[*]Find the [b][CHIMP_TYPE_KNIGHT][/b] section and the line [b]GoldCost = -1 # Default: 40[/b].
+[*]Change only the number: [b]GoldCost = 5000 # Default: 40[/b]. Keep the [b]#[/b]: everything after it is a comment, and a line without it (for example "GoldCost = 5000 Default: 40") is a syntax error that makes the game ignore the whole file.
+[*]Save, then restart the game. TOML and CSV files are read at launch.
+[*]Start a skirmish and recruit a Knight: it now costs 5000 gold.
+[/list]
+[b]-1[/b] means "use the game's value". Put -1 back to undo a change, or delete a config file to regenerate it with defaults.
+
+[b]3. Change something without restarting[/b]
+Open [b]CrusaderDETweaker_GlobalMultipliers.cfg[/b] and set, for example, [b]UnitHealthMultiplier = 1.5[/b]. Most multipliers apply while the game is running, no restart needed.
+
+[b]4. Gameplay settings (siege, stealth, trade prices)[/b]
+[b]CrusaderDETweaker_GameplaySettings.toml[/b] is applied at every session start: new game, trail / campaign map, and loading a saved game. Example, cheaper bows at the market:
+[code]
+["Trade Prices".STORED_BOWS]
+BuyPrice = 52  # default: 155
+SellPrice = 25  # default: 75
+[/code]
+In the log, look for "[Trade Prices] STORED_BOWS: buy 155 -> 52" to confirm it applied.
+
+[b]5. Updating the mod[/b]
+Replace only the [b]BepInEx\plugins\CrusaderDETweaker[/b] folder. Keep your config files: the mod never resets your values, it only adds new settings on launch. A syntax error is reported in the log as "SYNTAX ERROR" with the line number.
+
+The sections below list every config file and setting.
 
 
 [size=5][b]Config Files Location[/b][/size]
@@ -324,25 +380,3 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [*][b]Auto Trade[/b] requires a Trade Post and is re-applied at every session start (including a loaded save)
 [*][b]Check BepInEx\LogOutput.log[/b] in the game directory for errors
 [/list]
-
-
-[size=5][b]Reporting a Problem[/b][/size]
-Bug reports go through the issue tracker, not the comments: a comment cannot hold a log file, and without the log almost nothing can be investigated. Either site works, use the one you already have an account on:
-[list]
-[*][url=https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new?issuable_template=Bug%20report]Report a bug on GitLab[/url] (main repository) - [url=https://gitlab.com/ensrick7/crusader-de-tweaker/-/issues/new?issuable_template=Feature%20request]feature request[/url]
-[*][url=https://github.com/Ensrick/crusader-de-tweaker/issues/new/choose]Report a bug on GitHub[/url] (mirror) - pick "Bug report" or "Feature request"
-[/list]
-Both links open a pre-filled form that asks for everything step by step. Have these ready before you start:
-[list=1]
-[*][b]The log.[/b] Launch the game, do the thing that fails once (for example: start a new skirmish, build a catapult, press restock, open the market), then quit and copy [b]BepInEx\LogOutput.log[/b] from the game folder. It is overwritten on every launch, so copy it right after that session. Attach it to the issue by dragging it into a text box.
-[*][b]The config file you edited[/b], the whole file (for example CrusaderDETweaker_GameplaySettings.toml).
-[*][b]Versions:[/b] mod version (log line "Loading [Crusader DE Tweaker x.y.z]"), Script Extender version (BepInEx\plugins\000shcdese\info.json), game version (bottom of the main menu).
-[*][b]Game mode:[/b] new skirmish, loaded save, trail / campaign mission, or multiplayer. The mod applies settings at different moments in each.
-[*][b]What you changed, what you expected, what happened[/b], with the exact keys and values.
-[/list]
-Since v2.6.5 the log records every value the mod writes and, for trade prices, reads back from the game, so one log from one session usually shows exactly where a setting stops working.
-
-
-[size=5][b]Source Code[/b][/size]
-This mod is open source. Browse the code or contribute:
-[url=https://gitlab.com/ensrick7/crusader-de-tweaker]gitlab.com/ensrick7/crusader-de-tweaker[/url] (mirror: [url=https://github.com/Ensrick/crusader-de-tweaker]github.com/Ensrick/crusader-de-tweaker[/url])
