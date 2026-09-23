@@ -40,7 +40,9 @@ namespace CrusaderDETweaker
     /// 3. ConfigManager.Initialize() - Loads TOML/CSV configurations
     /// 4. BepInExConfigManager.Initialize() - Sets up real-time multiplier hooks
     /// </summary>
-    [BepInDependency(SHCDESE.BepInEx.Bootstrap.Plugin.PLUGIN_GUID, BepInDependency.DependencyFlags.HardDependency)]
+    // Hard dependency with a floor: built against SHCDE-SE 2.8.0 (2.0 removed Zhuqiaomon; an older SE
+    // fails to load this DLL). BepInEx refuses to load us against an older SE and says why in the log.
+    [BepInDependency(SHCDESE.BepInEx.Bootstrap.Plugin.PLUGIN_GUID, "2.8.0")]
     /// <summary>
     /// CRITICAL: Plugin GUID must match the folder name in BepInEx/plugins/
     /// 
@@ -122,7 +124,7 @@ namespace CrusaderDETweaker
 
             Logger.LogInfo("CrusaderDETweaker loading");
 
-            SHCDESE.API.LowLevel.CrusaderLibrary.Instance.LibraryLoaded += (handle, memory) => CrusaderLibrary_LibraryLoaded();
+            SHCDESE.API.LowLevel.CrusaderLibrary.Instance.LibraryLoaded += _ => CrusaderLibrary_LibraryLoaded();
         }
 
         /// <summary>

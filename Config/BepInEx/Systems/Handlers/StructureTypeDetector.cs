@@ -48,8 +48,8 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                 {
                     isWall = true;
                     // Determine wall type based on crenelation flags
-                    bool hasCrenelation = (tileFlags & TilePropertyFlag.CrenelationComponent) == TilePropertyFlag.CrenelationComponent &&
-                                          (tileFlags & TilePropertyFlag.CrenelationModifier) == TilePropertyFlag.CrenelationModifier;
+                    bool hasCrenelation = (tileFlags & TilePropertyFlag.CrenelatedLow) == TilePropertyFlag.CrenelatedLow &&
+                                          (tileFlags & TilePropertyFlag.CrenelatedHigh) == TilePropertyFlag.CrenelatedHigh;
                     
                     if (hasCrenelation)
                     {

@@ -14,6 +14,10 @@
     <Deterministic>true</Deterministic>
     <RuntimeIdentifier>win</RuntimeIdentifier>
   </PropertyGroup>
+  <PropertyGroup>
+    <!-- Installed Script Extender; override with /p:ShcdeseDir=... to compile against an extracted release. -->
+    <ShcdeseDir Condition=" '$(ShcdeseDir)' == '' ">$(GameDir)\BepInEx\plugins\000shcdese</ShcdeseDir>
+  </PropertyGroup>
   <!-- ============================================================================================
        CRITICAL BUILD PATH CONFIGURATION
        ============================================================================================
@@ -65,20 +69,29 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="R3">
-      <HintPath>$(GameDir)\BepInEx\plugins\000shcdese\R3.dll</HintPath>
+      <HintPath>$(ShcdeseDir)\R3.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="SHCDESE">
-      <HintPath>$(GameDir)\BepInEx\plugins\000shcdese\SHCDESE.dll</HintPath>
+      <HintPath>$(ShcdeseDir)\SHCDESE.dll</HintPath>
       <Private>False</Private>
     </Reference>
-    <Reference Include="Zhuqiaomon">
-      <HintPath>$(GameDir)\BepInEx\plugins\000shcdese\Zhuqiaomon.dll</HintPath>
+    <!-- SHCDE-SE 2.0+ replaced Zhuqiaomon with RedBird (ManagedAssemblyImmediate lives in RedBird.X64). -->
+    <Reference Include="RedBird.X64">
+      <HintPath>$(ShcdeseDir)\RedBird.X64.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RedBird.Core">
+      <HintPath>$(ShcdeseDir)\RedBird.Core.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RedBird.Abstractions">
+      <HintPath>$(ShcdeseDir)\RedBird.Abstractions.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <!-- ReadOnlySpan/Span support for net481; provided at runtime by BepInEx/SHCDE-SE, so don't copy to output. -->
     <Reference Include="System.Memory">
-      <HintPath>$(GameDir)\BepInEx\plugins\000shcdese\System.Memory.dll</HintPath>
+      <HintPath>$(ShcdeseDir)\System.Memory.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <!-- Tomlyn via NuGet so a clean clone restores it automatically (no machine-specific path). -->

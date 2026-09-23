@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using SHCDESE.Interop;
-using Zhuqiaomon.Assembly.Stateful;
+using RedBird.X64.Assembly.Stateful;
 
 namespace CrusaderDETweaker.Config.DamageMatrix.Ballista
 {
