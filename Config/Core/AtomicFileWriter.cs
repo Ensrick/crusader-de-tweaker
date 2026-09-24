@@ -17,6 +17,7 @@
 // IMPORTANT FOR AI AGENTS:
 // - Use this for every config write; do not reintroduce File.WriteAllText on a user file.
 // - The .bak holds the version from before the LAST content change, not a history.
+// - The byte[] overload is for the multiplayer host-sync copies (HostSync\), which must stay byte-exact.
 //
 using System;
 using System.IO;
@@ -48,7 +49,43 @@ namespace CrusaderDETweaker.Config.Core
 
             string tmpPath = filePath + ".tmp";
             File.WriteAllText(tmpPath, content, Utf8NoBom);
+            SwapIn(tmpPath, filePath, exists);
+            return true;
+        }
 
+        /// <summary>
+        /// Byte-exact variant (used for the lobby host's synced files, which must match the host's
+        /// bytes and hash). Same atomic swap and same no-write-when-unchanged rule.
+        /// </summary>
+        internal static bool WriteIfChanged(string filePath, byte[] content)
+        {
+            if (string.IsNullOrEmpty(filePath)) throw new ArgumentException("File path is null or empty", nameof(filePath));
+            content = content ?? new byte[0];
+
+            string directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                Directory.CreateDirectory(directory);
+
+            bool exists = File.Exists(filePath);
+            if (exists && BytesEqual(File.ReadAllBytes(filePath), content))
+                return false;
+
+            string tmpPath = filePath + ".tmp";
+            File.WriteAllBytes(tmpPath, content);
+            SwapIn(tmpPath, filePath, exists);
+            return true;
+        }
+
+        private static bool BytesEqual(byte[] a, byte[] b)
+        {
+            if (a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++)
+                if (a[i] != b[i]) return false;
+            return true;
+        }
+
+        private static void SwapIn(string tmpPath, string filePath, bool exists)
+        {
             if (exists)
             {
                 try
@@ -68,7 +105,6 @@ namespace CrusaderDETweaker.Config.Core
             {
                 File.Move(tmpPath, filePath);
             }
-            return true;
         }
     }
 }

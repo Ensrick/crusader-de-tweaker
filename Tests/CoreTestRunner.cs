@@ -10,7 +10,7 @@
 // TEST SUITES:
 // - PropertyHandler, PropertyRegistry, EntityProcessor: Core system tests
 // - CsvHelper: damage-matrix CSV parser
-// - TemplateBaseline: baseline journal + the one template write path (apply N times == once)
+// - ConfigSync: multiplayer host config package codec + template baseline journal
 //
 // IMPORTANT FOR AI AGENTS:
 // - Tests use BepInEx logger for output (visible in LogOutput.log)
@@ -37,7 +37,7 @@ namespace CrusaderDETweaker.Tests
             Plugin.Logger.LogInfo("========================================");
 
             // The mock handlers go through PropertyHandler.TryLoad; keep them out of the game baseline
-            // that ConfigLoader.ReapplyTemplateConfigs restores (Config/Core/TemplateBaseline.cs).
+            // that the multiplayer host config sync restores (Config/Core/TemplateBaseline.cs).
             Config.Core.TemplateBaseline.Recording = false;
             List<(string suiteName, bool passed, int testCount)> results;
             try
@@ -49,7 +49,7 @@ namespace CrusaderDETweaker.Tests
                     RunSuite("PropertyRegistry", PropertyRegistryTest.RunTests),
                     RunSuite("EntityProcessor", EntityProcessorTest.RunTests),
                     RunSuite("CsvHelper", CsvHelperTest.RunTests),
-                    RunSuite("TemplateBaseline", TemplateBaselineTest.RunTests)
+                    RunSuite("ConfigSync", ConfigSyncTest.RunTests)
                 };
             }
             finally

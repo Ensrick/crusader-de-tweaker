@@ -120,6 +120,7 @@
     <Compile Include="Config\Core\StableTracking.cs" />
     <Compile Include="Config\Core\TemplateBaseline.cs" />
     <Compile Include="Config\Core\UnitTransitionDispatcher.cs" />
+    <Compile Include="Config\Sync\ConfigSyncCodec.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixLoader.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixPaths.cs" />
@@ -190,7 +191,7 @@
     <Compile Include="Tests\PropertyRegistryTest.cs" />
     <Compile Include="Tests\EntityProcessorTest.cs" />
     <Compile Include="Tests\CsvHelperTest.cs" />
-    <Compile Include="Tests\TemplateBaselineTest.cs" />
+    <Compile Include="Tests\ConfigSyncTest.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
     <Compile Include="Data\StructureTypeHelpers.cs" />

@@ -34,51 +34,61 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
     internal static class MatrixPaths
     {
         /// <summary>
-        /// Base config directory: {GameDir}\BepInEx\config\CrusaderDETweaker\
+        /// Base config directory: {GameDir}\BepInEx\config\CrusaderDETweaker\, or its HostSync\
+        /// subfolder while a multiplayer client uses the lobby host's configs (ConfigPaths.UseHostSyncFiles).
         /// </summary>
-        private static string ConfigDir => Path.Combine(Paths.ConfigPath, "CrusaderDETweaker");
+        private static string ConfigDir => Toml.ConfigPaths.ActiveConfigDir;
+
+        internal const string MatrixDirName = "DamageMatrices";
 
         /// <summary>
         /// Subfolder for all damage matrix CSV files: {ConfigDir}\DamageMatrices\
         /// </summary>
-        internal static string MatrixDir => Path.Combine(ConfigDir, "DamageMatrices");
+        internal static string MatrixDir => Path.Combine(ConfigDir, MatrixDirName);
 
         /// <summary>
         /// Unit vs Unit melee damage matrix (full NxN).
         /// Format: Rows = Defenders, Columns = Attackers
         /// </summary>
-        internal static string MeleeDamage => Path.Combine(MatrixDir, "CrusaderDETweaker_MeleeDamage.csv");
+        internal const string MeleeDamageFileName = "CrusaderDETweaker_MeleeDamage.csv";
+        internal static string MeleeDamage => Path.Combine(MatrixDir, MeleeDamageFileName);
 
         /// <summary>
         /// Ranged damage vs units.
         /// Format: Rows = Defenders, Columns = Projectile types (Arrows, Bolts, Slings, Javelins)
         /// </summary>
-        internal static string RangedDamage => Path.Combine(MatrixDir, "CrusaderDETweaker_RangedDamage.csv");
+        internal const string RangedDamageFileName = "CrusaderDETweaker_RangedDamage.csv";
+        internal static string RangedDamage => Path.Combine(MatrixDir, RangedDamageFileName);
 
         /// <summary>
         /// Eunuch AOE damage vs units.
         /// Format: Rows = Defenders, Column = EunuchAOE
         /// </summary>
-        internal static string EunuchAoeDamage => Path.Combine(MatrixDir, "CrusaderDETweaker_EunuchAoeDamage.csv");
+        internal const string EunuchAoeDamageFileName = "CrusaderDETweaker_EunuchAoeDamage.csv";
+        internal static string EunuchAoeDamage => Path.Combine(MatrixDir, EunuchAoeDamageFileName);
 
         /// <summary>
         /// Ballista damage Global Properties matrix.
         /// </summary>
-        internal static string BallistaDamage => Path.Combine(MatrixDir, "CrusaderDETweaker_BallistaDamage.csv");
+        internal const string BallistaDamageFileName = "CrusaderDETweaker_BallistaDamage.csv";
+        internal static string BallistaDamage => Path.Combine(MatrixDir, BallistaDamageFileName);
 
         /// <summary>
         /// Per-unit fire damage (1 column: Fire, rows = unit types).
         /// </summary>
-        internal static string UnitFireDamage => Path.Combine(MatrixDir, "CrusaderDETweaker_UnitFireDamage.csv");
+        internal const string UnitFireDamageFileName = "CrusaderDETweaker_UnitFireDamage.csv";
+        internal static string UnitFireDamage => Path.Combine(MatrixDir, UnitFireDamageFileName);
 
         /// <summary>
         /// Per-unit Bedouin heal amount (1 column: BedouinHeal, rows = unit types).
         /// </summary>
-        internal static string BedouinHeal => Path.Combine(MatrixDir, "CrusaderDETweaker_BedouinHeal.csv");
+        internal const string BedouinHealFileName = "CrusaderDETweaker_BedouinHeal.csv";
+        internal static string BedouinHeal => Path.Combine(MatrixDir, BedouinHealFileName);
 
         /// <summary>
         /// Per-building fire damage (1 column: Fire, rows = building types).
         /// </summary>
-        internal static string BuildingFireDamage => Path.Combine(MatrixDir, "CrusaderDETweaker_BuildingFireDamage.csv");
+        internal const string BuildingFireDamageFileName = "CrusaderDETweaker_BuildingFireDamage.csv";
+        internal static string BuildingFireDamage => Path.Combine(MatrixDir, BuildingFireDamageFileName);
     }
 }

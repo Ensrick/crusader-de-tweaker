@@ -10,6 +10,9 @@
 // - All TOML file paths should use this class (don't hardcode paths)
 // - Uses BepInEx Paths.ConfigPath for consistent config directory resolution
 // - File paths are in the GAME DIRECTORY: {GameDir}\BepInEx\config\CrusaderDETweaker\ (not %APPDATA%)
+// - Multiplayer host config sync: while UseHostSyncFiles is true every read resolves into HostSync\
+//   (the lobby host's files). The sync never writes the player's own files, and generation runs only
+//   at launch (before any lobby), so it always targets the player's own folder.
 //
 using System.IO;
 using BepInEx;
@@ -32,11 +35,29 @@ namespace CrusaderDETweaker.Config.Toml
         /// Base config directory path (from BepInEx Paths.ConfigPath + plugin subfolder).
         /// Typically: {GameDir}\BepInEx\config\CrusaderDETweaker\ (BepInEx resolves ConfigPath to the game folder)
         /// </summary>
-        private static string ConfigDir => Path.Combine(Paths.ConfigPath, "CrusaderDETweaker");
+        internal static string OwnConfigDir => Path.Combine(Paths.ConfigPath, "CrusaderDETweaker");
 
-        internal static string Units => Path.Combine(ConfigDir, "CrusaderDETweaker_Units.toml");
-        internal static string Structures => Path.Combine(ConfigDir, "CrusaderDETweaker_Structures.toml");
-        internal static string Globals => Path.Combine(ConfigDir, "CrusaderDETweaker_GameplaySettings.toml");
+        /// <summary>
+        /// The lobby host's synced files (multiplayer clients only): {OwnConfigDir}\HostSync\.
+        /// </summary>
+        internal static string HostSyncDir => Path.Combine(OwnConfigDir, "HostSync");
+
+        /// <summary>
+        /// True while a multiplayer client plays with the lobby host's configs. Set ONLY by
+        /// Config.Sync.ConfigSyncManager; every TOML and CSV read then resolves into HostSyncDir.
+        /// </summary>
+        internal static bool UseHostSyncFiles;
+
+        /// <summary>The folder the loaders currently read from (MatrixPaths uses it too).</summary>
+        internal static string ActiveConfigDir => UseHostSyncFiles ? HostSyncDir : OwnConfigDir;
+
+        internal const string UnitsFileName = "CrusaderDETweaker_Units.toml";
+        internal const string StructuresFileName = "CrusaderDETweaker_Structures.toml";
+        internal const string GlobalsFileName = "CrusaderDETweaker_GameplaySettings.toml";
+
+        internal static string Units => Path.Combine(ActiveConfigDir, UnitsFileName);
+        internal static string Structures => Path.Combine(ActiveConfigDir, StructuresFileName);
+        internal static string Globals => Path.Combine(ActiveConfigDir, GlobalsFileName);
 
         // Future file ideas
         //internal static string UnitsMilitary => Path.Combine(ConfigDir, "CrusaderDETweaker_Units_Military.toml");
