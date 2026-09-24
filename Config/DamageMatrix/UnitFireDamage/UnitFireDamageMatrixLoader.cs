@@ -35,6 +35,14 @@ namespace CrusaderDETweaker.Config.DamageMatrix.UnitFireDamage
             }
         }
 
+        protected override string BaselineKey(UnitFireDamageType attackType, eChimps unit) => MatrixBaselineKeys.UnitFire(unit);
+
+        protected override Action CaptureRestore(UnitFireDamageType attackType, eChimps unit)
+        {
+            int original = Plugin.UnitApi.GetFireDamage(unit);
+            return () => Plugin.UnitApi.SetFireDamage(unit, original);
+        }
+
         protected override bool ShouldSkipDefender(eChimps unit)
         {
             return UnitMatrixHelper.ShouldSkipUnit(unit);

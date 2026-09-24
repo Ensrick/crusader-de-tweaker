@@ -9,6 +9,8 @@
 //
 // TEST SUITES:
 // - PropertyHandler, PropertyRegistry, EntityProcessor: Core system tests
+// - CsvHelper: damage-matrix CSV parser
+// - TemplateBaseline: baseline journal + the one template write path (apply N times == once)
 //
 // IMPORTANT FOR AI AGENTS:
 // - Tests use BepInEx logger for output (visible in LogOutput.log)
@@ -34,14 +36,26 @@ namespace CrusaderDETweaker.Tests
             Plugin.Logger.LogInfo("=== CORE LOGIC UNIT TEST SUITE ===");
             Plugin.Logger.LogInfo("========================================");
 
-            var results = new List<(string suiteName, bool passed, int testCount)>
+            // The mock handlers go through PropertyHandler.TryLoad; keep them out of the game baseline
+            // that ConfigLoader.ReapplyTemplateConfigs restores (Config/Core/TemplateBaseline.cs).
+            Config.Core.TemplateBaseline.Recording = false;
+            List<(string suiteName, bool passed, int testCount)> results;
+            try
             {
-                // Run each test suite
-                RunSuite("PropertyHandler", PropertyHandlerTest.RunTests),
-                RunSuite("PropertyRegistry", PropertyRegistryTest.RunTests),
-                RunSuite("EntityProcessor", EntityProcessorTest.RunTests),
-                RunSuite("CsvHelper", CsvHelperTest.RunTests)
-            };
+                results = new List<(string suiteName, bool passed, int testCount)>
+                {
+                    // Run each test suite
+                    RunSuite("PropertyHandler", PropertyHandlerTest.RunTests),
+                    RunSuite("PropertyRegistry", PropertyRegistryTest.RunTests),
+                    RunSuite("EntityProcessor", EntityProcessorTest.RunTests),
+                    RunSuite("CsvHelper", CsvHelperTest.RunTests),
+                    RunSuite("TemplateBaseline", TemplateBaselineTest.RunTests)
+                };
+            }
+            finally
+            {
+                Config.Core.TemplateBaseline.Recording = true;
+            }
 
             // Summary
             Plugin.Logger.LogInfo("========================================");

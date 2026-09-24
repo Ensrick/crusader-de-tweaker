@@ -79,15 +79,25 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
 
         public void Apply()
         {
-            ApplyUnitFireDamage();
-            ApplyStructureFireDamage();
-            ApplyBedouinHeal();
+            // No template write here: ConfigLoader.ReapplyTemplateConfigs runs ReapplyTemplateValues() (launch,
+            // every SE unload reset, every session start), after restoring the game values (v2.7.0).
             // NOTE: DiseaseDamageMultiplier is intentionally NOT applied here. It is applied in
             // ConfigLoader.LoadGameGlobals (on each map load, on top of the [Disease] TOML base).
             // Applying it here was doubly broken: (1) it wrote game globals during LibraryLoaded
             // init, which is the documented ACCESS_VIOLATION hazard; (2) LoadGameGlobals re-wrote
             // the raw TOML disease values on the first map load, clobbering this multiplier so it
             // never took effect. See ApplyDiseaseDamage removal note below.
+        }
+
+        /// <summary>
+        /// This system's template writes. Called ONLY from ConfigLoader.ReapplyTemplateConfigs (via
+        /// BepInExConfigManager.ReapplyTemplateMultipliers), after the tables were restored to game values.
+        /// </summary>
+        internal void ReapplyTemplateValues()
+        {
+            ApplyUnitFireDamage();
+            ApplyStructureFireDamage();
+            ApplyBedouinHeal();
         }
 
         private void ApplyUnitFireDamage()
@@ -99,6 +109,11 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
             {
                 try
                 {
+                    global::CrusaderDETweaker.Config.Core.TemplateBaseline.BeforeWrite(MatrixBaselineKeys.UnitFire(unit), () =>
+                    {
+                        int original = Plugin.UnitApi.GetFireDamage(unit);
+                        return () => Plugin.UnitApi.SetFireDamage(unit, original);
+                    });
                     int current = Plugin.UnitApi.GetFireDamage(unit);
                     int modified = Mathf.Max(1, (int)(current * UnitFireDamageMultiplier.Value));
                     Plugin.UnitApi.SetFireDamage(unit, modified);
@@ -121,6 +136,11 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
             {
                 try
                 {
+                    global::CrusaderDETweaker.Config.Core.TemplateBaseline.BeforeWrite(MatrixBaselineKeys.BuildingFire(building), () =>
+                    {
+                        short original = Plugin.BuildingApi.GetBuildingFireDamage(building);
+                        return () => Plugin.BuildingApi.SetBuildingFireDamage(building, original);
+                    });
                     short current = Plugin.BuildingApi.GetBuildingFireDamage(building);
                     short modified = (short)Mathf.Clamp(
                         (int)(current * StructureFireDamageMultiplier.Value),
@@ -145,6 +165,11 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
             {
                 try
                 {
+                    global::CrusaderDETweaker.Config.Core.TemplateBaseline.BeforeWrite(MatrixBaselineKeys.BedouinHeal(unit), () =>
+                    {
+                        int original = Plugin.UnitApi.GetBedouinHeal(unit);
+                        return () => Plugin.UnitApi.SetBedouinHeal(unit, original);
+                    });
                     int current = Plugin.UnitApi.GetBedouinHeal(unit);
                     int modified = Mathf.Max(1, (int)(current * BedouinHealMultiplier.Value));
                     Plugin.UnitApi.SetBedouinHeal(unit, modified);

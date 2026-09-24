@@ -119,6 +119,17 @@ namespace CrusaderDETweaker.Config.BepInEx
             _wallCostConfig = ConfigSystems.OfType<WallCostConfig>().FirstOrDefault();
             _fireAndHealMultipliersConfig = ConfigSystems.OfType<FireAndHealMultipliersConfig>().FirstOrDefault();
         }
+
+        /// <summary>
+        /// The template writes that depend on multiplier values (wall costs, unit / building fire, Bedouin
+        /// heal), in launch order. Called ONLY from ConfigLoader.ReapplyTemplateConfigs, after the tables
+        /// were restored to game values. Never re-subscribes the runtime hooks.
+        /// </summary>
+        internal static void ReapplyTemplateMultipliers()
+        {
+            _wallCostConfig?.ReapplyTemplateValues();
+            _fireAndHealMultipliersConfig?.ReapplyTemplateValues();
+        }
     }
 }
 

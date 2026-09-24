@@ -50,6 +50,14 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Melee
             }
         }
 
+        protected override string BaselineKey(eChimps attacker, eChimps defender) => $"melee|{attacker}|{defender}";
+
+        protected override Action CaptureRestore(eChimps attacker, eChimps defender)
+        {
+            int original = Plugin.UnitApi.GetMeleeDamageFromTo(attacker, defender);
+            return () => Plugin.UnitApi.SetMeleeDamageFromTo(attacker, defender, original);
+        }
+
 
         /// <summary>
         /// Validate the damage value before applying.

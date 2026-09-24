@@ -38,6 +38,14 @@ namespace CrusaderDETweaker.Config.DamageMatrix.BuildingFireDamage
             }
         }
 
+        protected override string BaselineKey(BuildingFireDamageType attackType, eStructs building) => MatrixBaselineKeys.BuildingFire(building);
+
+        protected override Action CaptureRestore(BuildingFireDamageType attackType, eStructs building)
+        {
+            short original = Plugin.BuildingApi.GetBuildingFireDamage(building);
+            return () => Plugin.BuildingApi.SetBuildingFireDamage(building, original);
+        }
+
         protected override bool ShouldSkipDefender(eStructs building)
         {
             return BuildingMatrixHelper.ShouldSkipBuilding(building);

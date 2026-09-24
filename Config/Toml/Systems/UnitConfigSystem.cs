@@ -15,7 +15,8 @@ namespace CrusaderDETweaker.Config.Toml.Systems
 
         public override void Load()
         {
-            ConfigLoader.ApplyAllUnitConfigs();
+            // Applied by ConfigLoader.ReapplyTemplateConfigs("launch") once the multipliers are bound (Plugin.cs):
+            // the one template write path (v2.7.0). Loading here only marks the system ready.
             IsLoaded = true;
         }
     }

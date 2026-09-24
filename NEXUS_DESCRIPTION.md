@@ -1,10 +1,11 @@
-Version 2.6.7
+Version 2.6.8
 
 Updated for SHC DE v2.8.2 and Script Extender 2.8.0!
 
-[b]2.6.7:[/b]
+[b]2.6.8:[/b]
 [list]
 [*][b]Fix: unit and structure stats (Speed, Health, costs, shields, housing) and the damage CSVs now stay applied when you play.[/b] The Script Extender resets these game tables to vanilla every time a map is unloaded, which also happens while you move through the menus, and the mod only applied them once at launch. They are now re-applied after every reset and before every game starts. Reported on Nexus ("the Speed of any unit I change doesn't do anything").
+[*][b]The fire, Bedouin-heal and wall-cost multipliers stay applied too[/b], and RangedDamageTakenMultiplier is applied exactly once. Every re-apply first puts the game's own values back, so nothing is ever scaled twice.
 [/list]
 
 [b]2.6.6:[/b]

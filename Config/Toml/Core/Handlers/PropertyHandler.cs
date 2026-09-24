@@ -190,13 +190,19 @@ namespace CrusaderDETweaker.Config.Toml.Core
 
             try
             {
-                // Step 3: Set the value via the game API
+                // Step 3: Remember the game's own value the first time this cell is written
+                // (ConfigLoader.ReapplyTemplateConfigs restores it first; see Config/Core/TemplateBaseline.cs).
+                Config.Core.TemplateBaseline.BeforeWrite(
+                    $"toml|{typeof(TEntity).Name}|{entity}|{Name}",
+                    () => TryGetFromAPI(entity, out TValue original) ? (Action)(() => SetToAPI(entity, original)) : null);
+
+                // Step 4: Set the value via the game API
                 SetToAPI(entity, value);
                 return true;
             }
             catch (Exception ex)
             {
-                // Step 4: Handle errors
+                // Step 5: Handle errors
                 ErrorLogging.LogPropertyLoadException(Name, entity, ex);
                 return false;
             }

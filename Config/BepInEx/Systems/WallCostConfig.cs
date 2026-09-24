@@ -50,8 +50,15 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
 
         public void Apply()
         {
-            ApplyWallCostMultipliers();
+            // No template write here: ConfigLoader.ReapplyTemplateConfigs runs ReapplyTemplateValues() (launch,
+            // every SE unload reset, every session start), after restoring the game values (v2.7.0).
         }
+
+        /// <summary>
+        /// This system's template writes. Called ONLY from ConfigLoader.ReapplyTemplateConfigs (via
+        /// BepInExConfigManager.ReapplyTemplateMultipliers), after the tables were restored to game values.
+        /// </summary>
+        internal void ReapplyTemplateValues() => ApplyWallCostMultipliers();
 
         /// <summary>
         /// Validates all wall cost multiplier values and logs warnings for invalid values.
@@ -72,6 +79,18 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         {
             try
             {
+                // Game's own values, restored before every re-apply (Config/Core/TemplateBaseline.cs).
+                global::CrusaderDETweaker.Config.Core.TemplateBaseline.BeforeWrite("wallCost|low", () =>
+                {
+                    float original = Plugin.BuildingApi.GetLowWallCostMultiplier();
+                    return () => Plugin.BuildingApi.SetLowWallCostMultiplier(original);
+                });
+                global::CrusaderDETweaker.Config.Core.TemplateBaseline.BeforeWrite("wallCost|high", () =>
+                {
+                    float original = Plugin.BuildingApi.GetHighWallCostMultiplier();
+                    return () => Plugin.BuildingApi.SetHighWallCostMultiplier(original);
+                });
+
                 Plugin.BuildingApi.SetLowWallCostMultiplier(LowWallCostMultiplier.Value);
                 Plugin.BuildingApi.SetHighWallCostMultiplier(HighWallCostMultiplier.Value);
                 Plugin.Logger.LogInfo($"Applied wall cost multipliers: Low={LowWallCostMultiplier.Value}, High={HighWallCostMultiplier.Value}");

@@ -103,13 +103,27 @@ namespace CrusaderDETweaker.Config.Toml
         /// you only move through the menus. Applying them once at launch therefore left them vanilla in
         /// play (Nexus report 2026-09-24: "the Speed of any unit I change doesn't do anything").
         /// Idempotent: writes the same values each time; -1 sentinels are skipped as before.
+        ///
+        /// v2.6.8: this is the ONE code path that writes the template tables, launch included
+        /// (Plugin.cs calls it with "launch" once the multipliers are bound). It
+        ///   1. restores every cell this mod ever wrote to the game's own value (TemplateBaseline): SE does
+        ///      not reset every cell (wall costs, ballista / run-speed immediates), and the fire / heal /
+        ///      wall-cost multipliers scale the current value, so without it a re-apply with no SE reset in
+        ///      between (unload Post then session-start Pre) would scale them twice;
+        ///   2. applies Units, Structures, the matrices and the multiplier template writes, in launch order.
+        /// 2.6.7 re-applied only the files, so those multipliers were lost after the first unload reset.
         /// </summary>
         internal static void ReapplyTemplateConfigs(string reason)
         {
-            Plugin.Logger.LogInfo($"[TemplateConfig] Re-applying unit / structure / damage-matrix settings ({reason}).");
-            ApplyAllUnitConfigs();
-            ApplyAllStructureConfigs();
-            DamageMatrix.DamageMatrixManager.LoadAll();
+            Plugin.Logger.LogInfo($"[TemplateConfig] Applying unit / structure / damage-matrix settings ({reason}).");
+            var (restored, failed) = global::CrusaderDETweaker.Config.Core.TemplateBaseline.Reapply(new Action[]
+            {
+                ApplyAllUnitConfigs,
+                ApplyAllStructureConfigs,
+                DamageMatrix.DamageMatrixManager.LoadAll,
+                BepInExConfigManager.ReapplyTemplateMultipliers
+            });
+            Plugin.Logger.LogInfo($"[TemplateConfig] Done ({reason}): {restored} cells were reset to game values first{(failed > 0 ? $", {failed} FAILED" : "")}.");
         }
 
         /// <summary>

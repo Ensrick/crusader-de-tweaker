@@ -35,6 +35,14 @@ namespace CrusaderDETweaker.Config.DamageMatrix.BedouinHeal
             }
         }
 
+        protected override string BaselineKey(BedouinHealType attackType, eChimps unit) => MatrixBaselineKeys.BedouinHeal(unit);
+
+        protected override Action CaptureRestore(BedouinHealType attackType, eChimps unit)
+        {
+            int original = Plugin.UnitApi.GetBedouinHeal(unit);
+            return () => Plugin.UnitApi.SetBedouinHeal(unit, original);
+        }
+
         protected override bool ShouldSkipDefender(eChimps unit)
         {
             return UnitMatrixHelper.ShouldSkipUnit(unit);

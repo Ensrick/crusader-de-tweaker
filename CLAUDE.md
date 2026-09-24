@@ -42,6 +42,7 @@
 - Skip error handling
 - Change Plugin GUID, or bump the version anywhere but `PluginInfo.cs` + `info.json` (kept equal; preflight checks)
 - Write a user config with `File.WriteAllText`: use `Config/Core/AtomicFileWriter` (via `ConfigFileHelper.WriteConfigFile` / `CsvHelper.WriteMatrix`)
+- Write a game-table value (unit / building stats, matrices, template multipliers) outside `ConfigLoader.ReapplyTemplateConfigs`, or without reporting it to `TemplateBaseline.BeforeWrite` first: SE resets the tables on every map unload and the re-apply must be idempotent (v2.6.8)
 - **Write game state or touch `GameGlobalsManager` during `LibraryLoaded` / `ConfigManager.Initialize()`** — that causes a native ACCESS_VIOLATION crash. No game session exists yet. See "Initialization Flow" for what IS safe there (API *reads* during TOML generation are, and are relied on).
 
 ---
@@ -53,7 +54,7 @@ PluginInfo.cs                # Single source of truth: GUID / name / version
 Plugin.cs                    # BepInEx entry point
 Config/
 ├── ConfigManager.cs         # Orchestrates the 4 IConfigSystems
-├── Core/                    # IConfigSystem, AtomicFileWriter, StableTracking, UnitTransitionDispatcher
+├── Core/                    # IConfigSystem, AtomicFileWriter, StableTracking, TemplateBaseline, UnitTransitionDispatcher
 ├── BepInEx/                 # Real-time multipliers (event hooks, no restart)
 │   ├── Core/                # BepInExConfigHelper, ConfigSystemInitializer, IBepInExConfigSystem
 │   ├── BepInExConfigManager.cs
@@ -77,7 +78,7 @@ Config/
     ├── Units/Properties/
     └── Structures/Properties/
 Data/                        # UnitCategories, StructureCategories, StructureTypeHelpers, ProjectileType
-Tests/                       # CoreTestRunner + PropertyHandler/PropertyRegistry/EntityProcessor/CsvHelper suites
+Tests/                       # CoreTestRunner + PropertyHandler/PropertyRegistry/EntityProcessor/CsvHelper/TemplateBaseline suites
 Override/                    # Shipped plugin-folder assets (SE mod-menu sprite)
 workshop/                    # Steam Workshop preview + description (ship.ps1 workshop stage)
 scripts/                     # build / deploy / package_release / ship (see scripts/README.md)
@@ -206,15 +207,16 @@ CrusaderLibrary_LibraryLoaded()  ← SHCDE-SE API available; APIs cached on Plug
 ConfigManager.Initialize(runValidation: true)
     ├─ GenerateDefaults() for each system  ← writes/migrates TOML + CSV;
     │                                         performs API *READS* (see below)
-    ├─ Load() for each system              ← applies TOML, applies CSV matrices,
-    │                                         registers the deferred session hooks
+    ├─ Load() for each system              ← registers the deferred session hooks (no table writes)
     └─ Validate() for each system
     ↓
 BepInExConfigManager.Initialize(...)  ← Multipliers, unit caps, wall costs
     ↓
+ConfigLoader.ReapplyTemplateConfigs("launch")  ← the ONE template write path: restore game values (TemplateBaseline),
+    ↓                                              Units/Structures TOML, CSV matrices, wall-cost / fire / heal multipliers
 CoreTestRunner.RunAllTests()      ← runs EVERY launch as a QA self-check (see Unit Tests)
     ↓
-OnUnloadMap (Post) + OnStartMap / OnLoadSave (Pre)  ← ReapplyTemplateConfigs: Units/Structures TOML + CSV matrices again
+OnUnloadMap (Post) + OnStartMap / OnLoadSave (Pre)  ← ReapplyTemplateConfigs again (same path)
     ↓                                  (SE resets every stat table to vanilla on EVERY map unload, menus included; v2.6.7)
 OnStartMap / OnLoadMap / OnLoadSave (Post) fire  ← session-state writes happen here
 ```
@@ -325,18 +327,19 @@ Enable debug: `BepInEx\config\BepInEx.cfg` → `LogLevels = ..., Debug`
 handlers only, make no game-API calls, and log PASS/FAIL to `BepInEx\LogOutput.log`. A regression in
 core logic shows up in the log immediately. Do not gate or remove it.
 
-Four suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**. Look for:
+Five suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**, **TemplateBaseline** (the one template write path: apply N times == once). Look for:
 ```
 === CORE LOGIC UNIT TEST SUITE ===
   [PASS] PropertyHandler: N test(s)
   [PASS] PropertyRegistry: N test(s)
   [PASS] EntityProcessor: N test(s)
   [PASS] CsvHelper: N test(s)
-=== ALL 4 TEST SUITES PASSED ===
+  [PASS] TemplateBaseline: N test(s)
+=== ALL 5 TEST SUITES PASSED ===
 ```
 
 Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/PropertyRegistryTest.cs`,
-`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
+`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`, `Tests/TemplateBaselineTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
 
 ---
 
@@ -426,5 +429,5 @@ and `info.json`**; packaging and ship preflight refuse a mismatch.
 3. **Three-tier config**: TOML → CSV matrices → BepInEx multipliers
 4. **CSV is the only damage tier**; rows = defenders, columns = attackers; `-1` = leave unchanged
 5. **Build**: `.\scripts\build.ps1` then `.\scripts\deploy.ps1`; **ship**: `.\scripts\ship.ps1`
-6. **Test**: Launch game, check `LogOutput.log` (the 4 test suites run on load)
+6. **Test**: Launch game, check `LogOutput.log` (the 5 test suites run on load)
 7. **AI dev comments** at top of every .cs file

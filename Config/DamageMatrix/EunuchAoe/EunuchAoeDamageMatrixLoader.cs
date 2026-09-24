@@ -50,6 +50,14 @@ namespace CrusaderDETweaker.Config.DamageMatrix.EunuchAoe
             }
         }
 
+        protected override string BaselineKey(EunuchAoeType attackType, eChimps defender) => $"eunuchAoe|{defender}";
+
+        protected override Action CaptureRestore(EunuchAoeType attackType, eChimps defender)
+        {
+            int original = Plugin.UnitApi.GetMeleeEunuchAOEDamageTo(defender);
+            return () => Plugin.UnitApi.SetMeleeEunuchAOEDamageTo(defender, original);
+        }
+
 
         /// <summary>
         /// Check if a defender should be skipped.

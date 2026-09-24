@@ -1,10 +1,8 @@
 ﻿// Config/DamageMatrix/Ranged/RangedDamageMatrixLoader.cs
 using System;
-using CrusaderDETweaker.Config.BepInEx;
 using CrusaderDETweaker.Config.DamageMatrix.Core;
 using CrusaderDETweaker.Data;
 using SHCDESE.Interop;
-using UnityEngine;
 
 namespace CrusaderDETweaker.Config.DamageMatrix.Ranged
 {
@@ -33,22 +31,17 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Ranged
         }
 
         /// <summary>
-        /// Apply a ranged damage value to the game (from CSV override).
-        /// Applies the BepInEx ranged damage multiplier if configured.
+        /// Apply a ranged damage value to the game (from CSV override), unscaled.
         /// </summary>
         protected override bool ApplyDamageValue(ProjectileType projectile, eChimps defender, int damage)
         {
             // Note: Skip checks are now done in base class Load() method before calling this
             // This method assumes valid, modifiable entities
-            
-            // Apply BepInEx ranged damage multiplier
-            var unitMultipliers = BepInExConfigManager.UnitMultipliers;
-            if (unitMultipliers?.RangedDamageTakenMultiplier != null && 
-                !Mathf.Approximately(unitMultipliers.RangedDamageTakenMultiplier.Value, 1.0f))
-            {
-                damage = (int)(damage * unitMultipliers.RangedDamageTakenMultiplier.Value);
-            }
 
+            // RangedDamageTakenMultiplier is NOT applied here: RangedDamageMultiplierHandler applies it
+            // at hit time. (Before 2.6.8 this scaled the CSV value too; at launch that never ran because
+            // the multipliers are bound after the matrices load, but every re-apply since 2.6.7
+            // (after each SE map-unload reset) scaled ranged damage twice.)
             if (!ProjectileApiHelper.SetRangedDamage(projectile, defender, damage))
             {
                 Plugin.Logger.LogWarning($"Failed to set {projectile} damage for {defender}");
@@ -57,6 +50,15 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Ranged
 
 
             return true;
+        }
+
+        protected override string BaselineKey(ProjectileType projectile, eChimps defender) => $"ranged|{projectile}|{defender}";
+
+        protected override Action CaptureRestore(ProjectileType projectile, eChimps defender)
+        {
+            int original = ProjectileApiHelper.GetRangedDamage(projectile, defender);
+            if (original < 0) return null;
+            return () => ProjectileApiHelper.SetRangedDamage(projectile, defender, original);
         }
 
 

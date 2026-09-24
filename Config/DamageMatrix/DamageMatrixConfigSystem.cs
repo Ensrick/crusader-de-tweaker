@@ -19,7 +19,8 @@ namespace CrusaderDETweaker.Config.DamageMatrix
 
         public void Load()
         {
-            DamageMatrixManager.LoadAll();
+            // Applied by ConfigLoader.ReapplyTemplateConfigs("launch") once the multipliers are bound (Plugin.cs):
+            // the one template write path (v2.7.0). Loading here only marks the system ready.
             IsLoaded = true;
         }
 

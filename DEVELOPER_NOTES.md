@@ -52,9 +52,11 @@ touches `BepInEx\config`. Releases go through `.\scripts\ship.ps1` (see `scripts
 
 ```
 1. Generate/migrate config files (TOML + CSV) — reads live API values for the "# Default:" comments
-2. Load TOML configuration (unit + structure templates)
-3. Load CSV damage matrices — these override TOML for the matchups they cover
-4. Register runtime hooks; defer all session-state writes to the map-load events
+2. Load: register the session hooks (no game-table writes)
+3. Bind the BepInEx multipliers, then ConfigLoader.ReapplyTemplateConfigs("launch"): restore game values
+   (TemplateBaseline), TOML templates, CSV matrices (they override TOML for the matchups they cover), then
+   the template multipliers. The same call runs after every SE unload reset and before every session start.
+4. Defer all session-state writes to the map-load events
 ```
 
 `ConfigManager.ConfigSystems` fixes this order: `GlobalConfigSystem`, `UnitConfigSystem`,
@@ -99,6 +101,7 @@ TOML property settings and the runtime BepInEx multipliers are separate layers o
 | Add a global setting to a `Load()` body instead of `ApplyAllGlobalConfigs()` | Crash at startup, or setting silently reset by the map's own rules |
 | Register hooks before configs are loaded | Hooks may observe incomplete settings |
 | Treat `0` in a CSV as "no override" | `0` IS applied — it zeroes that matchup. `-1` is the skip value. |
+| Write a game-table value outside `ConfigLoader.ReapplyTemplateConfigs`, or without `TemplateBaseline.BeforeWrite` | Lost at the next SE unload reset, or scaled twice by the next re-apply (v2.6.8) |
 
 ---
 
@@ -110,7 +113,7 @@ Before submitting changes:
 - [ ] Game loads plugin (check BepInEx console)
 - [ ] Initializer order check passes: `.\scripts\test_initialization_order.ps1`
 - [ ] Smoke launch passes: `.\scripts\launch_game.ps1`
-- [ ] On-load test suites pass — `LogOutput.log` shows `ALL 4 TEST SUITES PASSED`
+- [ ] On-load test suites pass — `LogOutput.log` shows `ALL 5 TEST SUITES PASSED`
 - [ ] TOML changes apply correctly
 - [ ] CSV values apply for cells >= 0 and are skipped at `-1`
 

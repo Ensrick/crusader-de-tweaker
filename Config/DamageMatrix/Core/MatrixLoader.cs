@@ -59,7 +59,15 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
                         !attacker.HasValue || !defender.HasValue ||
                         ShouldSkipAttacker(attacker.Value) || ShouldSkipDefender(defender.Value) ||
                         !ValidateDamageValue(damage),
-                    (attacker, defender, damage) => ApplyDamageValue(attacker, defender, damage)
+                    (attacker, defender, damage) =>
+                    {
+                        // Remember the game's own value the first time this cell is written
+                        // (ConfigLoader.ReapplyTemplateConfigs restores it first; Config/Core/TemplateBaseline.cs).
+                        string key = BaselineKey(attacker, defender);
+                        if (key != null)
+                            Config.Core.TemplateBaseline.BeforeWrite(key, () => CaptureRestore(attacker, defender));
+                        return ApplyDamageValue(attacker, defender, damage);
+                    }
                 );
 
                 Plugin.Logger.LogInfo($"Matrix loaded: Applied={appliedCount}, Skipped={skippedCount}");
@@ -92,6 +100,19 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
         /// Return true if successful, false if skipped/failed.
         /// </summary>
         protected abstract bool ApplyDamageValue(TAttacker attacker, TDefender defender, int damage);
+
+        /// <summary>
+        /// Identity of the game-table cell this matrix cell writes, for TemplateBaseline. Must equal
+        /// the key any other writer of the same cell uses (FireAndHealMultipliersConfig). Null = the
+        /// cell is not recorded (and so not restored before a re-apply).
+        /// </summary>
+        protected abstract string BaselineKey(TAttacker attacker, TDefender defender);
+
+        /// <summary>
+        /// Read the cell's current RAW game value and return an action that writes it back unchanged
+        /// (no multipliers), or null when it cannot be read.
+        /// </summary>
+        protected abstract Action CaptureRestore(TAttacker attacker, TDefender defender);
 
 
         /// <summary>
@@ -142,5 +163,19 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
 
             return result;
         }
+    }
+}
+
+namespace CrusaderDETweaker.Config.DamageMatrix.Core
+{
+    /// <summary>
+    /// TemplateBaseline keys for game-table cells written by more than one writer (a matrix loader
+    /// and an init-time multiplier in FireAndHealMultipliersConfig). Both must use these.
+    /// </summary>
+    internal static class MatrixBaselineKeys
+    {
+        internal static string UnitFire(SHCDESE.Interop.eChimps unit) => "unitFire|" + unit;
+        internal static string BedouinHeal(SHCDESE.Interop.eChimps unit) => "bedouinHeal|" + unit;
+        internal static string BuildingFire(SHCDESE.Interop.eStructs building) => "buildingFire|" + building;
     }
 }

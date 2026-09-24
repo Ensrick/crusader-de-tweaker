@@ -38,6 +38,15 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Ballista
             }
         }
 
+        protected override string BaselineKey(BallistaAttacker attackType, BallistaDamageTarget defender) => $"ballista|{defender}";
+
+        protected override Action CaptureRestore(BallistaAttacker attackType, BallistaDamageTarget defender)
+        {
+            if (!BallistaDamageHelper.GetMappings().TryGetValue(defender, out var prop) || prop == null) return null;
+            ushort original = prop.GetValue();
+            return () => prop.SetValue(original);
+        }
+
         protected override bool ShouldSkipDefender(BallistaDamageTarget defender)
         {
             return false;
