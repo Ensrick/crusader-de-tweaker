@@ -215,6 +215,8 @@ ConfigManager.Initialize(runValidation: true)
     ↓
 BepInExConfigManager.Initialize(...)  ← Multipliers, unit caps, wall costs
     ↓
+ConfigLoader.ReapplyTemplateConfigs("launch")  ← the ONE template write path: baseline restore, Units/Structures TOML,
+    ↓                                              CSV matrices, wall-cost / fire / heal multipliers
 ConfigSyncManager.Initialize()    ← packs this machine's configs for hosting (tab registered in Awake)
     ↓
 CoreTestRunner.RunAllTests()      ← runs EVERY launch as a QA self-check (see Unit Tests)

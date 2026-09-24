@@ -86,6 +86,17 @@ namespace CrusaderDETweaker.Config.Core
             }
             return (restored, failed);
         }
+
+        /// <summary>
+        /// The one template write sequence: restore every remembered value, then run the apply steps in
+        /// order. Running it N times leaves the same state as running it once (tested).
+        /// </summary>
+        internal (int restored, int failed) Reapply(IList<Action> steps)
+        {
+            var result = RestoreAll();
+            foreach (var step in steps) step();
+            return result;
+        }
     }
 
     /// <summary>The game-wide baseline every template writer reports to.</summary>
@@ -113,5 +124,8 @@ namespace CrusaderDETweaker.Config.Core
 
         /// <summary>Write every remembered game value back, newest first.</summary>
         internal static (int restored, int failed) RestoreAll() => _game.RestoreAll();
+
+        /// <summary>Restore, then run the apply steps (used only by ConfigLoader.ReapplyTemplateConfigs).</summary>
+        internal static (int restored, int failed) Reapply(IList<Action> steps) => _game.Reapply(steps);
     }
 }

@@ -172,6 +172,12 @@ namespace CrusaderDETweaker
                 var bepInExCfgPath = Path.Combine(Paths.ConfigPath, "CrusaderDETweaker", "CrusaderDETweaker_GlobalMultipliers.cfg");
                 BepInExConfigManager.Initialize(new ConfigFile(bepInExCfgPath, true));
 
+                // Template tables (Units / Structures TOML, the 7 CSV matrices, wall-cost / fire / heal
+                // multipliers): applied through the ONE template write path, the same one that runs after
+                // every SE map-unload reset, before every session start and for the host config sync.
+                // After the multipliers are bound, so launch order = TOML -> CSV -> multipliers as before.
+                CrusaderDETweaker.Config.Toml.ConfigLoader.ReapplyTemplateConfigs("launch");
+
                 // Multiplayer host config sync: pack this machine's files (sent only if we host a lobby)
                 // and register its session hooks. After both config managers, so it packs final values.
                 CrusaderDETweaker.Config.Sync.ConfigSyncManager.Initialize();

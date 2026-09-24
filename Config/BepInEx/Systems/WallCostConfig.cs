@@ -55,8 +55,8 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         }
 
         /// <summary>
-        /// Re-run the template writes of Apply() (multiplayer host config sync: after the tables were
-        /// restored to the game's values and the multiplier values may have changed).
+        /// This system's template writes. Called ONLY from ConfigLoader.ReapplyTemplateConfigs (via
+        /// BepInExConfigManager.ReapplyTemplateMultipliers), after the tables were restored to game values.
         /// </summary>
         internal void ReapplyTemplateValues() => ApplyWallCostMultipliers();
 

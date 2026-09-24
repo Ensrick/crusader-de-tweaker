@@ -90,10 +90,15 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         }
 
         /// <summary>
-        /// Re-run the template writes of Apply() (multiplayer host config sync: after the tables were
-        /// restored to the game values and the matrices re-applied). Same order as at launch.
+        /// This system's template writes. Called ONLY from ConfigLoader.ReapplyTemplateConfigs (via
+        /// BepInExConfigManager.ReapplyTemplateMultipliers), after the tables were restored to game values.
         /// </summary>
-        internal void ReapplyTemplateValues() => Apply();
+        internal void ReapplyTemplateValues()
+        {
+            ApplyUnitFireDamage();
+            ApplyStructureFireDamage();
+            ApplyBedouinHeal();
+        }
 
         private void ApplyUnitFireDamage()
         {

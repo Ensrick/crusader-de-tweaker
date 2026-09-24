@@ -117,13 +117,16 @@ namespace CrusaderDETweaker.Config.Toml
         {
             global::CrusaderDETweaker.Config.Sync.ConfigSyncManager.BeforeTemplateReapply(reason);
 
-            var (restored, failed) = global::CrusaderDETweaker.Config.Core.TemplateBaseline.RestoreAll();
             string source = ConfigPaths.UseHostSyncFiles ? "the lobby host's files" : "your files";
-            Plugin.Logger.LogInfo($"[TemplateConfig] Re-applying unit / structure / damage-matrix settings from {source} ({reason}); {restored} cells reset to game values first{(failed > 0 ? $", {failed} FAILED" : "")}.");
-            ApplyAllUnitConfigs();
-            ApplyAllStructureConfigs();
-            DamageMatrix.DamageMatrixManager.LoadAll();
-            BepInExConfigManager.ReapplyTemplateMultipliers();
+            Plugin.Logger.LogInfo($"[TemplateConfig] Applying unit / structure / damage-matrix settings from {source} ({reason}).");
+            var (restored, failed) = global::CrusaderDETweaker.Config.Core.TemplateBaseline.Reapply(new Action[]
+            {
+                ApplyAllUnitConfigs,
+                ApplyAllStructureConfigs,
+                DamageMatrix.DamageMatrixManager.LoadAll,
+                BepInExConfigManager.ReapplyTemplateMultipliers
+            });
+            Plugin.Logger.LogInfo($"[TemplateConfig] Done ({reason}): {restored} cells were reset to game values first{(failed > 0 ? $", {failed} FAILED" : "")}.");
         }
 
         /// <summary>

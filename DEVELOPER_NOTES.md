@@ -53,9 +53,9 @@ touches `BepInEx\config`. Releases go through `.\scripts\ship.ps1` (see `scripts
 ```
 1. Generate/migrate config files (TOML + CSV) — reads live API values for the "# Default:" comments
 2. Load: register the session hooks (no game-table writes)
-3. Bind the BepInEx multipliers, then ConfigLoader.ReapplyTemplateConfigs("launch"): restore game values
-   (TemplateBaseline), TOML templates, CSV matrices (they override TOML for the matchups they cover), then
-   the template multipliers. The same call runs after every SE unload reset and before every session start.
+3. Bind the BepInEx multipliers, then ConfigLoader.ReapplyTemplateConfigs("launch"): TOML templates,
+   then CSV matrices (they override TOML for the matchups they cover), then the template multipliers.
+   The same call runs after every SE unload reset, before every session start and for the host sync.
 4. Defer all session-state writes to the map-load events
 ```
 

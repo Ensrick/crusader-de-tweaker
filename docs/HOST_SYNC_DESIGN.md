@@ -113,7 +113,9 @@ health, speed, cost, melee / ranged / eunuch damage, fire and Bedouin-heal table
 while the player only moves through menus. 2.6.7 therefore re-applies the template tables through
 `ConfigLoader.ReapplyTemplateConfigs(reason)` on `OnUnloadMap` Post and `OnStartMap` / `OnLoadSave` Pre.
 
-Host sync uses exactly that entry point; it never writes template values any other way, because such
+Since 2.7.0 it is the ONLY code that writes the template tables: launch uses it too
+(`Plugin` calls `ReapplyTemplateConfigs("launch")` after the multipliers are bound; the config systems'
+`Load()` and the wall-cost / fire-heal `Apply()` no longer write). Host sync uses exactly that entry point; it never writes template values any other way, because such
 values would not survive the next unload. `ReapplyTemplateConfigs` (2.7.0):
 
 1. `ConfigSyncManager.BeforeTemplateReapply` - if the host's files are still selected but the player is
@@ -122,6 +124,9 @@ values would not survive the next unload. `ReapplyTemplateConfigs` (2.7.0):
 2. `TemplateBaseline.RestoreAll()` (section 8);
 3. Units TOML, Structures TOML, the 7 matrices, `BepInExConfigManager.ReapplyTemplateMultipliers()`
    (wall cost, unit / building fire, Bedouin heal), all from `ConfigPaths.ActiveConfigDir`.
+
+The on-load test `Reapply_NTimesEqualsOnce` checks that running the sequence N times, with or without an
+SE reset in between, equals running it once, and that the ranged multiplier is applied only at hit time.
 
 Consequence: do not assume any value persists between the lobby apply and the match start; the match
 start re-applies from whatever the redirect selects at that moment.
@@ -343,7 +348,7 @@ manager's own Pre hooks log whether the match starts with the host's configs.
 | Match starts before the package was applied | `Match starting WITHOUT the host's configs: <state>` (warning) | - | own configs for that match |
 | Lobby owner changes (host migration) | if we become owner: revert, `no longer a multiplayer client` | host status | we keep playing on our own configs; other members keep what they had |
 | Game or connection lost mid-session | revert on the next check once the lobby/game is gone, or at the next unload reset / session start | - | own configs |
-| SE unload reset while synced (menus, match start) | `[TemplateConfig] Re-applying ... from the lobby host's files (...)` | - | host's values restored after the reset |
+| SE unload reset while synced (menus, match start) | `[TemplateConfig] Applying ... from the lobby host's files (...)` | - | host's values restored after the reset |
 
 Every rejected package leaves the client's configuration exactly as it was.
 
