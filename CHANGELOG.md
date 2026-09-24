@@ -6,7 +6,6 @@
        - The tab shows the host switch and a status line ("Using the host's configs", "Host has config sync turned off", "Nothing received from the host", "rejected (reason)"). The log shows every step with a `[ConfigSync]` prefix and the same content hash on host and player.
        - Requires Script Extender 2.8.0 (unchanged). Single player and skirmish are unaffected.
        - The host sync uses the 2.6.8 re-apply path (`ConfigLoader.ReapplyTemplateConfigs`): applying the host's configs and going back to your own are both a re-apply from a different folder, so the Script Extender's map-unload resets during a synced session re-apply the host's files, and the table reset before every re-apply guarantees no value from the other side is left behind.
-       - Maintenance: `scripts/deploy.ps1` now mirrors the build. A file in the game's plugin folder that the deployed build does not ship (e.g. 2.7.0's lobby XAML left behind when 2.6.7 was redeployed) is moved into the deploy backup, never deleted, and listed in the output. The Script Extender's `LobbyModSettings` (the player's lobby-tab settings) is kept.
        - Developer: `Config/Sync/` (codec, manager, lobby ViewModel), `ConfigPaths.UseHostSyncFiles` redirect, new on-load test suite `ConfigSync` (the log now reads `ALL 6 TEST SUITES PASSED`), `Override/ScriptExtenderUI/CDTLobbySettings.xaml` shipped. Design: `docs/HOST_SYNC_DESIGN.md`.
 
 2.6.8 - Settings stay applied in play, multipliers applied exactly once (2026-09-24):
