@@ -11,15 +11,19 @@
 //                                        values (SE checks the sender is the Steam lobby owner).
 //   Reconcile()                          host sync on + valid package -> ApplyHost(); off -> Revert().
 //   Tick() (Plugin.Update, 1 s)          role changes; revert once no longer a multiplayer client.
-//   OnStartMap / OnLoadSave (Pre)        backstop revert for non-client sessions; match-start log lines.
+//   BeforeTemplateReapply()              called by ConfigLoader.ReapplyTemplateConfigs (every SE unload
+//                                        reset and session start): drop the host's files if no longer a client.
+//   OnStartMap / OnLoadSave (Pre)        match-start log lines; host-side "files changed" warning.
 //
 // IMPORTANT FOR AI AGENTS:
 // - The player's own config files are NEVER written here. Host files go to ConfigPaths.HostSyncDir and
 //   the loaders are redirected with ConfigPaths.UseHostSyncFiles; multipliers are overridden in memory
 //   (BepInExConfigManager.ApplyHostMultipliers, autosave off).
-// - Apply and revert both start with TemplateBaseline.RestoreAll() so the -1 sentinel cannot leak one
-//   side's overrides into the other (design doc section 8). Keep the launch apply order:
-//   Units TOML -> Structures TOML -> matrices -> multiplier template writes.
+// - Apply and revert go through ConfigLoader.ReapplyTemplateConfigs, the same entry point that runs after
+//   every SE map-unload reset (SE clears the unit/building tables on each unload, v2.6.7) and before every
+//   session start. It starts with TemplateBaseline.RestoreAll() so the -1 sentinel cannot leak one side's
+//   overrides into the other (design doc section 8). Never apply synced values any other way: they would
+//   not survive the next unload.
 // - GameplaySettings is session state: it is applied by the ConfigLoader session hooks (Post), which
 //   read ConfigPaths.Globals and so pick up the host's file. Never write it from here.
 // - Every log line starts with [ConfigSync]; users paste these into bug reports.
@@ -31,7 +35,6 @@ using System.Linq;
 using BepInEx;
 using CrusaderDETweaker.Config.BepInEx;
 using CrusaderDETweaker.Config.Core;
-using CrusaderDETweaker.Config.DamageMatrix;
 using CrusaderDETweaker.Config.Toml;
 using R3;
 using SHCDESE.API;
@@ -297,11 +300,13 @@ namespace CrusaderDETweaker.Config.Sync
             {
                 var written = WriteHostFiles(package);
 
-                var (restored, failed) = TemplateBaseline.RestoreAll();
                 ConfigPaths.UseHostSyncFiles = true;
 
-                // Same order as launch: multiplier values first (the template multipliers read them),
-                // then Units TOML, Structures TOML, the 7 matrices, then the multiplier template writes.
+                // Multiplier values first (the template multipliers read them), then the shared
+                // re-apply entry point (baseline restore, Units, Structures, matrices, multiplier
+                // template writes). SE resets the tables on every map unload, and ConfigLoader re-runs
+                // the same entry point then and at every session start, reading the host's files for as
+                // long as UseHostSyncFiles is set.
                 string multiplierNote;
                 if (hostMultipliers != null)
                 {
@@ -316,12 +321,12 @@ namespace CrusaderDETweaker.Config.Sync
                     multiplierNote = "no multipliers (the host sent none; your own apply)";
                 }
 
-                ApplyTemplatesFromActiveFiles();
+                ConfigLoader.ReapplyTemplateConfigs("host sync applied");
 
                 _applied = true;
                 _appliedHash = package.BodyHash;
                 _problem = null;
-                Plugin.Logger.LogInfo($"{Tag} Applied the host's configs (hash {hash}, host v{package.HostModVersion}): {string.Join(", ", written)}; {multiplierNote}. Tables reset to game values first ({restored} cells{(failed > 0 ? $", {failed} FAILED" : "")}). GameplaySettings from the host apply at match start. Host files: {ConfigPaths.HostSyncDir}");
+                Plugin.Logger.LogInfo($"{Tag} Applied the host's configs (hash {hash}, host v{package.HostModVersion}): {string.Join(", ", written)}; {multiplierNote}. Tables were reset to game values first. GameplaySettings from the host apply at match start. Host files: {ConfigPaths.HostSyncDir}");
                 if (TemplateBaseline.UnreadableCount > 0)
                     Plugin.Logger.LogWarning($"{Tag} {TemplateBaseline.UnreadableCount} table cell(s) could not be read at launch and cannot be reset (see [TemplateBaseline] debug lines).");
             }
@@ -358,14 +363,6 @@ namespace CrusaderDETweaker.Config.Sync
             return written;
         }
 
-        private static void ApplyTemplatesFromActiveFiles()
-        {
-            ConfigLoader.ApplyAllUnitConfigs();
-            ConfigLoader.ApplyAllStructureConfigs();
-            DamageMatrixManager.LoadAll();
-            BepInExConfigManager.ReapplyTemplateMultipliers();
-        }
-
         /// <summary>Back to this player's own configs. No-op when the host's are not in use.</summary>
         private static void Revert(string reason)
         {
@@ -373,11 +370,9 @@ namespace CrusaderDETweaker.Config.Sync
 
             try
             {
-                ConfigPaths.UseHostSyncFiles = false;
-                BepInExConfigManager.RestoreOwnMultipliers();
-                var (restored, failed) = TemplateBaseline.RestoreAll();
-                ApplyTemplatesFromActiveFiles();
-                Plugin.Logger.LogInfo($"{Tag} Reverted to your own configs ({reason}). Tables reset ({restored} cells{(failed > 0 ? $", {failed} FAILED" : "")}) and your files re-applied. Note: GameplaySettings keys your own file leaves at 'no override' may keep the host's value until you restart the game.");
+                SwitchToOwnConfigs();
+                ConfigLoader.ReapplyTemplateConfigs("host sync ended: " + reason);
+                Plugin.Logger.LogInfo($"{Tag} Reverted to your own configs ({reason}). Tables reset to game values and your files re-applied. Note: GameplaySettings keys your own file leaves at 'no override' may keep the host's value until you restart the game.");
             }
             catch (Exception ex)
             {
@@ -388,6 +383,30 @@ namespace CrusaderDETweaker.Config.Sync
                 _applied = false;
                 _appliedHash = null;
             }
+        }
+
+        /// <summary>Stop reading the host's files and put this player's multiplier values back.</summary>
+        private static void SwitchToOwnConfigs()
+        {
+            ConfigPaths.UseHostSyncFiles = false;
+            BepInExConfigManager.RestoreOwnMultipliers();
+        }
+
+        /// <summary>
+        /// Called first by ConfigLoader.ReapplyTemplateConfigs (after every SE map-unload reset and before
+        /// every session start). If the host's configs are still selected but this player is no longer a
+        /// multiplayer client, switch back to the player's own before the re-apply reads any file, so e.g.
+        /// a single-player start right after a match can never use the host's values.
+        /// </summary>
+        internal static void BeforeTemplateReapply(string reason)
+        {
+            if (!ConfigPaths.UseHostSyncFiles && !BepInExConfigManager.HostOverrideActive) return;
+            if (CurrentRole() == Role.Client) return;
+
+            SwitchToOwnConfigs();
+            _applied = false;
+            _appliedHash = null;
+            Plugin.Logger.LogInfo($"{Tag} Reverted to your own configs ({reason}: you are no longer a multiplayer client). Your files are re-applied now. Note: GameplaySettings keys your own file leaves at 'no override' may keep the host's value until you restart the game.");
         }
 
         // ------------------------------------------------------------------
@@ -470,10 +489,6 @@ namespace CrusaderDETweaker.Config.Sync
                         Plugin.Logger.LogWarning($"{Tag} {hook}: match starting WITHOUT the host's configs ({ClientStateText()}). Your own configs apply.");
                     return;
                 }
-
-                // Any other session must run on this player's own configs.
-                if (_applied || ConfigPaths.UseHostSyncFiles || BepInExConfigManager.HostOverrideActive)
-                    Revert($"{hook}: a session that is not a multiplayer-client session is starting");
 
                 if (role == Role.Host && (Lobby?.SyncEnabled ?? false))
                 {

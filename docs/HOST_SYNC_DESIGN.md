@@ -82,27 +82,49 @@ CLIENT
   lobby receive hook (ManagedHooks/Platform_Multiplayer_Hooks.cs:18-52) -> ReceiveSettingsUpdate
   -> ApplyHostOnlyUpdate (GameXAMLManagerAPI.cs:638-681): sender must be the Steam lobby owner,
      then the setter runs inside SE's authorised-write window
-  -> ConfigSyncLobbySettings setter -> ConfigSyncManager.OnHostValueReceived
+  -> ConfigSyncLobbySettings setter -> ConfigSyncManager.OnSyncEnabledSet / OnHostBlobSet
   -> when both the host's SyncEnabled (true) and blob are in:
        ConfigSyncCodec.TryUnpack      (size caps, magic, format version, bounded gunzip, SHA-256,
                                        fixed id whitelist, no duplicates, no trailing bytes)
        version rule (section 7)
        write HostSync\ files (AtomicFileWriter), remove a stale HostSync file the package lacks
-       TemplateBaseline.RestoreAll    (tables back to the game's own values, see section 8)
-       ConfigPaths.UseHostSyncFiles = true
-       re-run the init apply order: Units TOML, Structures TOML, 7 matrices,
-       multiplier override + wall-cost / fire / heal template multipliers
+       ConfigPaths.UseHostSyncFiles = true; host multiplier values in memory
+       ConfigLoader.ReapplyTemplateConfigs("host sync applied")   (section 3a)
        log: [ConfigSync] Applied host config ...
+  every SE map-unload reset (OnUnloadMap Post) and every session start (OnStartMap / OnLoadSave Pre):
+       ConfigLoader.ReapplyTemplateConfigs again -> reads the host's files while the redirect is set
   match start: OnStartMap/OnLoadMap/OnLoadSave (Post) read GameplaySettings through ConfigPaths,
        i.e. the host's file
 
 REVERT (client)
   trigger: host turns sync off | no longer a networked client (checked every second) |
-           a non-client session starts (OnStartMap / OnLoadSave Pre backstop)
+           any ReapplyTemplateConfigs call while no longer a client (unload reset, session start)
   ConfigPaths.UseHostSyncFiles = false; own multiplier values back, SaveOnConfigSet restored
-  TemplateBaseline.RestoreAll; re-run the init apply order from the client's own files
+  ConfigLoader.ReapplyTemplateConfigs("host sync ended: <reason>")
   log: [ConfigSync] Reverted to your own configs (reason)
 ```
+
+### 3a. The single re-apply entry point (since 2.6.7)
+
+SHCDE-SE clears every unit/building stat override on **every map unload**
+(`GameUnitManagerAPI.OnUnloadMap` / `GameBuildingManagerAPI.OnUnloadMap` call `ClearOverrides()` on the
+health, speed, cost, melee / ranged / eunuch damage, fire and Bedouin-heal tables:
+`API/GameUnitManagerAPI.cs:249-260`, `API/GameBuildingManagerAPI.cs:249-255`), and the game raises unloads
+while the player only moves through menus. 2.6.7 therefore re-applies the template tables through
+`ConfigLoader.ReapplyTemplateConfigs(reason)` on `OnUnloadMap` Post and `OnStartMap` / `OnLoadSave` Pre.
+
+Host sync uses exactly that entry point; it never writes template values any other way, because such
+values would not survive the next unload. `ReapplyTemplateConfigs` (2.7.0):
+
+1. `ConfigSyncManager.BeforeTemplateReapply` - if the host's files are still selected but the player is
+   no longer a multiplayer client, switch back to the player's own first (so a single-player start after
+   a match can never read the host's files; this replaced a separate OnStartMap backstop);
+2. `TemplateBaseline.RestoreAll()` (section 8);
+3. Units TOML, Structures TOML, the 7 matrices, `BepInExConfigManager.ReapplyTemplateMultipliers()`
+   (wall cost, unit / building fire, Bedouin heal), all from `ConfigPaths.ActiveConfigDir`.
+
+Consequence: do not assume any value persists between the lobby apply and the match start; the match
+start re-applies from whatever the redirect selects at that moment.
 
 ## 4. The SE 2.8.0 lobby-settings contract this relies on (with sources)
 
@@ -266,16 +288,26 @@ because of the `-1` sentinel ("leave the game value unchanged"):
 matrix loaders, wall-cost and fire/heal multipliers) first reports the cell it is about to change. The
 first time a cell is seen, its current value is read and remembered; the first time is at launch, before
 the mod has touched it, so what is remembered is the game's own value. `RestoreAll()` writes those back
-(newest first). Apply = restore + host files; revert = restore + own files. Both end in exactly the state
-the owner of the files would have after a fresh launch.
+(newest first). `ReapplyTemplateConfigs` (section 3a) always runs it before applying, so every re-apply,
+whether from the host's files or the player's own, ends in exactly the state the owner of those files
+would have after a fresh launch.
+
+SE's unload reset (section 3a) already puts the SE-managed tables back to the game values, but not the
+cells SE does not track (wall-cost multipliers, ballista damage and run-speed immediates), and the init-time
+fire / heal multipliers scale the *current* value: re-applying them without a restore in between (unload
+Post followed by session-start Pre, with no reset between them) would scale twice. The restore makes the
+entry point idempotent for all of them.
 
 Unit/building caps (`MaxCount`) are dictionaries rebuilt by every Units/Structures apply, so they follow
 automatically. Runtime multipliers are read at hit time from the `ConfigEntry` values (section 2).
 
-Fix made on the way: `RangedDamageMatrixLoader` multiplied the CSV value by `RangedDamageTakenMultiplier`
-when applying. At launch that code never ran (the multipliers are bound after the matrices load), and the
-runtime hook applies the same multiplier at hit time, so any re-apply would have scaled ranged damage
-twice. The apply-time scaling is removed; launch behaviour is unchanged.
+Fixes made on the way (both affect 2.6.7, which re-applies the matrices after every unload):
+- `RangedDamageMatrixLoader` multiplied the CSV value by `RangedDamageTakenMultiplier` when applying, while
+  the hit-time hook applies the same multiplier. At launch that code never ran (the multipliers are bound
+  after the matrices load), but every re-apply scaled ranged damage twice. The apply-time scaling is removed.
+- The fire / heal / wall-cost multiplier template writes were only done at launch, so after SE's first
+  unload reset those multipliers no longer applied to the tables. `ReapplyTemplateConfigs` now re-runs them
+  (`BepInExConfigManager.ReapplyTemplateMultipliers`).
 
 ## 9. GameplaySettings and the session hooks
 
@@ -292,9 +324,10 @@ documented ACCESS_VIOLATION hazard). The client's next session applies the clien
 it at the next session start is not verified per key. The revert log line says so, and a game restart
 always gives a clean state.
 
-The client's `OnStartMap` / `OnLoadSave` **Pre** hooks run the backstop revert for any session that is not
-a multiplayer-client session (so single player after a match can never read the host's files), and for
-a client session they log whether the match starts with the host's configs.
+The template re-apply that 2.6.7 runs at `OnStartMap` / `OnLoadSave` **Pre** (section 3a) switches back to
+the player's own files first when the player is not a multiplayer client, so single player after a match
+can never read the host's files, even if the 1-second role check has not run yet. For a client session the
+manager's own Pre hooks log whether the match starts with the host's configs.
 
 ## 10. Failure modes
 
@@ -309,7 +342,8 @@ a client session they log whether the match starts with the host's configs.
 | Host edited config files after launch (host) | `Your config files changed since launch` (warning, host, at match start) | - | clients got the launch-time files; restart to resend |
 | Match starts before the package was applied | `Match starting WITHOUT the host's configs: <state>` (warning) | - | own configs for that match |
 | Lobby owner changes (host migration) | if we become owner: revert, `no longer a multiplayer client` | host status | we keep playing on our own configs; other members keep what they had |
-| Game or connection lost mid-session | revert on the next check once the lobby/game is gone | - | own configs |
+| Game or connection lost mid-session | revert on the next check once the lobby/game is gone, or at the next unload reset / session start | - | own configs |
+| SE unload reset while synced (menus, match start) | `[TemplateConfig] Re-applying ... from the lobby host's files (...)` | - | host's values restored after the reset |
 
 Every rejected package leaves the client's configuration exactly as it was.
 
@@ -329,6 +363,7 @@ lobby owner exists to send a host-only value.
 | Lobby ViewModel (`SyncEnabled`, `HostConfigBlob`, `Status`) | `Config/Sync/ConfigSyncLobbySettings.cs` |
 | Orchestration: pack, receive, apply, revert, status, checks | `Config/Sync/ConfigSyncManager.cs` |
 | First-write baseline and restore | `Config/Core/TemplateBaseline.cs` |
+| Single template re-apply entry point (unload reset, session start, sync apply / revert) | `Config/Toml/ConfigLoader.cs` `ReapplyTemplateConfigs` |
 | Path redirect | `Config/Toml/ConfigPaths.cs` (`UseHostSyncFiles`), `Config/DamageMatrix/Core/MatrixPaths.cs` |
 | Multiplier values + in-memory override | `Config/BepInEx/BepInExConfigManager.cs` |
 | Lobby panel | `Override/ScriptExtenderUI/CDTLobbySettings.xaml` |
@@ -338,6 +373,7 @@ lobby owner exists to send a host-only value.
 
 1. Order and timing of the join push relative to the client's lobby UI in a long-distance session.
 2. Whether `gameMembers` / `activeLobby` are cleared promptly when a match ends (the revert check relies
-   on them; the `OnStartMap`/`OnLoadSave` Pre backstop covers the next single-player session either way).
-3. Whether template writes in the lobby behave like the ones at launch (the mod has only ever written
-   templates at launch; the prototype this replaces assumed so, untested).
+   on them; the re-apply at the next unload reset or session start switches back either way).
+3. Whether template writes in the lobby behave like the ones at launch. Since 2.6.7 the mod writes templates
+   after every unload reset (menus included), so writes outside launch are now routine; the match-start
+   re-apply is what the match actually uses.

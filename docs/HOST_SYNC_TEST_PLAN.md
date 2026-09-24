@@ -62,10 +62,11 @@ FAIL if: `Lobby tab NOT registered`, `Could not pack your configs`, or any `[FAI
    ```
    [ConfigSync] Host config sync is ON (from lobby owner <H steam id>).
    [ConfigSync] Received the host's configs from lobby owner <H steam id>: <wire> bytes, 11 files, hash <H-hash>, host v2.7.0. Verified OK.
+   [TemplateConfig] Re-applying unit / structure / damage-matrix settings from the lobby host's files (host sync applied); <k> cells reset to game values first.
    Applied unit configs: Units=<n>, Skipped=<n>, Errors=0
    Loading damage matrix: ...\CrusaderDETweaker\HostSync\DamageMatrices\CrusaderDETweaker_RangedDamage.csv
    ...
-   [ConfigSync] Applied the host's configs (hash <H-hash>, host v2.7.0): CrusaderDETweaker_Units.toml, CrusaderDETweaker_Structures.toml, CrusaderDETweaker_GameplaySettings.toml, CrusaderDETweaker_MeleeDamage.csv, ... ; 15 multipliers. Tables reset to game values first (<k> cells). GameplaySettings from the host apply at match start. Host files: ...\CrusaderDETweaker\HostSync
+   [ConfigSync] Applied the host's configs (hash <H-hash>, host v2.7.0): CrusaderDETweaker_Units.toml, CrusaderDETweaker_Structures.toml, CrusaderDETweaker_GameplaySettings.toml, CrusaderDETweaker_MeleeDamage.csv, ... ; 15 multipliers. Tables were reset to game values first. GameplaySettings from the host apply at match start. Host files: ...\CrusaderDETweaker\HostSync
    [ConfigSync] Lobby role: not in a lobby -> multiplayer client.
    ```
 
@@ -89,7 +90,8 @@ the hashes differ.
 
    ```
    [ConfigSync] Host config sync is OFF (from lobby owner <H steam id>).
-   [ConfigSync] Reverted to your own configs (the host turned config sync off). Tables reset (<k> cells) and your files re-applied. Note: ...
+   [TemplateConfig] Re-applying unit / structure / damage-matrix settings from your files (host sync ended: the host turned config sync off); <k> cells reset to game values first.
+   [ConfigSync] Reverted to your own configs (the host turned config sync off). Tables reset to game values and your files re-applied. Note: ...
    ```
    C's status: "Host has config sync turned off: everyone uses their own configs."
 3. H ticks it again. C's log: `Host config sync is ON ...` then `Applied the host's configs (hash <H-hash> ...)`.
@@ -101,6 +103,9 @@ the hashes differ.
 2. H's log: `[ConfigSync] OnStartMap: hosting with config sync ON; players received hash <H-hash>.`
    C's log: `[ConfigSync] OnStartMap: match starting with the host's configs (hash <H-hash>).` followed by
    `[GlobalConfig] OnStartMap (Post) fired ...`.
+   While the match loads, C's log may show more `[TemplateConfig] Re-applying ... from the lobby host's
+   files (after SE map-unload reset)` / `(new game / map start)` lines: these must say **the lobby host's
+   files**. A `from your files` line on C during the match is a FAIL.
 3. Both players look at the Barracks:
    - **Knight** costs 5000 gold for **both** players (H's value).
    - **Archer** shows the **same** price for both players, and it is **not** 1 (C's own override must not
@@ -119,11 +124,17 @@ desync.
 
    ```
    [ConfigSync] Lobby role: multiplayer client -> not in a lobby.
-   [ConfigSync] Reverted to your own configs (you left the lobby or the match ended). Tables reset (<k> cells) and your files re-applied. Note: GameplaySettings keys your own file leaves at 'no override' may keep the host's value until you restart the game.
+   [TemplateConfig] Re-applying unit / structure / damage-matrix settings from your files (host sync ended: you left the lobby or the match ended); <k> cells reset to game values first.
+   [ConfigSync] Reverted to your own configs (you left the lobby or the match ended). Tables reset to game values and your files re-applied. Note: GameplaySettings keys your own file leaves at 'no override' may keep the host's value until you restart the game.
    ```
-   (If the role line does not appear, the revert still happens at the next single-player start, step 6,
-   with the reason `OnStartMap: a session that is not a multiplayer-client session is starting`. Record
-   which one you saw: it answers open question 2 of the design doc.)
+   Alternative, equally a PASS: if a map-unload reset comes first (leaving a match unloads the map), the
+   revert happens inside that re-apply instead:
+   ```
+   [ConfigSync] Reverted to your own configs (after SE map-unload reset: you are no longer a multiplayer client). Your files are re-applied now. ...
+   [TemplateConfig] Re-applying unit / structure / damage-matrix settings from your files (after SE map-unload reset); <k> cells reset to game values first.
+   ```
+   If neither appears, the same line with `new game / map start` appears at the next single-player start
+   (step 6). Record which one you saw: it answers open question 2 of the design doc.
 2. C's Mod Options status: "Not in a multiplayer lobby. Your own configs apply."
 3. On C, re-run the hash command from setup step 3 into `cdt_after.txt` and compare:
 

@@ -269,12 +269,17 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 - A client writes them to `config\CrusaderDETweaker\HostSync\` and sets `ConfigPaths.UseHostSyncFiles`;
   **its own files are never written**. Multipliers are overridden in memory with BepInEx autosave off.
 - **Every template write must go through `TemplateBaseline.BeforeWrite`** (PropertyHandler, matrix
-  loaders, wall-cost and fire/heal init multipliers already do). Apply and revert start with
-  `TemplateBaseline.RestoreAll()`; without it the `-1` sentinel leaks one side's overrides into the other.
-  A new template writer that skips it breaks exact revert.
-- Revert: host turns sync off, player stops being a multiplayer client (`Tick`, 1 s), or a non-client
-  session starts (`OnStartMap`/`OnLoadSave` Pre backstop). GameplaySettings is session state and follows
-  the session hooks through `ConfigPaths.Globals`; never write it from the sync code.
+  loaders, wall-cost and fire/heal init multipliers already do). A new template writer that skips it
+  breaks exact revert.
+- **All template (re-)application goes through `ConfigLoader.ReapplyTemplateConfigs(reason)`**: after every
+  SE unload reset, before every session start, and for sync apply ("host sync applied") and revert ("host
+  sync ended"). It asks `ConfigSyncManager.BeforeTemplateReapply` to drop the host's files if the player is
+  no longer a client, runs `TemplateBaseline.RestoreAll()` (without it the `-1` sentinel leaks one side's
+  overrides into the other, and fire/heal multipliers would scale twice), then Units, Structures, matrices
+  and `BepInExConfigManager.ReapplyTemplateMultipliers()` from `ConfigPaths.ActiveConfigDir`.
+- Revert: host turns sync off, player stops being a multiplayer client (`Tick`, 1 s), or any re-apply while
+  no longer a client. GameplaySettings is session state and follows the session hooks through
+  `ConfigPaths.Globals`; never write it from the sync code.
 - Log prefix `[ConfigSync]`; on-load suite `ConfigSync` covers the codec and the baseline journal.
 
 ---

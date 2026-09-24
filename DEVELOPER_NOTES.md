@@ -96,8 +96,9 @@ TOML property settings and the runtime BepInEx multipliers are separate layers o
 Full design: [docs/HOST_SYNC_DESIGN.md](docs/HOST_SYNC_DESIGN.md). Test plan: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md).
 The rules that constrain other code:
 
-1. **Template writes report to `TemplateBaseline.BeforeWrite` first.** A client switching to the host's
-   configs (and back) restores the game's own values, then re-runs the launch apply order
+1. **Template writes report to `TemplateBaseline.BeforeWrite` first, and all re-application goes through
+   `ConfigLoader.ReapplyTemplateConfigs(reason)`** (SE unload resets, session starts, host sync apply and
+   revert). It restores the game's own values, then re-runs the launch apply order
    (Units TOML, Structures TOML, matrices, `BepInExConfigManager.ReapplyTemplateMultipliers`). A writer
    that does not report its cell leaves one side's value behind wherever the other side has `-1`. Cells
    written by two writers (unit fire, building fire, Bedouin heal: matrix loader + fire/heal multiplier)
