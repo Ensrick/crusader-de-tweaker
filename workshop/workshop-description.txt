@@ -1,8 +1,15 @@
-Version 2.6.8
+Version 2.7.0
 
 Updated for SHC DE v2.8.2 and Script Extender 2.8.0!
 
-[b]2.6.8:[/b]
+[b]2.7.0: Multiplayer host config sync (not yet tested in a real multiplayer match):[/b]
+[list]
+[*][b]Everyone in a lobby plays with the host's configs.[/b] Players who join receive the host's Units, Structures and GameplaySettings files, the 7 damage matrices and the multiplier values. No more copying the config folder before a match. The host turns it on or off in the lobby's Mod Options window, tab "Crusader DE Tweaker" (on by default).
+[*][b]Your own config files are never changed.[/b] The host's copies are kept in BepInEx\config\CrusaderDETweaker\HostSync\, and your own configs apply again when you leave the lobby or the match ends, no restart needed.
+[*]Host and players need the same 2.7.x version. The tab shows the sync status; every step is logged with [ConfigSync] in BepInEx\LogOutput.log.
+[/list]
+
+[b]2.6.7:[/b]
 [list]
 [*][b]Fix: unit and structure stats (Speed, Health, costs, shields, housing) and the damage CSVs now stay applied when you play.[/b] The Script Extender resets these game tables to vanilla every time a map is unloaded, which also happens while you move through the menus, and the mod only applied them once at launch. They are now re-applied after every reset and before every game starts. Reported on Nexus ("the Speed of any unit I change doesn't do anything").
 [*][b]The fire, Bedouin-heal and wall-cost multipliers stay applied too[/b], and RangedDamageTakenMultiplier is applied exactly once. Every re-apply first puts the game's own values back, so nothing is ever scaled twice.

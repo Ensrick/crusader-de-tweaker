@@ -14,7 +14,7 @@ Identity and version are single-sourced in `PluginInfo.cs`:
 // PluginInfo.cs
 public const string PLUGIN_GUID    = "CrusaderDETweaker";
 public const string PLUGIN_NAME    = "Crusader DE Tweaker";
-public const string PLUGIN_VERSION = "2.6.6";
+public const string PLUGIN_VERSION = "2.7.0";
 
 // Plugin.cs
 [BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]
@@ -91,6 +91,30 @@ TOML property settings and the runtime BepInEx multipliers are separate layers o
 
 ---
 
+## Multiplayer Host Config Sync (2.7.0)
+
+Full design: [docs/HOST_SYNC_DESIGN.md](docs/HOST_SYNC_DESIGN.md). Test plan: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md).
+The rules that constrain other code:
+
+1. **Template writes report to `TemplateBaseline.BeforeWrite` first.** A client switching to the host's
+   configs (and back) restores the game's own values, then re-runs the launch apply order
+   (Units TOML, Structures TOML, matrices, `BepInExConfigManager.ReapplyTemplateMultipliers`). A writer
+   that does not report its cell leaves one side's value behind wherever the other side has `-1`. Cells
+   written by two writers (unit fire, building fire, Bedouin heal: matrix loader + fire/heal multiplier)
+   must use the same key (`MatrixBaselineKeys`).
+2. **Loaders must be re-runnable** and must not scale by a runtime multiplier at apply time (the hit-time
+   hooks do that; `RangedDamageMatrixLoader` did until 2.7.0).
+3. **Paths go through `ConfigPaths` / `MatrixPaths`.** While `ConfigPaths.UseHostSyncFiles` is set they
+   resolve into `HostSync\`. The player's own files are never written by the sync.
+4. **GameplaySettings stays session-hook-only.** The session hooks read `ConfigPaths.Globals`, which is the
+   host's file during a synced session.
+5. The ViewModel's `[SyncHostOnly]` setters call `CanEdit()` first. As a client, a setter call that passes
+   it is the lobby owner's value (SE verifies the Steam sender); the manager relies on that.
+6. Changing the wire layout means bumping `ConfigSyncCodec.FormatVersion`; adding a synced file means a new
+   `SyncFileId` plus its fixed `RelativePathFor` name. Names never travel in the package.
+
+---
+
 ## Common Mistakes
 
 | Mistake | Consequence |
@@ -101,7 +125,8 @@ TOML property settings and the runtime BepInEx multipliers are separate layers o
 | Add a global setting to a `Load()` body instead of `ApplyAllGlobalConfigs()` | Crash at startup, or setting silently reset by the map's own rules |
 | Register hooks before configs are loaded | Hooks may observe incomplete settings |
 | Treat `0` in a CSV as "no override" | `0` IS applied — it zeroes that matchup. `-1` is the skip value. |
-| Write a game-table value outside `ConfigLoader.ReapplyTemplateConfigs`, or without `TemplateBaseline.BeforeWrite` | Lost at the next SE unload reset, or scaled twice by the next re-apply (v2.6.8) |
+| Add a template writer without `TemplateBaseline.BeforeWrite` | Multiplayer host config sync can no longer revert or mirror that value exactly |
+| Write a config through `Paths.ConfigPath` instead of `ConfigPaths` | Bypasses the host-sync redirect; a client would read its own file during a synced match |
 
 ---
 

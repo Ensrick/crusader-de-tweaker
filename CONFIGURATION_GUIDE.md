@@ -54,6 +54,9 @@ In the log, look for "[Trade Prices] STORED_BOWS: buy 155 -> 52" to confirm it a
 [b]5. Updating the mod[/b]
 Replace only the [b]BepInEx\plugins\CrusaderDETweaker[/b] folder. Keep your config files: the mod never resets your values, it only adds new settings on launch. A syntax error is reported in the log as "SYNTAX ERROR" with the line number.
 
+[b]6. Multiplayer[/b]
+The lobby host's configs are sent to everyone who joins (tab [b]Crusader DE Tweaker[/b] in the lobby's Mod Options window); your own files are not changed and apply again when you leave. See "Multiplayer: host config sync" below.
+
 The sections below list every config file and setting.
 
 
@@ -367,6 +370,29 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [/list]
 
 [b]Note:[/b] CSV files are only generated if missing. Existing files are never overwritten — your edits are safe.
+
+
+[size=5][b]Multiplayer: host config sync[/b][/size]
+[b]New in 2.7.0, not yet tested in a real multiplayer match.[/b] In a multiplayer lobby, everyone plays with the [b]host's[/b] Crusader DE Tweaker configs. Nobody has to copy config files before a match.
+
+[b]What is sent:[/b] the host's Units, Structures and GameplaySettings files, all 7 damage matrices, and the [b][Multipliers][/b] values of the CFG file ([b][Debug][/b] stays local). The host's files as they were when the host started the game: after editing configs, the host restarts the game before opening the lobby.
+
+[b]The switch:[/b] open the lobby's [b]Mod Options[/b] window, tab [b]Crusader DE Tweaker[/b]. [b]Players who join use my configs[/b] is on by default and only the host can change it; players see it greyed out. Turning it off (or on) in the lobby takes effect for everyone immediately.
+
+[b]Your own files are never changed.[/b] A player's copy of the host's files is stored in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\HostSync\[/b] and used only for that lobby's matches. The multiplier values are applied in memory, the CFG file is not saved. When you leave the lobby, the match ends, or the host turns sync off, your own configs apply again, no restart needed. One exception: a GameplaySettings value your own file leaves at "no override" (a [b]false[/b] gameplay option, a [b]0[/b] trade price) may keep the host's value until you restart the game.
+
+[b]Versions:[/b] host and players need the same major.minor version (for example 2.7.0 and 2.7.1 work together; 2.7 and 2.8 do not). A host on an older version, or without the mod, sends nothing: everyone keeps their own configs.
+
+[b]Status line[/b] in the tab:
+[list]
+[*][b]Using the host's configs for this lobby.[/b] - synced; the line below shows a short hash, the same one the host's log shows.
+[*][b]Host has config sync turned off[/b] - everyone uses their own configs.
+[*][b]Nothing received from the host[/b] - the host runs an older version (or no Crusader DE Tweaker), or has sync off.
+[*][b]... were rejected (reason)[/b] / [b]incompatible Crusader DE Tweaker[/b] - your own configs apply; the reason is in the log.
+[/list]
+[b]In the log[/b] ([b]BepInEx\LogOutput.log[/b]) every step starts with [b][ConfigSync][/b]: "Packed your configs" (host, at launch), "Received the host's configs ... Verified OK", "Applied the host's configs", "match starting with the host's configs", "Reverted to your own configs". Include these lines in a bug report.
+
+Single player and skirmish are not affected.
 
 
 [size=5][b]Quick Tips[/b][/size]

@@ -1,7 +1,7 @@
 # CLAUDE.md - AI Agent Reference
 
 > **Purpose**: Primary reference for AI coding agents working on this codebase.
-> **Last Updated**: August 2026 (post dead-code overhaul)
+> **Last Updated**: September 2026 (2.7.0 multiplayer host config sync)
 
 ---
 
@@ -55,6 +55,7 @@ Plugin.cs                    # BepInEx entry point
 Config/
 ├── ConfigManager.cs         # Orchestrates the 4 IConfigSystems
 ├── Core/                    # IConfigSystem, AtomicFileWriter, StableTracking, TemplateBaseline, UnitTransitionDispatcher
+├── Sync/                    # Multiplayer host config sync: ConfigSyncCodec (pure), ConfigSyncManager, ConfigSyncLobbySettings
 ├── BepInEx/                 # Real-time multipliers (event hooks, no restart)
 │   ├── Core/                # BepInExConfigHelper, ConfigSystemInitializer, IBepInExConfigSystem
 │   ├── BepInExConfigManager.cs
@@ -78,8 +79,8 @@ Config/
     ├── Units/Properties/
     └── Structures/Properties/
 Data/                        # UnitCategories, StructureCategories, StructureTypeHelpers, ProjectileType
-Tests/                       # CoreTestRunner + PropertyHandler/PropertyRegistry/EntityProcessor/CsvHelper/TemplateBaseline suites
-Override/                    # Shipped plugin-folder assets (SE mod-menu sprite)
+Tests/                       # CoreTestRunner + PropertyHandler/PropertyRegistry/EntityProcessor/CsvHelper/ConfigSync suites
+Override/                    # Shipped plugin-folder assets (SE mod-menu sprite, lobby tab XAML)
 workshop/                    # Steam Workshop preview + description (ship.ps1 workshop stage)
 scripts/                     # build / deploy / package_release / ship (see scripts/README.md)
 ```
@@ -145,6 +146,8 @@ See memory `reference_shcde_se_modding_gotchas` for the broader SHCDE-SE init/ev
 
 All configs in: `{GameDir}\BepInEx\config\CrusaderDETweaker\`
 CSV damage matrices in: `{GameDir}\BepInEx\config\CrusaderDETweaker\DamageMatrices\`
+Lobby host's synced copies (multiplayer clients only): `{GameDir}\BepInEx\config\CrusaderDETweaker\HostSync\`
+(read instead of the player's own files while `ConfigPaths.UseHostSyncFiles` is set; see the host sync section).
 
 Both resolve through BepInEx `Paths.ConfigPath`, which for this game points at the **game directory**,
 e.g. `C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition\BepInEx\config\`.
@@ -212,8 +215,8 @@ ConfigManager.Initialize(runValidation: true)
     ↓
 BepInExConfigManager.Initialize(...)  ← Multipliers, unit caps, wall costs
     ↓
-ConfigLoader.ReapplyTemplateConfigs("launch")  ← the ONE template write path: restore game values (TemplateBaseline),
-    ↓                                              Units/Structures TOML, CSV matrices, wall-cost / fire / heal multipliers
+ConfigSyncManager.Initialize()    ← packs this machine's configs for hosting (tab registered in Awake)
+    ↓
 CoreTestRunner.RunAllTests()      ← runs EVERY launch as a QA self-check (see Unit Tests)
     ↓
 OnUnloadMap (Post) + OnStartMap / OnLoadSave (Pre)  ← ReapplyTemplateConfigs again (same path)
@@ -255,6 +258,27 @@ Known crash from violating this:
 
 ---
 
+## Multiplayer host config sync (2.7.0)
+
+Design, SE 2.8.0 source citations and failure modes: [docs/HOST_SYNC_DESIGN.md](docs/HOST_SYNC_DESIGN.md);
+acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not yet tested in a real match.
+
+- The lobby host's Units/Structures/GameplaySettings TOML, 7 CSVs and `[Multipliers]` values are packed at
+  launch (`ConfigSyncCodec`, wire format v1, SHA-256, <= 200,000 bytes) and pushed by SE's lobby mod
+  settings (`ConfigSyncLobbySettings`, tab "Crusader DE Tweaker", registered in `Plugin.Awake`).
+- A client writes them to `config\CrusaderDETweaker\HostSync\` and sets `ConfigPaths.UseHostSyncFiles`;
+  **its own files are never written**. Multipliers are overridden in memory with BepInEx autosave off.
+- **Every template write must go through `TemplateBaseline.BeforeWrite`** (PropertyHandler, matrix
+  loaders, wall-cost and fire/heal init multipliers already do). Apply and revert start with
+  `TemplateBaseline.RestoreAll()`; without it the `-1` sentinel leaks one side's overrides into the other.
+  A new template writer that skips it breaks exact revert.
+- Revert: host turns sync off, player stops being a multiplayer client (`Tick`, 1 s), or a non-client
+  session starts (`OnStartMap`/`OnLoadSave` Pre backstop). GameplaySettings is session state and follows
+  the session hooks through `ConfigPaths.Globals`; never write it from the sync code.
+- Log prefix `[ConfigSync]`; on-load suite `ConfigSync` covers the codec and the baseline journal.
+
+---
+
 ## Key Code Locations
 
 | Task | File |
@@ -275,6 +299,9 @@ Known crash from violating this:
 | Unit cap handler | `Config/BepInEx/Systems/Handlers/UnitCapHandler.cs` |
 | Building cap handler | `Config/BepInEx/Systems/Handlers/BuildingCapHandler.cs` |
 | Test runner | `Tests/CoreTestRunner.cs` |
+| MP host config sync (orchestration) | `Config/Sync/ConfigSyncManager.cs` |
+| MP host config sync (wire format, pure) | `Config/Sync/ConfigSyncCodec.cs` |
+| Game-value baseline for exact revert | `Config/Core/TemplateBaseline.cs` |
 
 ---
 
@@ -327,19 +354,19 @@ Enable debug: `BepInEx\config\BepInEx.cfg` → `LogLevels = ..., Debug`
 handlers only, make no game-API calls, and log PASS/FAIL to `BepInEx\LogOutput.log`. A regression in
 core logic shows up in the log immediately. Do not gate or remove it.
 
-Five suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**, **TemplateBaseline** (the one template write path: apply N times == once). Look for:
+Five suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**, **ConfigSync** (host config sync package + template baseline). Look for:
 ```
 === CORE LOGIC UNIT TEST SUITE ===
   [PASS] PropertyHandler: N test(s)
   [PASS] PropertyRegistry: N test(s)
   [PASS] EntityProcessor: N test(s)
   [PASS] CsvHelper: N test(s)
-  [PASS] TemplateBaseline: N test(s)
+  [PASS] ConfigSync: N test(s)
 === ALL 5 TEST SUITES PASSED ===
 ```
 
 Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/PropertyRegistryTest.cs`,
-`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`, `Tests/TemplateBaselineTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
+`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`, `Tests/ConfigSyncTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
 
 ---
 
@@ -410,7 +437,7 @@ return ErrorHandlingHelper.TryGetValueWithResult(
 ```csharp
 PluginInfo.PLUGIN_GUID    // "CrusaderDETweaker"
 PluginInfo.PLUGIN_NAME    // "Crusader DE Tweaker"
-PluginInfo.PLUGIN_VERSION // e.g. "2.6.6"
+PluginInfo.PLUGIN_VERSION // e.g. "2.7.0"
 ```
 
 `Plugin.cs` uses them in `[BepInPlugin(PluginInfo.PLUGIN_GUID, PluginInfo.PLUGIN_NAME, PluginInfo.PLUGIN_VERSION)]`,

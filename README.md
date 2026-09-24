@@ -112,6 +112,18 @@ value wins for the matchups it covers. The real-time multipliers scale whatever 
 
 See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for detailed documentation.
 
+### Multiplayer: host config sync (2.7.0)
+
+In a multiplayer lobby, players who join use the **host's** configs (Units / Structures / GameplaySettings
+TOML, the 7 damage matrices and the `[Multipliers]` values) for that lobby's matches, so nobody copies config
+files by hand. The host switches it on or off in the lobby's Mod Options window, tab **Crusader DE Tweaker**
+(on by default). A player's own files are never changed: the host's copies live in
+`BepInEx\config\CrusaderDETweaker\HostSync\`, and the player's own configs apply again when they leave.
+Host and players need the same major.minor version. **Not yet tested in a real multiplayer match.**
+Details: the "Multiplayer: host config sync" section of [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md);
+design: [docs/HOST_SYNC_DESIGN.md](docs/HOST_SYNC_DESIGN.md); test plan:
+[docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md).
+
 ## Reporting a Bug
 
 Use the issue form on either site (the form walks you through what is needed):

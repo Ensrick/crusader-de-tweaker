@@ -31,7 +31,7 @@ Tomlyn is a NuGet `PackageReference`; Visual Studio restores it automatically, a
 3. Test in game with `.\scripts\launch_game.ps1`
 4. Check BepInEx console / `BepInEx\LogOutput.log` for errors and test output
 
-The core-logic test suites (PropertyHandler, PropertyRegistry, EntityProcessor, CsvHelper, TemplateBaseline) run automatically on
+The core-logic test suites (PropertyHandler, PropertyRegistry, EntityProcessor, CsvHelper, ConfigSync) run automatically on
 every game load via `CoreTestRunner.RunAllTests()`, so a launch is also a regression check — look for
 `ALL 5 TEST SUITES PASSED`.
 

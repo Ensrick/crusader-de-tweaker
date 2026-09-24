@@ -17,6 +17,6 @@ namespace CrusaderDETweaker
     {
         public const string PLUGIN_GUID = "CrusaderDETweaker";
         public const string PLUGIN_NAME = "Crusader DE Tweaker";
-        public const string PLUGIN_VERSION = "2.6.8";
+        public const string PLUGIN_VERSION = "2.7.0";
     }
 }
