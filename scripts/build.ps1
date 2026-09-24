@@ -20,7 +20,8 @@
 #
 # OUTPUT:
 #   <OutputPath>\ = a complete plugin folder: CrusaderDETweaker.dll, Tomlyn.dll, info.json,
-#   Override\Assets\GUI\Sprites\CrusaderDETweaker.png (+ .pdb / Tomlyn.xml dev artifacts).
+#   Override\Assets\GUI\Sprites\CrusaderDETweaker.png, Override\ScriptExtenderUI\CDTLobbySettings.xaml
+#   (+ .pdb / Tomlyn.xml dev artifacts).
 #   info.json in the OUTPUT is stamped with PluginInfo.PLUGIN_VERSION; the tracked info.json is never
 #   rewritten (a mismatch is reported here and fails package_release.ps1 / ship.ps1 preflight).
 #

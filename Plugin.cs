@@ -116,6 +116,7 @@ namespace CrusaderDETweaker
         {
             // Fully qualified: inside this class, bare "Config" binds to BaseUnityPlugin.Config.
             CrusaderDETweaker.Config.Core.UnitTransitionDispatcher.Drain();
+            CrusaderDETweaker.Config.Sync.ConfigSyncManager.Tick();
         }
 
         private void Awake()
@@ -123,6 +124,10 @@ namespace CrusaderDETweaker
             Logger = base.Logger;
 
             Logger.LogInfo("CrusaderDETweaker loading");
+
+            // Multiplayer host config sync: SE requires lobby-settings registration during Awake.
+            // The package itself is built later (ConfigSyncManager.Initialize), once the files exist.
+            CrusaderDETweaker.Config.Sync.ConfigSyncManager.Register(this);
 
             SHCDESE.API.LowLevel.CrusaderLibrary.Instance.LibraryLoaded += _ => CrusaderLibrary_LibraryLoaded();
         }
@@ -167,11 +172,9 @@ namespace CrusaderDETweaker
                 var bepInExCfgPath = Path.Combine(Paths.ConfigPath, "CrusaderDETweaker", "CrusaderDETweaker_GlobalMultipliers.cfg");
                 BepInExConfigManager.Initialize(new ConfigFile(bepInExCfgPath, true));
 
-                // Template tables (Units / Structures TOML, the 7 CSV matrices, wall-cost / fire / heal
-                // multipliers): applied through the ONE template write path, the same one that runs after
-                // every SE map-unload reset and before every session start (v2.6.8). After the multipliers
-                // are bound, so the launch order stays TOML -> CSV -> multipliers.
-                CrusaderDETweaker.Config.Toml.ConfigLoader.ReapplyTemplateConfigs("launch");
+                // Multiplayer host config sync: pack this machine's files (sent only if we host a lobby)
+                // and register its session hooks. After both config managers, so it packs final values.
+                CrusaderDETweaker.Config.Sync.ConfigSyncManager.Initialize();
 
                 // QA self-check: run the core-logic unit suites on load and log PASS/FAIL to
                 // LogOutput.log. Mock handlers only — no game-API calls, safe during init. This

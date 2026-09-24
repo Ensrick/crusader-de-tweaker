@@ -104,6 +104,11 @@
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- Steamworks.NET (game's copy): CSteamID from GameNetworkAPI.GetHostSteamId, host config sync logs. -->
+    <Reference Include="com.rlabrecque.steamworks.net">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <!-- MonoMod RuntimeDetour (shipped in BepInEx core) for the MakeTroop GameAction detour. -->
     <Reference Include="MonoMod.RuntimeDetour">
       <HintPath>$(GameDir)\BepInEx\core\MonoMod.RuntimeDetour.dll</HintPath>
@@ -121,6 +126,8 @@
     <Compile Include="Config\Core\TemplateBaseline.cs" />
     <Compile Include="Config\Core\UnitTransitionDispatcher.cs" />
     <Compile Include="Config\Sync\ConfigSyncCodec.cs" />
+    <Compile Include="Config\Sync\ConfigSyncLobbySettings.cs" />
+    <Compile Include="Config\Sync\ConfigSyncManager.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixLoader.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixPaths.cs" />
@@ -224,6 +231,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Override\Assets\GUI\Sprites\CrusaderDETweaker.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="Override\ScriptExtenderUI\CDTLobbySettings.xaml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

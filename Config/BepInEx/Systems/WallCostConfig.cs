@@ -55,8 +55,8 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         }
 
         /// <summary>
-        /// This system's template writes. Called ONLY from ConfigLoader.ReapplyTemplateConfigs (via
-        /// BepInExConfigManager.ReapplyTemplateMultipliers), after the tables were restored to game values.
+        /// Re-run the template writes of Apply() (multiplayer host config sync: after the tables were
+        /// restored to the game's values and the multiplier values may have changed).
         /// </summary>
         internal void ReapplyTemplateValues() => ApplyWallCostMultipliers();
 
@@ -79,7 +79,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         {
             try
             {
-                // Game's own values, restored before every re-apply (Config/Core/TemplateBaseline.cs).
+                // Game's own values, for the multiplayer host config sync (Config/Core/TemplateBaseline.cs).
                 global::CrusaderDETweaker.Config.Core.TemplateBaseline.BeforeWrite("wallCost|low", () =>
                 {
                     float original = Plugin.BuildingApi.GetLowWallCostMultiplier();

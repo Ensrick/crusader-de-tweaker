@@ -5,8 +5,8 @@
 #
 # IMPORTANT FOR AI AGENTS:
 # - $PayloadWhitelist is the exact set of files a release may contain (relative to
-#   BepInEx\plugins\CrusaderDETweaker\). Derived from the shipped 2.6.5 zip. Adding a shipped file
-#   (e.g. an Override\ScriptExtenderUI\*.xaml) means adding it here, or packaging fails on purpose.
+#   BepInEx\plugins\CrusaderDETweaker\). Derived from the shipped 2.6.5 zip, plus the lobby
+#   tab XAML since 2.7.0. Adding a shipped file means adding it here, or packaging fails on purpose.
 # - Nothing here deletes recursively; superseded folders are renamed to <name>.bak.<timestamp>.
 #
 
@@ -19,7 +19,8 @@ $script:PayloadWhitelist = @(
     'CrusaderDETweaker.dll',
     'Tomlyn.dll',
     'info.json',
-    'Override\Assets\GUI\Sprites\CrusaderDETweaker.png'
+    'Override\Assets\GUI\Sprites\CrusaderDETweaker.png',
+    'Override\ScriptExtenderUI\CDTLobbySettings.xaml'
 )
 # Build by-products that are never shipped (debug symbols, library XML docs).
 $script:DevArtifactPatterns = @('*.pdb', '*.xml')
