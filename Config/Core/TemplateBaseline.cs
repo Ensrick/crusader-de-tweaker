@@ -1,8 +1,7 @@
 // Config/Core/TemplateBaseline.cs
 //
 // PURPOSE: Remembers the game's own value of every unit/building template cell this mod writes, so
-//          the multiplayer host config sync can put the tables back exactly (docs/HOST_SYNC_DESIGN.md
-//          section 8).
+//          ConfigLoader.ReapplyTemplateConfigs can put the tables back before every re-apply (v2.6.8).
 //
 // HOW:
 //   - Every template writer calls TemplateBaseline.BeforeWrite(key, capture) right before it writes.
@@ -11,9 +10,13 @@
 //     remembered is the game's own value. Later writes of the same key keep that first value.
 //   - RestoreAll() runs the stored actions newest-first. The entries stay, so restore can run again.
 //
-// WHY: the "-1 = leave the game value unchanged" sentinel means re-running the loaders on a different
-//   set of files does NOT undo an earlier override. Restore-then-apply makes "apply the host's files"
-//   and "back to my own files" both exact.
+// WHY: the template tables are re-applied many times per game (launch, after every SE map-unload reset,
+//   before every session start), sometimes with no SE reset in between. SE does not reset every cell
+//   (wall-cost multipliers, ballista / run-speed immediates), and the fire / heal / wall-cost multipliers
+//   scale the CURRENT value, so a re-apply without a restore would scale them twice. Restore-then-apply
+//   makes every re-apply equal the first (tested: TemplateBaselineTest.Reapply_NTimesEqualsOnce).
+//   Since 2.7.0 the multiplayer host config sync relies on the same restore: switching between the
+//   host's files and the player's own is just a re-apply from another folder (docs/HOST_SYNC_DESIGN.md).
 //
 // IMPORTANT FOR AI AGENTS:
 // - A new template writer (PropertyHandler subclass, matrix loader, init-time multiplier) must report

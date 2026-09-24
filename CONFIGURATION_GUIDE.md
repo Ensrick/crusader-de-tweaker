@@ -27,7 +27,7 @@ The log records every value the mod writes and, for trade prices, reads back fro
 [*]Extract this mod's zip into the game folder (it contains a BepInEx folder; merge it with the existing one).
 [*]Launch the game once and go to the main menu, then quit. This creates the config files in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\[/b].
 [/list]
-Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 5 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
+Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 6 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
 
 [b]2. Your first change: make Knights cost 5000 gold[/b]
 [list=1]

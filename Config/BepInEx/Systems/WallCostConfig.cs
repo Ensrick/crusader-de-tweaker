@@ -79,7 +79,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
         {
             try
             {
-                // Game's own values, for the multiplayer host config sync (Config/Core/TemplateBaseline.cs).
+                // Game's own values, restored before every re-apply (Config/Core/TemplateBaseline.cs).
                 global::CrusaderDETweaker.Config.Core.TemplateBaseline.BeforeWrite("wallCost|low", () =>
                 {
                     float original = Plugin.BuildingApi.GetLowWallCostMultiplier();

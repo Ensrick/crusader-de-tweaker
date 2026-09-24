@@ -191,7 +191,7 @@ namespace CrusaderDETweaker.Config.Toml.Core
             try
             {
                 // Step 3: Remember the game's own value the first time this cell is written
-                // (multiplayer host config sync restores it; see Config/Core/TemplateBaseline.cs).
+                // (ConfigLoader.ReapplyTemplateConfigs restores it first; see Config/Core/TemplateBaseline.cs).
                 Config.Core.TemplateBaseline.BeforeWrite(
                     $"toml|{typeof(TEntity).Name}|{entity}|{Name}",
                     () => TryGetFromAPI(entity, out TValue original) ? (Action)(() => SetToAPI(entity, original)) : null);

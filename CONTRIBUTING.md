@@ -31,9 +31,9 @@ Tomlyn is a NuGet `PackageReference`; Visual Studio restores it automatically, a
 3. Test in game with `.\scripts\launch_game.ps1`
 4. Check BepInEx console / `BepInEx\LogOutput.log` for errors and test output
 
-The core-logic test suites (PropertyHandler, PropertyRegistry, EntityProcessor, CsvHelper, ConfigSync) run automatically on
+The core-logic test suites (PropertyHandler, PropertyRegistry, EntityProcessor, CsvHelper, TemplateBaseline, ConfigSync) run automatically on
 every game load via `CoreTestRunner.RunAllTests()`, so a launch is also a regression check — look for
-`ALL 5 TEST SUITES PASSED`.
+`ALL 6 TEST SUITES PASSED`.
 
 Version bumps go in `PluginInfo.cs` and `info.json` (kept equal; `package_release.ps1` / `ship.ps1` refuse a
 mismatch). `AssemblyInfo.cs` derives from `PluginInfo.cs`. Releases go through `.\scripts\ship.ps1`.

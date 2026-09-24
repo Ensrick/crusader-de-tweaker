@@ -39,9 +39,9 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Ranged
             // This method assumes valid, modifiable entities
 
             // RangedDamageTakenMultiplier is NOT applied here: RangedDamageMultiplierHandler applies it
-            // at hit time. (Before 2.7.0 this scaled the CSV value too; at launch that never ran because
-            // the multipliers are bound after the matrices load, but any re-apply, e.g. the multiplayer
-            // host config sync, would have scaled ranged damage twice.)
+            // at hit time. (Before 2.6.8 this scaled the CSV value too; at launch that never ran because
+            // the multipliers are bound after the matrices load, but every re-apply since 2.6.7
+            // (after each SE map-unload reset) scaled ranged damage twice.)
             if (!ProjectileApiHelper.SetRangedDamage(projectile, defender, damage))
             {
                 Plugin.Logger.LogWarning($"Failed to set {projectile} damage for {defender}");

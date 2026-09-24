@@ -139,7 +139,7 @@ Before submitting changes:
 - [ ] Game loads plugin (check BepInEx console)
 - [ ] Initializer order check passes: `.\scripts\test_initialization_order.ps1`
 - [ ] Smoke launch passes: `.\scripts\launch_game.ps1`
-- [ ] On-load test suites pass — `LogOutput.log` shows `ALL 5 TEST SUITES PASSED`
+- [ ] On-load test suites pass — `LogOutput.log` shows `ALL 6 TEST SUITES PASSED`
 - [ ] TOML changes apply correctly
 - [ ] CSV values apply for cells >= 0 and are skipped at `-1`
 

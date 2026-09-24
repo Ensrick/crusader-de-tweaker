@@ -10,7 +10,8 @@
 // TEST SUITES:
 // - PropertyHandler, PropertyRegistry, EntityProcessor: Core system tests
 // - CsvHelper: damage-matrix CSV parser
-// - ConfigSync: multiplayer host config package codec + template baseline journal
+// - TemplateBaseline: baseline journal + the one template write path (apply N times == once)
+// - ConfigSync: multiplayer host config package codec
 //
 // IMPORTANT FOR AI AGENTS:
 // - Tests use BepInEx logger for output (visible in LogOutput.log)
@@ -49,6 +50,7 @@ namespace CrusaderDETweaker.Tests
                     RunSuite("PropertyRegistry", PropertyRegistryTest.RunTests),
                     RunSuite("EntityProcessor", EntityProcessorTest.RunTests),
                     RunSuite("CsvHelper", CsvHelperTest.RunTests),
+                    RunSuite("TemplateBaseline", TemplateBaselineTest.RunTests),
                     RunSuite("ConfigSync", ConfigSyncTest.RunTests)
                 };
             }

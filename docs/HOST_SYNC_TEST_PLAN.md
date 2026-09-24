@@ -42,7 +42,7 @@ Expected on both, in order:
 ```
  Applying unit / structure / damage-matrix settings from your files (launch).
 [ConfigSync] Packed your configs for hosting: 11 files, <raw> bytes raw, <wire> bytes on the wire, hash <12 hex>, v2.7.0.
-=== ALL 5 TEST SUITES PASSED ===
+=== ALL 6 TEST SUITES PASSED ===
 ```
 
 `<wire>` should be around 12,000-13,000 for default-sized files and must be under 200,000. Write down H's

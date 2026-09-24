@@ -104,14 +104,14 @@ namespace CrusaderDETweaker.Config.Toml
         /// play (Nexus report 2026-09-24: "the Speed of any unit I change doesn't do anything").
         /// Idempotent: writes the same values each time; -1 sentinels are skipped as before.
         ///
-        /// v2.7.0: this is also the ONE entry point for the multiplayer host config sync. It
-        ///   1. lets ConfigSyncManager drop the host's files if this player is no longer a multiplayer
-        ///      client (so a single-player start after a match never reads them),
-        ///   2. restores every cell this mod ever wrote to the game's own value (TemplateBaseline): cells
-        ///      SE does not reset (wall costs, ballista / run-speed immediates) and fire / heal cells that
-        ///      the init-time multipliers scale would otherwise keep stale or doubly-scaled values,
-        ///   3. applies Units, Structures, the matrices and the multiplier template writes, in launch order,
-        ///      from ConfigPaths.ActiveConfigDir (the host's HostSync\ files while synced).
+        /// v2.6.8: this is the ONE code path that writes the template tables, launch included (Plugin.cs
+        /// calls it with "launch" once the multipliers are bound). It restores every cell this mod ever wrote
+        /// to the game's own value (TemplateBaseline), then applies Units, Structures, the matrices and the
+        /// wall-cost / fire / heal multiplier template writes in launch order, so every call equals the first.
+        ///
+        /// v2.7.0: also the entry point of the multiplayer host config sync. It first lets ConfigSyncManager
+        /// drop the host's files if this player is no longer a multiplayer client, and it reads from
+        /// ConfigPaths.ActiveConfigDir (the host's HostSync files while synced).
         /// </summary>
         internal static void ReapplyTemplateConfigs(string reason)
         {

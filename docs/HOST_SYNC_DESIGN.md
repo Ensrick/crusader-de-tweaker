@@ -104,14 +104,14 @@ REVERT (client)
   log: [ConfigSync] Reverted to your own configs (reason)
 ```
 
-### 3a. The single re-apply entry point (since 2.6.7)
+### 3a. The single re-apply entry point (2.6.7 hooks, 2.6.8 single write path)
 
 SHCDE-SE clears every unit/building stat override on **every map unload**
 (`GameUnitManagerAPI.OnUnloadMap` / `GameBuildingManagerAPI.OnUnloadMap` call `ClearOverrides()` on the
 health, speed, cost, melee / ranged / eunuch damage, fire and Bedouin-heal tables:
 `API/GameUnitManagerAPI.cs:249-260`, `API/GameBuildingManagerAPI.cs:249-255`), and the game raises unloads
 while the player only moves through menus. 2.6.7 therefore re-applies the template tables through
-`ConfigLoader.ReapplyTemplateConfigs(reason)` on `OnUnloadMap` Post and `OnStartMap` / `OnLoadSave` Pre.
+`ConfigLoader.ReapplyTemplateConfigs(reason)` on `OnUnloadMap` Post and `OnStartMap` / `OnLoadSave` Pre, and 2.6.8 made it the only template write path (launch included) with the baseline restore of steps 2-3 below.
 
 Since 2.7.0 it is the ONLY code that writes the template tables: launch uses it too
 (`Plugin` calls `ReapplyTemplateConfigs("launch")` after the multipliers are bound; the config systems'
@@ -306,7 +306,7 @@ entry point idempotent for all of them.
 Unit/building caps (`MaxCount`) are dictionaries rebuilt by every Units/Structures apply, so they follow
 automatically. Runtime multipliers are read at hit time from the `ConfigEntry` values (section 2).
 
-Fixes made on the way (both affect 2.6.7, which re-applies the matrices after every unload):
+Fixes found while building this, shipped separately in 2.6.8 (2.6.7 re-applied the matrices after every unload and was never released):
 - `RangedDamageMatrixLoader` multiplied the CSV value by `RangedDamageTakenMultiplier` when applying, while
   the hit-time hook applies the same multiplier. At launch that code never ran (the multipliers are bound
   after the matrices load), but every re-apply scaled ranged damage twice. The apply-time scaling is removed.
@@ -372,7 +372,7 @@ lobby owner exists to send a host-only value.
 | Path redirect | `Config/Toml/ConfigPaths.cs` (`UseHostSyncFiles`), `Config/DamageMatrix/Core/MatrixPaths.cs` |
 | Multiplier values + in-memory override | `Config/BepInEx/BepInExConfigManager.cs` |
 | Lobby panel | `Override/ScriptExtenderUI/CDTLobbySettings.xaml` |
-| Tests | `Tests/ConfigSyncTest.cs` (suite "ConfigSync") |
+| Tests | `Tests/ConfigSyncTest.cs` (suite "ConfigSync"), `Tests/TemplateBaselineTest.cs` (suite "TemplateBaseline") |
 
 ## 13. Open questions (need a real match to answer)
 

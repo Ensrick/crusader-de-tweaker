@@ -62,7 +62,7 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
                     (attacker, defender, damage) =>
                     {
                         // Remember the game's own value the first time this cell is written
-                        // (multiplayer host config sync restores it; Config/Core/TemplateBaseline.cs).
+                        // (ConfigLoader.ReapplyTemplateConfigs restores it first; Config/Core/TemplateBaseline.cs).
                         string key = BaselineKey(attacker, defender);
                         if (key != null)
                             Config.Core.TemplateBaseline.BeforeWrite(key, () => CaptureRestore(attacker, defender));
@@ -104,7 +104,7 @@ namespace CrusaderDETweaker.Config.DamageMatrix.Core
         /// <summary>
         /// Identity of the game-table cell this matrix cell writes, for TemplateBaseline. Must equal
         /// the key any other writer of the same cell uses (FireAndHealMultipliersConfig). Null = the
-        /// cell is not recorded (and so not restorable by the host config sync).
+        /// cell is not recorded (and so not restored before a re-apply).
         /// </summary>
         protected abstract string BaselineKey(TAttacker attacker, TDefender defender);
 

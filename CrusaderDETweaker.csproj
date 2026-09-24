@@ -199,6 +199,7 @@
     <Compile Include="Tests\EntityProcessorTest.cs" />
     <Compile Include="Tests\CsvHelperTest.cs" />
     <Compile Include="Tests\ConfigSyncTest.cs" />
+    <Compile Include="Tests\TemplateBaselineTest.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
     <Compile Include="Data\StructureTypeHelpers.cs" />
