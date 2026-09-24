@@ -64,7 +64,9 @@ Copies a built plugin folder (default `bin\Release\`) into
 `{GamePath}\BepInEx\plugins\CrusaderDETweaker\`. Refuses while the game is running
 (`check_game_running.ps1`), backs up every replaced file to `dist\deploy-backups\<timestamp>\`
 (outside `plugins\`, so BepInEx never loads a backup), hash-verifies the result, never touches
-`BepInEx\config`. `-WhatIf` lists what it would do.
+`BepInEx\config`. It mirrors the build: files in the plugin folder that the build does not ship are moved
+into the same backup (never deleted) and listed; the Script Extender's `LobbyModSettings\` state is kept.
+`-WhatIf` lists what it would do.
 
 ### `package_release.ps1`
 Builds a Release from a **clean** tree (refuses a dirty one unless `-AllowDirty`) into

@@ -15,6 +15,8 @@
 #     <repo>\dist\deploy-backups\<timestamp>\ (outside BepInEx\plugins, so BepInEx never loads a
 #     backup copy of the plugin as a duplicate GUID).
 #   - NEVER touches BepInEx\config (user configs): the target is asserted to be the plugin folder.
+#   - Mirrors the payload: files in the plugin folder that this build does not ship are MOVED into the
+#     same backup (never deleted), except the Script Extender's runtime state in LobbyModSettings.
 #   - A stale DLL under the old GUID folder (plugins\ensrick.crusaderdetweaker\) is renamed to
 #     .bak so it cannot load alongside the real plugin.
 #
@@ -88,6 +90,33 @@ foreach ($f in $srcFiles) {
     }
 }
 
+# Mirror: a file in the plugin folder that this build does not ship (e.g. an Override\ file from a
+# newer build when an older one is redeployed) is MOVED into the backup, never deleted, so the folder
+# holds exactly the deployed payload. Runtime state the Script Extender writes into the plugin folder
+# (LobbyModSettings\<ModName>.msgpack: the player's lobby-tab settings, LobbyModSettingsStorage) stays.
+$preservedPrefixes = @('LobbyModSettings\')
+$srcRel = @{}
+foreach ($f in $srcFiles) { $srcRel[$f.FullName.Substring($SourceDir.Length + 1).ToLowerInvariant()] = $true }
+$stale = @()
+if (Test-Path -LiteralPath $targetDir) {
+    $stale = @(Get-ChildItem -LiteralPath $targetDir -Recurse -File | Where-Object {
+        $rel = $_.FullName.Substring($targetDir.Length + 1)
+        -not $srcRel.ContainsKey($rel.ToLowerInvariant()) -and
+        -not ($preservedPrefixes | Where-Object { $rel.StartsWith($_, [StringComparison]::OrdinalIgnoreCase) })
+    })
+}
+$moved = 0
+foreach ($f in $stale) {
+    $rel = $f.FullName.Substring($targetDir.Length + 1)
+    $bak = Join-Path $backupDir $rel
+    if ($PSCmdlet.ShouldProcess($f.FullName, "Move file not in this build to $bak")) {
+        New-Item -ItemType Directory -Force -Path (Split-Path $bak -Parent) | Out-Null
+        Move-Item -LiteralPath $f.FullName -Destination $bak -Force
+        $moved++
+        Write-Host "  Moved to backup (not in this build): $rel" -ForegroundColor Yellow
+    }
+}
+
 # A DLL left under the pre-GUID-fix folder would load as a second copy of the plugin.
 $oldDll = Join-Path $pluginsDir 'ensrick.crusaderdetweaker\CrusaderDETweaker.dll'
 if ((Test-Path -LiteralPath $oldDll) -and $PSCmdlet.ShouldProcess($oldDll, 'Rename stale old-GUID DLL to .bak')) {
@@ -95,7 +124,7 @@ if ((Test-Path -LiteralPath $oldDll) -and $PSCmdlet.ShouldProcess($oldDll, 'Rena
 }
 
 if ($WhatIfPreference) {
-    Write-Host "  [WhatIf] $($srcFiles.Count) file(s) would be deployed; nothing written." -ForegroundColor Yellow
+    Write-Host "  [WhatIf] $($srcFiles.Count) file(s) would be deployed, $($stale.Count) file(s) not in this build would be moved to the backup; nothing written." -ForegroundColor Yellow
     exit 0
 }
 
@@ -108,5 +137,5 @@ if ($bad.Count) {
     Write-Host "Deploy verification FAILED for: $($bad.Name -join ', ')" -ForegroundColor Red
     exit 1
 }
-Write-Host "Deployed $copied file(s), hashes verified. Backed up $backedUp replaced file(s)$(if ($backedUp) { " to $backupDir" })." -ForegroundColor Green
+Write-Host "Deployed $copied file(s), hashes verified. Backed up $backedUp replaced file(s); moved $moved file(s) not in this build$(if ($backedUp -or $moved) { " to $backupDir" })." -ForegroundColor Green
 exit 0
