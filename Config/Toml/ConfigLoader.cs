@@ -94,6 +94,25 @@ namespace CrusaderDETweaker.Config.Toml
         private static bool _sessionHooksRegistered = false;
 
         /// <summary>
+        /// Re-apply every TEMPLATE-table setting: the Units and Structures TOML files and the seven
+        /// damage-matrix CSVs (health, speed, costs, housing, per-matchup damage, fire, healing).
+        ///
+        /// WHY (v2.6.7): SHCDE-SE restores all of these tables to vanilla on EVERY map unload
+        /// (GameUnitManagerAPI.OnUnloadMap / GameBuildingManagerAPI.OnUnloadMap call ClearOverrides() on
+        /// every stat array, since SE 1.14.0, on both hook phases), and the game raises map unloads while
+        /// you only move through the menus. Applying them once at launch therefore left them vanilla in
+        /// play (Nexus report 2026-09-24: "the Speed of any unit I change doesn't do anything").
+        /// Idempotent: writes the same values each time; -1 sentinels are skipped as before.
+        /// </summary>
+        internal static void ReapplyTemplateConfigs(string reason)
+        {
+            Plugin.Logger.LogInfo($"[TemplateConfig] Re-applying unit / structure / damage-matrix settings ({reason}).");
+            ApplyAllUnitConfigs();
+            ApplyAllStructureConfigs();
+            DamageMatrix.DamageMatrixManager.LoadAll();
+        }
+
+        /// <summary>
         /// Register an OnStartMap hook to re-apply session-specific global settings.
         ///
         /// SetNoKnockdownWalls and SetAutoTrade are per-session: the game resets them when
@@ -104,6 +123,20 @@ namespace CrusaderDETweaker.Config.Toml
         {
             if (_sessionHooksRegistered) return;
             _sessionHooksRegistered = true;
+
+            // Template tables (see ReapplyTemplateConfigs): restore them right after SE's unload reset,
+            // and again before every session start so the starting units are created with them.
+            // SE subscribes its OnUnloadMap reset during its own init, before this plugin's LibraryLoaded,
+            // so on the Post phase its reset runs first and ours second (R3 invokes in subscription order).
+            MapLoaderR3EventHooks.OnUnloadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ => ReapplyTemplateConfigs("after SE map-unload reset"));
+            MapLoaderR3EventHooks.OnStartMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre)
+                .Subscribe(_ => ReapplyTemplateConfigs("new game / map start"));
+            MapLoaderR3EventHooks.OnLoadSave.Observable
+                .Where(args => args.Phase == EventHookPhase.Pre && !args.LoadingEditorMap)
+                .Subscribe(_ => ReapplyTemplateConfigs("save load"));
 
             MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
@@ -167,7 +200,7 @@ namespace CrusaderDETweaker.Config.Toml
             UnitCapHandler.Subscribe(_unitCaps);
             BuildingCapHandler.Subscribe(_buildingCaps);
 
-            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnStartMap + OnLoadMap + OnLoadSave + OnBuildingSpawn + OnUnitCreate + OnUnitTransition hooks.");
+            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnUnloadMap + OnStartMap + OnLoadMap + OnLoadSave + OnBuildingSpawn + OnUnitCreate + OnUnitTransition hooks (template settings re-applied after every SE unload reset).");
         }
 
         /// <summary>

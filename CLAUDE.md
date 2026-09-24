@@ -214,6 +214,8 @@ BepInExConfigManager.Initialize(...)  ← Multipliers, unit caps, wall costs
     ↓
 CoreTestRunner.RunAllTests()      ← runs EVERY launch as a QA self-check (see Unit Tests)
     ↓
+OnUnloadMap (Post) + OnStartMap / OnLoadSave (Pre)  ← ReapplyTemplateConfigs: Units/Structures TOML + CSV matrices again
+    ↓                                  (SE resets every stat table to vanilla on EVERY map unload, menus included; v2.6.7)
 OnStartMap / OnLoadMap / OnLoadSave (Post) fire  ← session-state writes happen here
 ```
 
