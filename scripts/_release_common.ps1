@@ -152,3 +152,30 @@ function Find-MSBuild {
     }
     return $null
 }
+
+# Steam Workshop "Change Notes" text: a CHANGELOG entry converted from Markdown to Steam BBCode
+# (bullets -> [list][*], **bold** -> [b], `code` -> plain), capped under Steam's 8000-char limit.
+# Used by ship.ps1 (workshop stage) and workshop_description.ps1.
+function ConvertTo-SteamChangeNote([string]$Version, [string]$Title, [string]$Body, [string]$ChangelogUrl) {
+    $out = New-Object System.Collections.Generic.List[string]
+    $head = if ($Title.StartsWith($Version)) { $Title } else { "$Version - $Title" }
+    $out.Add("[b]$head[/b]")
+    $inList = $false
+    foreach ($raw in (($Body -replace "`r", '') -split "`n")) {
+        $line = $raw.Trim()
+        if (-not $line) { continue }
+        $line = [regex]::Replace($line, '\*\*(.+?)\*\*', '[b]$1[/b]')
+        $line = $line -replace '`', ''
+        if ($line -match '^[-*]\s+(.*)$') {
+            if (-not $inList) { $out.Add('[list]'); $inList = $true }
+            $out.Add("[*]$($Matches[1])")
+        } else {
+            if ($inList) { $out.Add('[/list]'); $inList = $false }
+            $out.Add($line)
+        }
+    }
+    if ($inList) { $out.Add('[/list]') }
+    $note = ($out -join "`n")
+    if ($note.Length -gt 7900) { $note = $note.Substring(0, 7900) + "`n... full notes: $ChangelogUrl" }
+    return $note
+}

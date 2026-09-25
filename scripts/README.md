@@ -40,6 +40,12 @@ each re-runnable alone with `-Stage`.
   line (and version block) of `workshop\workshop-description.txt`. Nexus's mod description is not
   API-editable; refresh it by hand. After a Workshop upload, restart Steam fully before testing.
 
+### `workshop_description.ps1`
+Updates only the Steam Workshop description (`workshop\workshop-description.txt`, <= 8000 chars) and, with
+`-ChangeNoteVersion x.y.z`, posts that CHANGELOG entry as a Steam **Change Note**. Dry run by default; `-Publish`
+sends and then verifies the live description through the Steam Web API. The Workshop description carries no
+changelog: Steam users read changes in the Change Notes tab, which `ship.ps1`'s workshop stage also fills on
+every release (`ConvertTo-SteamChangeNote` in `_release_common.ps1`: Markdown -> Steam BBCode).
 ### `release.ps1`
 Local rehearsal: `backup_configs.ps1`, then `ship.ps1 -Stage preflight,build,package`.
 

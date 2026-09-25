@@ -122,6 +122,10 @@ function Get-ReleaseNotes {
     return $entry.Body
 }
 function Get-ReleaseTitle { (Get-ChangelogEntry $Version).Title }
+# Steam Workshop "Change Notes" text for this version: the CHANGELOG entry converted from Markdown to Steam
+# BBCode (bullets -> [list][*], **bold** -> [b], `code` -> plain). The Workshop DESCRIPTION holds no changelog;
+# this is where Steam users read what changed (user request 2026-09-25).
+function Get-SteamChangeNote { ConvertTo-SteamChangeNote -Version $Version -Title (Get-ReleaseTitle) -Body (Get-ReleaseNotes) -ChangelogUrl "https://gitlab.com/$GitLabRepo/-/blob/main/CHANGELOG.md" }
 function Write-Receipt([string]$Name, [hashtable]$Data) {
     New-Item -ItemType Directory -Force -Path $receiptDir | Out-Null
     $Data.Version = $Version; $Data.Time = (Get-Date).ToString('s'); $Data.Head = Get-HeadSha
@@ -322,7 +326,7 @@ function Stage-Workshop {
     $descLen = [IO.File]::ReadAllText($descCopy).Length
     if ($descLen -gt 8000) { throw "Workshop description $descLen chars > 8000" }
 
-    $upArgs = @('-v', '-a', $SteamAppId, '-i', $WorkshopId, '-u', '-s', $wsUpload, '-z', $descCopy, '-c', "Version $Version")
+    $upArgs = @('-v', '-a', $SteamAppId, '-i', $WorkshopId, '-u', '-s', $wsUpload, '-z', $descCopy, '-c', (Get-SteamChangeNote))
     if (-not $Publish) {
         $shown = ($upArgs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
         Write-Would ('"' + $UploaderExe + '" ' + $shown)
