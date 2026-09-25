@@ -20,7 +20,7 @@ each re-runnable alone with `-Stage`.
 
 | Stage | Kind | Does | Verified by |
 |-------|------|------|-------------|
-| `preflight` | local | clean tree; `-Version` = `PluginInfo.cs` = `info.json`; CHANGELOG entry exists; tag `v<ver>` not on origin/github (or already at HEAD); tools present; Workshop description <= 8000 chars and names the version | the checks |
+| `preflight` | local | clean tree; the shipped README.txt generates and names the version; `-Version` = `PluginInfo.cs` = `info.json`; CHANGELOG entry exists; tag `v<ver>` not on origin/github (or already at HEAD); tools present; Workshop description <= 8000 chars and names the version | the checks |
 | `build` | local | Release rebuild into `dist\stage\<ver>\build\` | payload whitelist + DLL AssemblyVersion/FileVersion + info.json = version |
 | `package` | local | `dist\stage\<ver>\Crusader DE Tweaker.zip`; with `-Publish` also copied (+ BBCode txt) to `D:\Game Mods\Stronghold\Crusader DE Tweaker` | zip entry list = whitelist |
 | `tag` | public | annotated `v<ver>` at HEAD, pushed to `origin` (GitLab) and `github` | `git ls-remote` on both = HEAD |
@@ -56,7 +56,15 @@ Local rehearsal: `backup_configs.ps1`, then `ship.ps1 -Stage preflight,build,pac
 ### `build.ps1`
 Compiles the plugin with MSBuild (falls back to `dotnet build`) into `bin\<Configuration>\`, a complete
 plugin folder (DLL, `Tomlyn.dll`, `info.json`, `Override\`). Stamps the OUTPUT `info.json` with
-`PLUGIN_VERSION`; the tracked `info.json` is never rewritten (a mismatch is warned about).
+`PLUGIN_VERSION`; the tracked `info.json` is never rewritten (a mismatch is warned about). Also generates
+`README.txt` (`make_readme.ps1`), the user README that ships in every package.
+
+### `make_readme.ps1`
+Builds the shipped `README.txt` from `CONFIGURATION_GUIDE.md` (BBCode converted to plain text), the
+`CHANGELOG.md` entry of the version ("What's new") and a header (requirements, install / update / uninstall,
+config locations, bug-report links, license). Wrapped at 100 columns, CRLF, UTF-8 without BOM, second line
+`Version: <x.y.z>`. Never edit a README.txt by hand. `Assert-PluginPayload` (build / package / ship) refuses a
+missing or empty README or one naming another version. Standalone: `.\scripts\make_readme.ps1 -ReadmeOutPath dist\README.txt`.
 
 ```powershell
 .\scripts\build.ps1

@@ -5,7 +5,7 @@
 #
 #   Stage       Kind    What it does                                              Verified by
 #   ---------   ------  --------------------------------------------------------  ------------------------------
-#   preflight   local   clean tree; -Version == PluginInfo == info.json; CHANGELOG  the checks themselves
+#   preflight   local   clean tree; -Version == PluginInfo == info.json; CHANGELOG; README.txt generates; the checks themselves
 #                       entry exists; tag v<ver> not on origin/github (or already
 #                       at HEAD); tools present; Workshop description <= 8000
 #   build       local   Release rebuild -> dist\stage\<ver>\build\                  whitelist + DLL/info.json versions
@@ -151,6 +151,13 @@ function Stage-Preflight {
 
     $entry = Get-ChangelogEntry $Version
     if (-not $entry -or -not $entry.Body) { $problems += "CHANGELOG.md has no '$Version - ...' entry" }
+
+    # The shipped README.txt is generated from the guide + this CHANGELOG entry; prove it builds and
+    # names this version before anything is compiled (the build / package stages verify the file again).
+    try {
+        $readme = New-UserReadme $Version
+        if (($readme -split "`r`n")[1] -ne "Version: $Version") { $problems += "generated README.txt does not name version $Version" }
+    } catch { $problems += "README.txt generation failed: $($_.Exception.Message)" }
 
     $head = Get-HeadSha
     foreach ($remote in 'origin', 'github') {

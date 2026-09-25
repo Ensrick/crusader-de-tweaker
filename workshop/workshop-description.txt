@@ -1,4 +1,4 @@
-Version 2.7.0 - requires Script Extender 2.8.0 or newer
+Version 2.7.1 - requires Script Extender 2.8.0 or newer
 
 Edit unit and building stats, damage per matchup, siege and trade settings, and more, through plain config files. In multiplayer, everyone in the lobby plays with the host's settings.
 

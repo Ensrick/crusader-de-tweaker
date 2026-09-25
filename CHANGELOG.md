@@ -1,3 +1,9 @@
+2.7.1 - Packaging: a detailed README.txt ships in every package (2026-09-25):
+
+       - **Every package now contains `BepInEx\plugins\CrusaderDETweaker\README.txt`** (Nexus / GitHub / GitLab zip and the Steam Workshop item): requirements with links, install / update / uninstall steps, where the configs live, how to report a bug or request a feature, license and source links, what is new in this version, and the full configuration guide as plain text. It is generated at build time from `CONFIGURATION_GUIDE.md` and this changelog (`scripts/make_readme.ps1`), never edited by hand; packaging and the ship pipeline refuse a build whose README is missing, empty or names another version.
+       - Steam Workshop: the item description now mirrors the Nexus page (issue / source links first, the Getting Started tutorial) and no longer carries the changelog; each upload posts this version's changelog entry as the Workshop Change Notes instead (`ship.ps1` workshop stage, new `scripts/workshop_description.ps1` to update the description alone).
+       - No change to the mod itself: same code as 2.7.0, and your config files are untouched.
+
 2.7.0 - Multiplayer: host config sync (2026-09-24):
 
        - **New: the lobby host's configs are used by everyone in the lobby.** Crusader DE Tweaker now has a tab in the Script Extender's lobby Mod Options window. When the host has "Players who join use my configs" on (default), every player who joins receives the host's Units, Structures and GameplaySettings files, all 7 damage matrices and the `[Multipliers]` values of `CrusaderDETweaker_GlobalMultipliers.cfg`, and plays that lobby's matches with them. No more copying the config folder before a match. **Not yet tested in a real multiplayer match**; the acceptance test is `docs/HOST_SYNC_TEST_PLAN.md`.

@@ -119,6 +119,12 @@ try {
         Write-Host "  WARNING: info.json says $srcInfoVersion but PluginInfo.cs says $version - update info.json (package/ship refuse a mismatch)." -ForegroundColor Yellow
     }
 
+    # Generate the user README.txt (CONFIGURATION_GUIDE.md + CHANGELOG entry + header) into the output.
+    # It ships in every package; package / ship verify it (Assert-PluginPayload -> Test-UserReadme).
+    $readmeOut = Join-Path $OutputPath 'README.txt'
+    Write-UserReadme $readmeOut $version
+    Test-UserReadme $readmeOut $version
+
     Write-Host ""
     Write-Host "Build successful!" -ForegroundColor Green
     Write-Host "  DLL: $dllPath ($((Get-Item $dllPath).Length) bytes), version $version" -ForegroundColor Green

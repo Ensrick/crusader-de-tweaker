@@ -393,6 +393,8 @@ Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/Pr
 .\scripts\ship.ps1 -Version 2.6.6 -Publish  # tag + GitHub/GitLab releases + Workshop + Nexus + deploy
 ```
 See `scripts/README.md` for the stage list; the payload whitelist is in `scripts/_release_common.ps1`.
+Every package ships a generated `README.txt` (`scripts/make_readme.ps1`: CONFIGURATION_GUIDE.md + the version's
+CHANGELOG entry + install/uninstall header). Never hand-edit it; edit the guide or the CHANGELOG instead.
 
 ### Testing in Game
 ```powershell

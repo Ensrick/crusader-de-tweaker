@@ -1,6 +1,11 @@
-Version 2.7.0
+Version 2.7.1
 
 Updated for SHC DE v2.8.2 and Script Extender 2.8.0!
+
+[b]2.7.1:[/b]
+[list]
+[*]Packaging only: every download now includes a detailed README.txt (install / update / uninstall, requirements, bug reports, the full configuration guide). Same mod code as 2.7.0.
+[/list]
 
 [b]2.7.0: Multiplayer host config sync (not yet tested in a real multiplayer match):[/b]
 [list]
