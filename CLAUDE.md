@@ -126,6 +126,21 @@ to the game. A **negative value (`-1`) means "leave the game's value unchanged"*
 unparseable or missing cell falls back to, so corrupt input can never silently zero real damage. There is
 no comparison against captured original defaults; that subsystem was deleted.
 
+### Unit ranges: AttackRange / EngageRange (v2.8.0, SHCDE-SE 2.10.1+)
+
+`Config/Toml/Units/Properties/UnitRangeProperties.cs`, ranged unit types only (fixed lists mirroring SE:
+`GetDefaultAttackRangeProjectileType` + arrow users for AttackRange, the `BulkUnitDetours` engage hooks for
+EngageRange). AttackRange = map tiles (`SetUnitAttackRange`); EngageRange = tiles in the TOML, x8 world units
+for SE (`SetEngageRange`). Both stored by SE as signed 16-bit (clamped with a warning: 32767 / 4095 tiles).
+- **They persist across map loads and are NOT cleared by SE's OnUnloadMap reset**, unlike every other stat.
+  Their TemplateBaseline restore is SE's `ResetUnitAttackRange` / `ResetUnitEngageRange`
+  (`PropertyHandler.CaptureBaselineRestore` override), so each re-apply starts from "no override".
+- EngageRange's game default is observed lazily by SE (0 until the unit type ran its update), so generation
+  writes `-1 # Default: game default (auto)` (`PropertyHandler.UnknownDefaultComment`).
+- InteractRange is not exposed (UI-only; SE squares it in a signed 32-bit int).
+- Known SE limits (document, do not work around): special projectile modes can bypass AttackRange; a custom
+  EngageRange applies to both the engage and the slightly larger native disengage threshold.
+
 ### `-1` = "use game default" sentinel (Units/Structures TOML, v2.3.0+)
 
 Numeric stat properties (Health, Speed, GoldCost, ShieldHealth, structure health/costs, housing,

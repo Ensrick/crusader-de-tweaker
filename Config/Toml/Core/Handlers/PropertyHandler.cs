@@ -111,9 +111,11 @@ namespace CrusaderDETweaker.Config.Toml.Core
                     // Default to the no-op sentinel; the game value lives in the "# Default:" comment.
                     // No default available → property is not applicable to this entity (e.g. a
                     // 0-health structure) → skip it, matching prior behaviour.
-                    if (!hasDefault)
+                    // No default available -> property is not applicable, unless the handler knows the
+                    // game value exists but cannot be read yet (UnknownDefaultComment, e.g. EngageRange).
+                    if (!hasDefault && UnknownDefaultComment == null)
                         return false;
-                    WriteSentinelLine(sb, gameDefault, true);
+                    WriteSentinelLine(sb, gameDefault, hasDefault);
                     return true;
                 }
 
@@ -157,8 +159,22 @@ namespace CrusaderDETweaker.Config.Toml.Core
             if (hasDefault)
                 sb.AppendLine($"{Name} = -1 # Default: {FormatValueForToml(gameDefault)}");
             else
-                sb.AppendLine($"{Name} = -1");
+                sb.AppendLine(UnknownDefaultComment != null ? $"{Name} = -1 # Default: {UnknownDefaultComment}" : $"{Name} = -1");
         }
+
+        /// <summary>
+        /// Comment shown after "-1 # Default:" when the game value cannot be read at generation time but the
+        /// property does apply (null = such a property is skipped, the historical behaviour).
+        /// </summary>
+        protected virtual string UnknownDefaultComment => null;
+
+        /// <summary>
+        /// TemplateBaseline capture for this cell: read the current value and return the action that restores
+        /// it. Override when "restore" means something else, e.g. removing an SE override that persists
+        /// across map loads (AttackRange / EngageRange use SE's Reset* calls).
+        /// </summary>
+        protected virtual Action CaptureBaselineRestore(TEntity entity) =>
+            TryGetFromAPI(entity, out TValue original) ? (Action)(() => SetToAPI(entity, original)) : null;
 
         /// <summary>
         /// Try to get the original/default value for this property.
@@ -194,7 +210,7 @@ namespace CrusaderDETweaker.Config.Toml.Core
                 // (ConfigLoader.ReapplyTemplateConfigs restores it first; see Config/Core/TemplateBaseline.cs).
                 Config.Core.TemplateBaseline.BeforeWrite(
                     $"toml|{typeof(TEntity).Name}|{entity}|{Name}",
-                    () => TryGetFromAPI(entity, out TValue original) ? (Action)(() => SetToAPI(entity, original)) : null);
+                    () => CaptureBaselineRestore(entity));
 
                 // Step 4: Set the value via the game API
                 SetToAPI(entity, value);

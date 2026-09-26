@@ -23,7 +23,7 @@ The log records every value the mod writes and, for trade prices, reads back fro
 [b]1. Install[/b]
 [list=1]
 [*]Install [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/36]BepInEx 5 Bootstrapper[/url].
-[*]Install [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] [b]2.8.0 or newer[/b]: extract SHCDESE.zip into the game folder.
+[*]Install [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] [b]2.10.1 or newer[/b]: extract SHCDESE.zip into the game folder.
 [*]Extract this mod's zip into the game folder (it contains a BepInEx folder; merge it with the existing one).
 [*]Launch the game once and go to the main menu, then quit. This creates the config files in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\[/b].
 [/list]
@@ -56,6 +56,9 @@ Replace only the [b]BepInEx\plugins\CrusaderDETweaker[/b] folder. Keep your conf
 
 [b]6. Multiplayer[/b]
 The lobby host's configs are sent to everyone who joins (tab [b]Crusader DE Tweaker[/b] in the lobby's Mod Options window); your own files are not changed and apply again when you leave. See "Multiplayer: host config sync" below.
+
+[b]7. Ranged units: range[/b]
+Archers, crossbowmen, slingers, siege engines and the other ranged units have [b]AttackRange[/b] (how far they shoot, in tiles) and [b]EngageRange[/b] (how close enemies must come before they react on their own) in the Units file, for example [b]AttackRange = 40[/b] under [b][CHIMP_TYPE_ARCHER][/b]. See the Units section below.
 
 The sections below list every config file and setting.
 
@@ -295,6 +298,8 @@ Health = -1 # Default: 2500
 Speed = -1 # Default: 1
 GoldCost = -1 # Default: 12
 WeaponType = "STORED_BOWS"
+AttackRange = -1 # Default: <game value>   # tiles; ranged units only (2.8.0)
+EngageRange = -1 # Default: game default (auto)
 MaxCount = -1                      # -1 = unlimited (default)
 [/code]
 
@@ -310,6 +315,17 @@ MaxCount = -1                      # -1 = unlimited (default)
 [*][b]ShieldHealth[/b] — Bedouin Demolisher only: shield durability (game default 40000). The game stores it in 16 bits, so [b]65535 is the maximum[/b]; a larger value is clamped to 65535 and a warning is logged.
 [*][b]RequiresHorse[/b] — When true, hiring needs a free stable horse and the unit occupies that stable slot until it dies. Add [b]RequiresHorse = true[/b] to any recruitable unit's section: Barracks units are checked by the game itself, Mercenary Post units (Horse Archer, Camel Lancer, Heavy Camel, ...) by the mod at hire time (the hire is refused when no horse is free; a batch request is trimmed to the free horses). The Mercenary Post hover shows no horse icon - that UI is hard-wired to the Barracks.
 [*][b]MaxCount[/b] — Limit on units of this type alive at once for the local player. [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (cannot be recruited at all), [b]>0[/b] = max alive at once. Recruiting at/over the cap is refused up front (no gold spent); a request for more than the remaining room is trimmed to fit.
+[*][b]AttackRange[/b] (ranged units only, new in 2.8.0) - how far the unit picks targets and, for normal arrows, bolts, stones and siege shots, how far the projectile flies, in [b]map tiles[/b]. The [b]# Default:[/b] comment shows the game's current range. Maximum 32767 (larger values are clamped with a warning). Units: Archer, Arabian Bow (Arab archer), Horse Archer, Crossbowman, Slinger, Fire Thrower (grenadier), Bedouin Ambusher, Bedouin Skirmisher, Catapult, Trebuchet, Mangonel, Ballista, Arabian Ballista.
+[*][b]EngageRange[/b] (ranged units only, new in 2.8.0) - the distance, in [b]map tiles[/b], at which the unit's AI starts and stops engaging nearby enemies on its own. The game's default is only known once the unit type has acted in a match, so the comment usually reads [b]# Default: game default (auto)[/b]. Maximum 4095 tiles (clamped with a warning). Units: the AttackRange list without the Bedouin Ambusher, plus the Bedouin Heavy Camel. EngageRange does not change how far the unit can shoot: raise AttackRange for that.
+[/list]
+
+[b]Range notes (AttackRange / EngageRange, Script Extender 2.10.1+):[/b]
+[list]
+[*]They apply to the listed ranged unit types only; melee units do not get the settings.
+[*]Special projectile modes and some unusual unit behaviour can ignore AttackRange in part (Script Extender limitation).
+[*]The game normally disengages a little farther away than it engages; a custom EngageRange uses one value for both, so that small gap disappears.
+[*]Not exposed on purpose: the Script Extender's "interact range" (it only changes the player's click/UI check, not what units do, and large values overflow inside the Script Extender).
+[*]Like every other stat, they follow the host in multiplayer (host config sync) and are put back to your own values, or the game default, when you leave.
 [/list]
 
 [b]Note:[/b] Damage values are not set here. All combat damage is controlled by the CSV matrices below.

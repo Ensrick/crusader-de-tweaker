@@ -76,6 +76,10 @@ namespace CrusaderDETweaker.Config.Toml.Units
             // Shield health for Bedouin Demolisher
             _instance.Register(new ShieldHealthProperty());
 
+            // Ranged unit ranges (SE 2.10.1+ range overrides; ranged unit types only, see UnitRangeProperties.cs)
+            _instance.Register(new AttackRangeProperty());
+            _instance.Register(new EngageRangeProperty());
+
             // Run speed bonuses
             _instance.Register(new KnightRunSpeedBonusProperty());
             _instance.Register(new ArabHorsemanRunSpeedBonusProperty());

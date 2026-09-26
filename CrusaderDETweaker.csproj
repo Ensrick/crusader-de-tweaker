@@ -188,6 +188,7 @@
     <Compile Include="Config\Toml\Units\Properties\ResourceTypeProperties.cs" />
     <Compile Include="Config\Toml\Units\Properties\SpeedProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ShieldHealthProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\UnitRangeProperties.cs" />
     <Compile Include="Config\Toml\Units\Properties\KnightRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ArabHorsemanRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinCamelLancerRunSpeedBonusProperty.cs" />

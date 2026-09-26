@@ -40,9 +40,10 @@ namespace CrusaderDETweaker
     /// 3. ConfigManager.Initialize() - Loads TOML/CSV configurations
     /// 4. BepInExConfigManager.Initialize() - Sets up real-time multiplier hooks
     /// </summary>
-    // Hard dependency with a floor: built against SHCDE-SE 2.8.0 (2.0 removed Zhuqiaomon; an older SE
-    // fails to load this DLL). BepInEx refuses to load us against an older SE and says why in the log.
-    [BepInDependency(SHCDESE.BepInEx.Bootstrap.Plugin.PLUGIN_GUID, "2.8.0")]
+    // Hard dependency with a floor: SHCDE-SE 2.10.1 (2.10.0 added the unit range APIs used by AttackRange /
+    // EngageRange, 2.10.1 fixed its ranged attack hook; 2.0 removed Zhuqiaomon). BepInEx refuses to load us
+    // against an older SE and says why in the log.
+    [BepInDependency(SHCDESE.BepInEx.Bootstrap.Plugin.PLUGIN_GUID, "2.10.1")]
     /// <summary>
     /// CRITICAL: Plugin GUID must match the folder name in BepInEx/plugins/
     /// 

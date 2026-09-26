@@ -1,6 +1,13 @@
-Version 2.7.1
+Version 2.8.0
 
-Updated for SHC DE v2.8.2 and Script Extender 2.8.0!
+Updated for SHC DE v2.8.2 and Script Extender 2.10.1 or newer!
+
+[b]2.8.0: Attack and engage range for ranged units (requires Script Extender 2.10.1 or newer)[/b]
+[list]
+[*][b]New in the Units file for ranged units: AttackRange and EngageRange, in tiles.[/b] AttackRange = how far the unit shoots (target selection and, for normal arrows, bolts, stones and siege shots, projectile reach). EngageRange = how close enemies must come before the unit reacts on its own. -1 = game default. Archers, Arabian bows, horse archers, crossbowmen, slingers, fire throwers, Bedouin skirmishers / ambushers / heavy camels, catapults, trebuchets, mangonels, ballistas.
+[*]Limits from the Script Extender: AttackRange max 32767 tiles, EngageRange max 4095 tiles (clamped with a warning); special projectile modes can partly ignore AttackRange; a custom EngageRange removes the game's small gap between engaging and disengaging.
+[*]Update the Script Extender to 2.10.1 or newer first; the mod refuses to load on an older one and says so in the log.
+[/list]
 
 [b]2.7.1:[/b]
 [list]

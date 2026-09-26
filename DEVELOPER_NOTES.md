@@ -126,6 +126,7 @@ The rules that constrain other code:
 | Add a global setting to a `Load()` body instead of `ApplyAllGlobalConfigs()` | Crash at startup, or setting silently reset by the map's own rules |
 | Register hooks before configs are loaded | Hooks may observe incomplete settings |
 | Treat `0` in a CSV as "no override" | `0` IS applied — it zeroes that matchup. `-1` is the skip value. |
+| Restore an SE override that persists across map loads (AttackRange / EngageRange) by writing the old value back | It stays an override forever; override `CaptureBaselineRestore` to call SE's Reset* instead (v2.8.0) |
 | Add a template writer without `TemplateBaseline.BeforeWrite` | Multiplayer host config sync can no longer revert or mirror that value exactly |
 | Write a config through `Paths.ConfigPath` instead of `ConfigPaths` | Bypasses the host-sync redirect; a client would read its own file during a synced match |
 

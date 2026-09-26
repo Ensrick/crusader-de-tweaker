@@ -36,6 +36,7 @@ namespace CrusaderDETweaker.Tests
             _failedCount = 0;
 
             Test_RoundTrip_AllIds();
+            Test_RoundTrip_UnitRangesInUnitsToml();
             Test_Hash_IndependentOfInsertionOrder();
             Test_Corrupt_FlippedCompressedByte();
             Test_Corrupt_FlippedHashByte();
@@ -143,6 +144,23 @@ namespace CrusaderDETweaker.Tests
                 same && p.HostModVersion == "2.7.0" && ConfigSyncCodec.BytesEqual(p.BodyHash, packHash)
                 && p.BodyBytes == bodyBytes && p.WireBytes == wire.Length,
                 ok ? $"entries={p.Entries.Count}" : error);
+        }
+
+        /// <summary>
+        /// AttackRange / EngageRange (2.8.0) live in the Units TOML, so host sync carries them with the file:
+        /// the client's HostSync copy must be byte-identical, sentinel and "# Default:" comment included.
+        /// </summary>
+        private static void Test_RoundTrip_UnitRangesInUnitsToml()
+        {
+            string toml = "[CHIMP_TYPE_ARCHER]\r\nHealth = -1 # Default: 3000\r\nAttackRange = 40 # Default: 30\r\n"
+                        + "EngageRange = -1 # Default: game default (auto)\r\n\r\n[CHIMP_TYPE_XBOWMAN]\r\nAttackRange = -1 # Default: 30\r\n";
+            byte[] units = Encoding.UTF8.GetBytes(toml);
+            byte[] wire = Pack(new Dictionary<SyncFileId, byte[]> { { SyncFileId.Units, units } });
+            bool ok = ConfigSyncCodec.TryUnpack(wire, out var p, out string error);
+            Check("RoundTrip_UnitRangesInUnitsToml",
+                ok && p.Entries.TryGetValue(SyncFileId.Units, out var got) && ConfigSyncCodec.BytesEqual(got, units)
+                && Encoding.UTF8.GetString(got).Contains("AttackRange = 40") && Encoding.UTF8.GetString(got).Contains("EngageRange = -1"),
+                error ?? "Units TOML bytes changed in transit");
         }
 
         private static void Test_Hash_IndependentOfInsertionOrder()

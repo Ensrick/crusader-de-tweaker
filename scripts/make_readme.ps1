@@ -164,14 +164,14 @@ function New-UserReadme([string]$Version) {
     foreach ($x in @(
         'Stronghold Crusader: Definitive Edition (Steam).',
         'BepInEx 5 Bootstrapper (https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/36).',
-        'SHCDE Script Extender 2.8.0 or newer (https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35).')) {
+        'SHCDE Script Extender 2.10.1 or newer (https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35).')) {
         foreach ($l in (Format-Wrapped $x '- ' '  ')) { $doc.Add($l) }
     }
 
     Add-Heading $doc 'Install' '-'
     $n = 0
     foreach ($x in @(
-        'Install the BepInEx 5 Bootstrapper and the Script Extender (2.8.0 or newer) first.',
+        'Install the BepInEx 5 Bootstrapper and the Script Extender (2.10.1 or newer) first.',
         'Nexus / GitHub / GitLab zip: extract it into the game folder (it contains a BepInEx folder; merge it with the existing one). Steam Workshop: subscribe to the item.',
         'Start the game once and go to the main menu. This creates the config files in BepInEx\config\CrusaderDETweaker\ in the game folder.',
         ('Check BepInEx\LogOutput.log: it contains "Loading [Crusader DE Tweaker {0}]" and "TEST SUITES PASSED".' -f $Version))) {

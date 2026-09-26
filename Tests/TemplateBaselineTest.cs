@@ -9,6 +9,8 @@
 // - The one template write path is idempotent: applying N times (with or without SE map-unload resets
 //   between) equals applying once, including the fire / heal / wall-cost multipliers that scale the
 //   current value; the ranged multiplier is applied once (at hit time only, not by the matrix loader)
+// - Override-style cells (AttackRange / EngageRange, restore = SE Reset): launch -> host sync with the
+//   host at -1 -> revert ends on game value while synced and on the player's own value after
 //
 // NOTE: pure logic only - no file I/O, no game API. Runs on every launch via CoreTestRunner.
 //
@@ -32,6 +34,7 @@ namespace CrusaderDETweaker.Tests
 
             Test_Baseline_FirstWriteWinsAndRestoreOrder();
             Test_Reapply_NTimesEqualsOnce();
+            Test_ResetStyleRestore_HostSyncRoundTrip();
 
             int totalTests = _passedCount + _failedCount;
             Plugin.Logger.LogInfo($"  TemplateBaseline: {_passedCount}/{totalTests} tests passed");
@@ -98,6 +101,35 @@ namespace CrusaderDETweaker.Tests
                 && once["melee"] == 100 && once["ranged"] == 80 && once["fireSkip"] == 20 && once["fireCsv"] == 60 && once["wallCost"] == 0.5
                 && rangedHit == 120,
                 $"once: fireSkip={once["fireSkip"]} fireCsv={once["fireCsv"]}; now: fireSkip={table["fireSkip"]} fireCsv={table["fireCsv"]} ranged={table["ranged"]}");
+        }
+
+        /// <summary>
+        /// Override-style cells (AttackRange / EngageRange: SE keeps an override flag that persists across
+        /// map loads and SE's unload reset does not clear): the restore action is "remove the override".
+        /// Client has AttackRange 30, host leaves it at -1: while synced the client must be back on the game
+        /// value (no override), and after the revert its own 30 again.
+        /// </summary>
+        private static void Test_ResetStyleRestore_HostSyncRoundTrip()
+        {
+            bool hasOverride = false; int overrideValue = 0;
+            var journal = new BaselineJournal();
+            void WriteOverride(int v)
+            {
+                journal.BeforeWrite("toml|eChimps|ARCHER|AttackRange", () => () => { hasOverride = false; overrideValue = 0; });
+                hasOverride = true; overrideValue = v;
+            }
+            var ownFile = new Action[] { () => WriteOverride(30) };   // client's file: AttackRange = 30
+            var hostFile = new Action[] { () => { } };                // host's file: AttackRange = -1 (no write)
+
+            journal.Reapply(ownFile);                      // launch
+            bool launchOk = hasOverride && overrideValue == 30;
+            journal.Reapply(hostFile);                     // host sync applied
+            bool syncedOk = !hasOverride;
+            journal.Reapply(ownFile);                      // host sync ended
+            bool revertedOk = hasOverride && overrideValue == 30;
+
+            Check("ResetStyleRestore_HostSyncRoundTrip", launchOk && syncedOk && revertedOk,
+                $"launch={launchOk} synced={syncedOk} reverted={revertedOk}");
         }
 
         private static bool DictEqual(Dictionary<string, double> a, Dictionary<string, double> b)

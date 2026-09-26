@@ -1,4 +1,4 @@
-Version 2.7.1 - requires Script Extender 2.8.0 or newer
+Version 2.8.0 - requires Script Extender 2.10.1 or newer
 
 Edit unit and building stats, damage per matchup, siege and trade settings, and more, through plain config files. In multiplayer, everyone in the lobby plays with the host's settings.
 
@@ -18,7 +18,7 @@ For a bug report, have these ready: [b]BepInEx\LogOutput.log[/b] from a session 
 [h1]Getting Started[/h1]
 [h2]1. Install[/h2]
 [list]
-[*]Needs [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/36]BepInEx 5 Bootstrapper[/url] and [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] [b]2.8.0 or newer[/b].
+[*]Needs [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/36]BepInEx 5 Bootstrapper[/url] and [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] [b]2.10.1 or newer[/b].
 [*]Subscribe, then launch the game once and go to the main menu. This creates the config files in [b]<game folder>\BepInEx\config\CrusaderDETweaker\[/b].
 [*]Check it worked: BepInEx\LogOutput.log contains "Loading [Crusader DE Tweaker ...]" and "ALL 6 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
 [/list]
@@ -34,7 +34,7 @@ For a bug report, have these ready: [b]BepInEx\LogOutput.log[/b] from a session 
 
 [h2]3. What you can change[/h2]
 [list]
-[*][b]CrusaderDETweaker_Units.toml[/b]: per unit Health, Speed (0 to 6, lower is faster), gold cost, weapon / armour / horse requirements ("NONE" = gold-only hire), shield health, run-speed bonuses, MaxCount (cap on how many you can have).
+[*][b]CrusaderDETweaker_Units.toml[/b]: per unit Health, Speed (0 to 6, lower is faster), gold cost, weapon / armour / horse requirements ("NONE" = gold-only hire), shield health, run-speed bonuses, MaxCount (cap on how many you can have), and for ranged units AttackRange and EngageRange (in tiles).
 [*][b]CrusaderDETweaker_Structures.toml[/b]: per building health, costs, housing, MaxCount.
 [*][b]CrusaderDETweaker_GameplaySettings.toml[/b]: siege-engine stones, stealth, gates, trade prices, auto-trade, gameplay options. Applied at every game start and save load.
 [*][b]DamageMatrices\*.csv[/b]: damage per attacker and defender (melee, ranged, eunuch, ballista, fire, Bedouin healing, building fire). Rows are defenders, columns are attackers; -1 leaves the game value.

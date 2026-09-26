@@ -3,7 +3,7 @@
   "Author": "ensrick",
   "Name": "Crusader DE Tweaker",
   "Description": "Comprehensive gameplay property configuration system for Stronghold Crusader Definitive Edition",
-  "Version": "2.7.1",
+  "Version": "2.8.0",
   "SupportedGameVersions": [
     "2.8.0.2",
     "2.8.2"
@@ -11,7 +11,7 @@
   "Dependencies": [
     {
       "GUID": "000shcdese",
-      "MinimumVersion": "2.8.0"
+      "MinimumVersion": "2.10.1"
     }
   ],
   "Website": "https://gitlab.com/ensrick7/crusader-de-tweaker",

@@ -61,6 +61,7 @@ namespace CrusaderDETweaker.Tests
             Test_TryGenerate_Success();
             Test_TryGenerate_EntityFiltered();
             Test_TryGenerate_ApiFailure();
+            Test_TryGenerate_UnknownDefaultWritesSentinel();
 
             // Test migration (TryGenerateWithOverride) — the "-1 = use default" sentinel logic
             Test_Migration_DefaultValueBecomesSentinel();
@@ -281,6 +282,24 @@ namespace CrusaderDETweaker.Tests
             AssertTrue("TryGenerate_ApiFailure", !success);
         }
 
+        private static void Test_TryGenerate_UnknownDefaultWritesSentinel()
+        {
+            // EngageRange-style: the game value exists but cannot be read at generation (SE observes it
+            // lazily). The property must still be written, as -1 with the handler's comment.
+            var handler = new MockUnknownDefaultHandler("EngageRange");
+            var sb = new StringBuilder();
+            bool success = handler.TryGenerate(TestEntity.EntityA, sb);
+            string output = sb.ToString();
+
+            // And without UnknownDefaultComment an unreadable default still skips the property (unchanged).
+            var plain = new MockIntPropertyHandler("Health");
+            plain.SetApiFailure(true);
+            bool plainWritten = plain.TryGenerate(TestEntity.EntityA, new StringBuilder());
+
+            AssertTrue("TryGenerate_UnknownDefaultWritesSentinel",
+                success && output.Contains("EngageRange = -1 # Default: game default (auto)") && !plainWritten);
+        }
+
         // ===================================================
         // Migration Tests (TryGenerateWithOverride)
         // ===================================================
@@ -451,6 +470,15 @@ namespace CrusaderDETweaker.Tests
             public new bool TryParseValue(object tomlValue, out int result) => base.TryParseValue(tomlValue, out result);
             public new bool ValidateValue(int value) => base.ValidateValue(value);
             public new bool CanApplyTo(TestEntity entity) => base.CanApplyTo(entity);
+        }
+
+        /// <summary>Handler whose game default is unknown at generation (mirrors EngageRangeProperty).</summary>
+        private class MockUnknownDefaultHandler : PropertyHandler<TestEntity, int>
+        {
+            public MockUnknownDefaultHandler(string name) : base(name) { }
+            protected override string UnknownDefaultComment => "game default (auto)";
+            protected override bool TryGetFromAPI(TestEntity entity, out int value) { value = 0; return false; }
+            protected override void SetToAPI(TestEntity entity, int value) { }
         }
 
         /// <summary>
