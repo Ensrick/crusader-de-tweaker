@@ -40,7 +40,11 @@ Crusader DE Tweaker provides fine-grained control over game balance through mult
    - Edit `CrusaderDETweaker_GlobalMultipliers.cfg` for real-time multipliers and unit caps (no restart needed)
    - Edit `CrusaderDETweaker_GameplaySettings.toml` for gameplay globals (siege, stealth, peasant spawning, trade)
    - Restart the game to apply TOML changes
-   - **Note:** Your config files are safe - the mod never overwrites your changes. Files are only generated if they don't exist.
+   - **Note:** Your config files are safe - the mod never resets your values. Missing files are generated on launch; existing ones keep your values and only gain new settings.
+
+4. **Update:**
+   - Extract the new zip over your install, or replace only `BepInEx\plugins\CrusaderDETweaker\`. Since 2.4.1 the zip contains no config files, so it cannot overwrite yours.
+   - Keep `BepInEx\config\CrusaderDETweaker\` as it is: there is nothing to copy back or redo. Your values carry over and new settings are added on the next launch.
 
 See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for detailed instructions.
 
