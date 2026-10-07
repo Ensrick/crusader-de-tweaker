@@ -69,7 +69,7 @@ per-matchup values. They live in `{GameDir}\BepInEx\config\CrusaderDETweaker\Dam
 - **`CrusaderDETweaker_MeleeDamage.csv`** - Melee damage, unit vs unit
 - **`CrusaderDETweaker_RangedDamage.csv`** - Projectile damage per unit (Arrow, Bolt, Slinger, Javelin)
 - **`CrusaderDETweaker_EunuchAoeDamage.csv`** - Eunuch area-of-effect damage per unit
-- **`CrusaderDETweaker_BallistaDamage.csv`** - Ballista damage per unit
+- **`CrusaderDETweaker_BallistaDamage.csv`** - Ballista damage: one `Default` row for every unit not listed, plus siege engines and portable shields
 - **`CrusaderDETweaker_UnitFireDamage.csv`** - Fire damage per unit
 - **`CrusaderDETweaker_BedouinHeal.csv`** - Bedouin healer amount per unit
 - **`CrusaderDETweaker_BuildingFireDamage.csv`** - Fire damage per building type

@@ -79,7 +79,7 @@ Files:
 [*]DamageMatrices\CrusaderDETweaker_MeleeDamage.csv - Unit vs unit melee damage
 [*]DamageMatrices\CrusaderDETweaker_RangedDamage.csv - Projectile (arrow/bolt/slinger/javelin) damage per unit
 [*]DamageMatrices\CrusaderDETweaker_EunuchAoeDamage.csv - Eunuch AOE damage per unit
-[*]DamageMatrices\CrusaderDETweaker_BallistaDamage.csv - Ballista damage per unit
+[*]DamageMatrices\CrusaderDETweaker_BallistaDamage.csv - Ballista damage: one Default value for every unit not listed, plus siege engines and portable shields
 [*]DamageMatrices\CrusaderDETweaker_UnitFireDamage.csv - Fire damage per unit
 [*]DamageMatrices\CrusaderDETweaker_BedouinHeal.csv - Bedouin healer amount per unit
 [*]DamageMatrices\CrusaderDETweaker_BuildingFireDamage.csv - Fire damage per building type
@@ -397,7 +397,7 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [b]Other matrices[/b] follow the same row/column format:
 [list]
 [*][b]EunuchAoeDamage.csv[/b] — Eunuch AOE damage per defender unit
-[*][b]BallistaDamage.csv[/b] — Ballista projectile damage per defender unit
+[*][b]BallistaDamage.csv[/b] — Ballista projectile damage. The game has no per-unit value here: the [b]Default[/b] row applies to every unit not listed (all soldiers and engineers), and the other rows are siege engines and portable shields.
 [*][b]UnitFireDamage.csv[/b] — Fire damage per unit type
 [*][b]BedouinHeal.csv[/b] — Heal amount from Bedouin healers per unit type
 [*][b]BuildingFireDamage.csv[/b] — Fire damage per building type
