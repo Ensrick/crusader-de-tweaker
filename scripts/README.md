@@ -135,6 +135,14 @@ Restores configs from a previous backup.
 Launches Stronghold Crusader DE via Steam, forces windowed mode, waits for plugin initialization, then
 kills the game. Shared with CrusaderDEHandicap's release pipeline (both mods load in the same session).
 
+### `test_headless.ps1`
+Windowless in-game self-test of the INSTALLED build (deploy first; refuses if the game runs or Steam does not).
+Starts the game with `-batchmode -cdt-selftest <result>`; `Tests/HeadlessSelfTest.cs` builds a disposable
+editor map and checks team colours on the real palettes / UI tables and Speed above 6 on spawned units
+(Catapult 8, Siege Tower 1, two Archers walking 10 tiles at Speed 8 and 1). It writes test values into
+`BepInEx\config\CrusaderDETweaker\` and puts every file back byte for byte afterwards (created files are moved
+into the run folder). Evidence in `logs\selftest-<timestamp>\`. Stops only the process it started.
+
 ### `check_game_running.ps1`
 Checks whether Stronghold Crusader DE is currently running. Exit 0 = running, Exit 1 = not.
 Used by `deploy.ps1`.

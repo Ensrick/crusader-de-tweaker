@@ -188,6 +188,10 @@ namespace CrusaderDETweaker
                 // surfaces a regression immediately in the log if core logic ever breaks.
                 CrusaderDETweaker.Tests.CoreTestRunner.RunAllTests();
 
+                // In-game integration test, only when launched by scripts/test_headless.ps1
+                // (-batchmode -cdt-selftest <result>); a normal launch returns immediately.
+                CrusaderDETweaker.Tests.HeadlessSelfTest.StartIfRequested();
+
                 Logger.LogInfo("Crusader DE Tweaker initialized successfully.");
                 _isInitialized = true;
 

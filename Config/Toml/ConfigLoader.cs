@@ -277,7 +277,7 @@ namespace CrusaderDETweaker.Config.Toml
         /// Apply only the ["Team Colors"] section, outside a session (menus). Parse errors are left to the
         /// session-start path, which reports them; here they keep the current colours.
         /// </summary>
-        private static void ApplyTeamColorsFromFile(string reason)
+        internal static void ApplyTeamColorsFromFile(string reason)
         {
             try
             {

@@ -425,8 +425,13 @@ CHANGELOG entry + install/uninstall header). Never hand-edit it; edit the guide 
 
 ### Testing in Game
 ```powershell
-.\scripts\launch_game.ps1
+.\scripts\launch_game.ps1                       # visible launch, waits for init, closes the game
+.\scripts\build.ps1 -Deploy; .\scripts\test_headless.ps1   # windowless in-game self-test (2.9.0+)
 ```
+`test_headless.ps1` + `Tests/HeadlessSelfTest.cs` (opt-in: only `-batchmode -cdt-selftest <result>` starts it)
+reach what the mock suites cannot: real palettes / UI tables and real units on a disposable editor map
+(pattern from shcde-naval-mod `runtime/test-headless.ps1`). Batch mode raises no menu map unload before the
+editor map, so the menu-path colour apply is called directly there. Extend it for new in-game features.
 
 ### Checking Unit Categories
 ```csharp
