@@ -1,4 +1,4 @@
-Version 2.8.0 - requires Script Extender 2.10.1 or newer
+Version 2.9.0 - requires Script Extender 2.10.1 or newer
 
 Edit unit and building stats, damage per matchup, siege and trade settings, and more, through plain config files. In multiplayer, everyone in the lobby plays with the host's settings.
 
@@ -34,9 +34,9 @@ For a bug report, have these ready: [b]BepInEx\LogOutput.log[/b] from a session 
 
 [h2]3. What you can change[/h2]
 [list]
-[*][b]CrusaderDETweaker_Units.toml[/b]: per unit Health, Speed (0 to 6, lower is faster), gold cost, weapon / armour / horse requirements ("NONE" = gold-only hire), shield health, run-speed bonuses, MaxCount (cap on how many you can have), and for ranged units AttackRange and EngageRange (in tiles).
+[*][b]CrusaderDETweaker_Units.toml[/b]: per unit Health, Speed (0 to 30, lower is faster), gold cost, weapon / armour / horse requirements ("NONE" = gold-only hire), shield health, run-speed bonuses, MaxCount (cap on how many you can have), and for ranged units AttackRange and EngageRange (in tiles).
 [*][b]CrusaderDETweaker_Structures.toml[/b]: per building health, costs, housing, MaxCount.
-[*][b]CrusaderDETweaker_GameplaySettings.toml[/b]: siege-engine stones, stealth, gates, trade prices, auto-trade, gameplay options. Applied at every game start and save load.
+[*][b]CrusaderDETweaker_GameplaySettings.toml[/b]: siege-engine stones, stealth, gates, team colours (RGB per player colour), trade prices, auto-trade, gameplay options. Applied at every game start and save load.
 [*][b]DamageMatrices\*.csv[/b]: damage per attacker and defender (melee, ranged, eunuch, ballista, fire, Bedouin healing, building fire). Rows are defenders, columns are attackers; -1 leaves the game value.
 [*][b]CrusaderDETweaker_GlobalMultipliers.cfg[/b]: global multipliers (health, damage taken, wall costs...), most apply without a restart.
 [/list]

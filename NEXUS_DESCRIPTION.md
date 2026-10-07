@@ -1,6 +1,13 @@
-Version 2.8.0
+Version 2.9.0
 
 Updated for SHC DE v2.8.2 and Script Extender 2.10.1 or newer!
+
+[b]2.9.0: Team colors; Speed above 6[/b]
+[list]
+[*][b]New: change the player colours.[/b] GameplaySettings file, section ["Team Colors"]: one value per lobby colour (Red, Blue, Orange, Yellow, Purple, Grey, LightBlue, Green), as [R, G, B] with 0-255 values (Red = [255, 0, 0]) or a hex string (Red = "#FF0000"); -1 keeps the game's colour. Changes the team colour on units, lords, siege engines and flags, and the player colour in chat, player names and the allies / score panels. The minimap and the lobby's colour shields keep the game colours.
+[*][b]Fix: Speed accepts 0 to 30[/b] (smaller = faster, 0 = fastest), so a unit can be made slower than the game's slowest (the Catapult's 6). It used to stop at 6. Reported on GitLab ("Catapult not slow enough").
+[*]Speed applies to units created after the change; units already on the map or in a saved game keep theirs. Workers, animals, the lord, engineers and miners use the game's own speeds while working.
+[/list]
 
 [b]2.8.0: Attack and engage range for ranged units (requires Script Extender 2.10.1 or newer)[/b]
 [list]
