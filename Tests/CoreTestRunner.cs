@@ -12,6 +12,7 @@
 // - CsvHelper: damage-matrix CSV parser
 // - TemplateBaseline: baseline journal + the one template write path (apply N times == once)
 // - ConfigSync: multiplayer host config package codec
+// - TeamColors: ["Team Colors"] value parsing + palette restore-then-apply
 //
 // IMPORTANT FOR AI AGENTS:
 // - Tests use BepInEx logger for output (visible in LogOutput.log)
@@ -51,7 +52,8 @@ namespace CrusaderDETweaker.Tests
                     RunSuite("EntityProcessor", EntityProcessorTest.RunTests),
                     RunSuite("CsvHelper", CsvHelperTest.RunTests),
                     RunSuite("TemplateBaseline", TemplateBaselineTest.RunTests),
-                    RunSuite("ConfigSync", ConfigSyncTest.RunTests)
+                    RunSuite("ConfigSync", ConfigSyncTest.RunTests),
+                    RunSuite("TeamColors", TeamColorsTest.RunTests)
                 };
             }
             finally

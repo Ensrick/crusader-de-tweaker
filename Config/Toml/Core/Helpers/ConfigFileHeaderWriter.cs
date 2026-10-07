@@ -73,7 +73,9 @@ namespace CrusaderDETweaker.Config.Toml.Core
             sb.AppendLine("# BASIC PROPERTIES");
             sb.AppendLine("# ========================================");
             sb.AppendLine("# Health:        Maximum hit points");
-            sb.AppendLine("# Speed:         Movement speed (smaller values = faster)");
+            sb.AppendLine("# Speed:         Movement delay 0-30, smaller = faster (0 = fastest; the Catapult's 6 is the game's slowest).");
+            sb.AppendLine("#                Applies to units created from then on; units already on the map or in a save keep theirs.");
+            sb.AppendLine("#                Workers, animals, the lord, engineers and miners use the game's own speeds while working.");
             sb.AppendLine("# GoldCost:      Recruitment cost in gold (Crusader units only)");
             sb.AppendLine("# WeaponType:    Equipment slot 1 — resource required to recruit (STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS,");
             sb.AppendLine("#                  STORED_SPEARS, STORED_PIKES, STORED_MACES). \"NONE\" = no weapon needed (gold-only hire, like");

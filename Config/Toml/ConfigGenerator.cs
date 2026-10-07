@@ -288,6 +288,24 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine();
 
                 sb.AppendLine("# ========================================");
+                sb.AppendLine("# Crusader DE Tweaker - Team Colors");
+                sb.AppendLine("# ========================================");
+                sb.AppendLine("# Changes a player colour: the team colour on units, lords, siege engines and flags, and the");
+                sb.AppendLine("# player's colour in chat, player names and the allies / score panels.");
+                sb.AppendLine("# Value: [Red, Green, Blue], each 0-255, e.g.  Red = [255, 0, 0]  or a hex string: Red = \"#FF0000\"");
+                sb.AppendLine("# -1 = keep the game's colour. One value per lobby colour, not per player: whoever picks Blue gets the Blue value.");
+                sb.AppendLine("# On units the game multiplies this colour into the cloth's shading, so units and chat can show the same value differently.");
+                sb.AppendLine("# Not changed: the minimap and the lobby's colour shields. Applied in the menus and at every session start.");
+                string teamColorsSection = global::CrusaderDETweaker.Config.Core.TeamColors.Section;
+                sb.AppendLine($"[\"{teamColorsSection}\"]");
+                foreach (var slot in global::CrusaderDETweaker.Config.Core.TeamColors.Slots)
+                {
+                    string value = global::CrusaderDETweaker.Config.Core.TeamColors.FormatForToml(ExistingRaw(existingToml, teamColorsSection, slot.Key));
+                    sb.AppendLine($"{slot.Key} = {value}  # default: {slot.UnitDefault} on units, {slot.InterfaceDefault} in the interface");
+                }
+                sb.AppendLine();
+
+                sb.AppendLine("# ========================================");
                 sb.AppendLine("# Crusader DE Tweaker - Player Options Configuration");
                 sb.AppendLine("# ========================================");
                 sb.AppendLine();
@@ -532,6 +550,17 @@ namespace CrusaderDETweaker.Config.Toml
                 return gameDefault;
             try { return (T)Convert.ChangeType(raw, typeof(T)); }
             catch { return gameDefault; }
+        }
+
+        /// <summary>
+        /// Returns the user's existing raw value (any TOML type) from a parsed globals TOML, or null.
+        /// </summary>
+        private static object ExistingRaw(TomlTable existing, string section, string key)
+        {
+            if (existing == null) return null;
+            if (!existing.TryGetValue(section, out var sectionObj) || !(sectionObj is TomlTable sectionTable))
+                return null;
+            return sectionTable.TryGetValue(key, out var raw) ? raw : null;
         }
 
         /// <summary>

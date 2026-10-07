@@ -27,7 +27,7 @@ The log records every value the mod writes and, for trade prices, reads back fro
 [*]Extract this mod's zip into the game folder (it contains a BepInEx folder; merge it with the existing one).
 [*]Launch the game once and go to the main menu, then quit. This creates the config files in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\[/b].
 [/list]
-Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 6 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
+Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 7 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
 
 [b]2. Your first change: make Knights cost 5000 gold[/b]
 [list=1]
@@ -73,7 +73,7 @@ Example: [b]C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader De
 Files:
 [list]
 [*]CrusaderDETweaker_GlobalMultipliers.cfg - Real-time global multipliers
-[*]CrusaderDETweaker_GameplaySettings.toml - Gameplay flags, siege, stealth, trade prices, auto-trade
+[*]CrusaderDETweaker_GameplaySettings.toml - Gameplay flags, siege, stealth, team colors, trade prices, auto-trade
 [*]CrusaderDETweaker_Units.toml - Per-unit stats (health, speed, cost, weapon/armor requirements, max count)
 [*]CrusaderDETweaker_Structures.toml - Per-structure stats (health, cost, housing, max count)
 [*]DamageMatrices\CrusaderDETweaker_MeleeDamage.csv - Unit vs unit melee damage
@@ -137,7 +137,7 @@ DiseaseDamageMultiplier = 1.0              # Scales all three disease damage tie
 [b]Multipliers stack.[/b] Example: WallDamageTakenMultiplier = 0.5 and StructureDamageTakenMultiplier = 2.0 → walls take 1.0× damage (0.5 × 2.0).
 
 [size=5][b]2. CrusaderDETweaker_GameplaySettings.toml[/b][/size]
-[b]Gameplay-wide settings[/b] — covers siege engines, stealth, gates, flags, trade, and auto-trade.
+[b]Gameplay-wide settings[/b] — covers siege engines, stealth, gates, flags, team colors, trade, and auto-trade.
 
 [b]Siege Engines[/b]
 [code]
@@ -225,6 +225,24 @@ PeasantRespawnTickResetValue = 2000   # Tick counter reset value after a spawn.
 CampPeasantsCap = 24                  # Max peasants waiting at the campfire. 0 = no cap.
 [/code]
 
+[b]Team Colors[/b] (v2.9.0+)
+
+Changes a player colour: the team colour on units, lords, siege engines and flags, and the player's colour in chat, player names and the allies / score panels. One value per lobby colour (Red, Blue, Orange, Yellow, Purple, Grey, LightBlue, Green), not per player: whoever picks Blue in the lobby gets the Blue value. [b]-1 = keep the game's colour.[/b]
+[code]
+["Team Colors"]
+Red = [255, 0, 0]   # [Red, Green, Blue], each 0-255
+Blue = "#2050FF"    # or a hex string, in quotes
+Yellow = -1         # default: [255, 210, 35] on units, [198, 195, 0] in the interface
+[/code]
+[list]
+[*]The game uses different colours for units and for the interface (both are in each line's "# default:" note); your value is used for both.
+[*]On units the game multiplies this colour into the cloth's shading, so units and chat can show the same value differently.
+[*]Not changed: the minimap and the colour shields in the lobby.
+[*]Applied in the menus and at every session start, no restart needed after editing; setting a colour back to -1 restores the game's colour at the next session start.
+[*]A value outside 0-255 is clamped with a warning; an unreadable value is logged ([b][TeamColors] Red: ...[/b]) and that colour stays the game's. The log line [b][TeamColors] Applied (session start): Red=[255, 0, 0], ...[/b] confirms it.
+[*]In multiplayer with host config sync, the host's colours are used by everyone in the lobby.
+[/list]
+
 [b]Trade Prices[/b]
 
 Override the market buy/sell price for individual goods. [b]0 = use the game's default price[/b] (no override). Requires a Trade Post. Re-applied at every session start: new game, trail / campaign map, and loading a saved game (v2.6.5+; earlier versions skipped loaded saves). Every applied price is logged with a read-back from the game, e.g. [b][Trade Prices] STORED_BOWS: buy 155 -> 52, sell 75 -> 25 (read back 52/25)[/b].
@@ -308,7 +326,7 @@ MaxCount = -1                      # -1 = unlimited (default)
 [b]Available Properties:[/b]
 [list]
 [*][b]Health[/b] — Unit max health
-[*][b]Speed[/b] — Movement speed (some special units cannot be modified)
+[*][b]Speed[/b] — Movement delay, [b]0 to 30, smaller = faster[/b] (0 = fastest). It is the number of game ticks a unit waits between steps (the Catapult's 6 is the slowest value in the unmodded game). Values above 6 need 2.9.0 or newer (the Script Extender's own limit is 6; the game has none). A change applies to units created after the game starts: units already on the map or in a saved game keep the speed they were created with. Workers, animals, the lord, engineers and miners switch to the game's own speeds while working, so for them Speed only sets the starting value. Siege engines (Catapult, Siege Tower, Battering Ram, Portable Shield) use it while they move. Trebuchet, Mangonel and Ballista do not move and have no Speed.
 [*][b]GoldCost[/b] — Recruitment cost (Crusader recruitable units only)
 [*][b]WeaponType[/b] — Weapon resource: STORED_SWORDS, STORED_BOWS, STORED_CROSSBOWS, STORED_PIKES, STORED_MACES, STORED_SPEARS, or [b]"NONE"[/b] for no weapon requirement (gold-only hire, like the Arabian mercenaries). Deleting the line does NOT remove the requirement: a missing key means "use the game default" and the line is re-added on the next launch.
 [*][b]ArmorType[/b] — Armor resource: STORED_METAL_ARMOUR, STORED_LEATHER_ARMOUR, or [b]"NONE"[/b].

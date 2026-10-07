@@ -148,6 +148,12 @@ namespace CrusaderDETweaker.Config.Toml
             MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
                 .Subscribe(_ => ReapplyTemplateConfigs("after SE map-unload reset"));
+
+            // Team colours are managed-only (no native write), so the menus' map unloads can apply them too:
+            // the lobby's player names then show them before the first match. Quiet: the session start logs.
+            MapLoaderR3EventHooks.OnUnloadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ => ApplyTeamColorsFromFile("menu"));
             MapLoaderR3EventHooks.OnStartMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(_ => ReapplyTemplateConfigs("new game / map start"));
@@ -254,11 +260,34 @@ namespace CrusaderDETweaker.Config.Toml
                 LoadTradePrices(tomlModel);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadAutoTrade...");
                 LoadAutoTrade(tomlModel);
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: TeamColors...");
+                global::CrusaderDETweaker.Config.Core.TeamColors.ApplyToGame(TeamColorsSection(tomlModel), "session start", quiet: false);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] All sections applied.");
             }
             catch (Exception ex)
             {
                 Core.ErrorLogging.LogConfigLoadException("global configs", ex);
+            }
+        }
+
+        private static TomlTable TeamColorsSection(TomlTable tomlModel) =>
+            tomlModel.TryGetValue(global::CrusaderDETweaker.Config.Core.TeamColors.Section, out var obj) ? obj as TomlTable : null;
+
+        /// <summary>
+        /// Apply only the ["Team Colors"] section, outside a session (menus). Parse errors are left to the
+        /// session-start path, which reports them; here they keep the current colours.
+        /// </summary>
+        private static void ApplyTeamColorsFromFile(string reason)
+        {
+            try
+            {
+                if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Globals)) return;
+                var tomlModel = Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(ConfigPaths.Globals));
+                global::CrusaderDETweaker.Config.Core.TeamColors.ApplyToGame(TeamColorsSection(tomlModel), reason, quiet: true);
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogDebug($"[TeamColors] Not applied ({reason}): {ex.Message}");
             }
         }
 

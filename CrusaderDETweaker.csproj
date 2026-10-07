@@ -104,6 +104,11 @@
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Assembly-CSharp.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- NoesisGUI (game's copy): Noesis.Color for the chat team-colour table (Config/Core/TeamColors.cs). -->
+    <Reference Include="Noesis.NoesisGUI">
+      <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\Noesis.NoesisGUI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <!-- Steamworks.NET (game's copy): CSteamID from GameNetworkAPI.GetHostSteamId, host config sync logs. -->
     <Reference Include="com.rlabrecque.steamworks.net">
       <HintPath>$(GameDir)\Stronghold Crusader Definitive Edition_Data\Managed\com.rlabrecque.steamworks.net.dll</HintPath>
@@ -123,6 +128,7 @@
     <Compile Include="Config\Core\AtomicFileWriter.cs" />
     <Compile Include="Config\Core\IConfigSystem.cs" />
     <Compile Include="Config\Core\StableTracking.cs" />
+    <Compile Include="Config\Core\TeamColors.cs" />
     <Compile Include="Config\Core\TemplateBaseline.cs" />
     <Compile Include="Config\Core\UnitTransitionDispatcher.cs" />
     <Compile Include="Config\Sync\ConfigSyncCodec.cs" />
@@ -201,6 +207,7 @@
     <Compile Include="Tests\CsvHelperTest.cs" />
     <Compile Include="Tests\ConfigSyncTest.cs" />
     <Compile Include="Tests\TemplateBaselineTest.cs" />
+    <Compile Include="Tests\TeamColorsTest.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
     <Compile Include="Data\StructureTypeHelpers.cs" />
