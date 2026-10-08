@@ -9,6 +9,8 @@
 //   Initialize() (after all config init) pack this machine's files -> LocalPackage; session hooks.
 //   OnSyncEnabledSet / OnHostBlobSet     ViewModel setters; as a client these are the verified host's
 //                                        values (SE checks the sender is the Steam lobby owner).
+//   OnMaxCountsSet                       lobby MaxCount values (GitLab #5): applied at once through
+//                                        LobbyMaxCounts on every peer, whatever the host sync switch says.
 //   Reconcile()                          host sync on + valid package -> ApplyHost(); off -> Revert().
 //   Tick() (Plugin.Update, 1 s)          role changes; revert once no longer a multiplayer client.
 //   BeforeTemplateReapply()              called by ConfigLoader.ReapplyTemplateConfigs (every SE unload
@@ -63,6 +65,9 @@ namespace CrusaderDETweaker.Config.Sync
 
         // This player's own SyncEnabled preference (the ViewModel field holds the host's while a client).
         private static bool _ownSyncEnabled = true;
+
+        // This player's own lobby MaxCount values (same rule as _ownSyncEnabled).
+        private static string _ownMaxCounts = string.Empty;
 
         // Client state for the current lobby.
         private static bool? _hostSyncEnabled;
@@ -205,6 +210,18 @@ namespace CrusaderDETweaker.Config.Sync
             _hostSyncEnabled = value;
             Plugin.Logger.LogInfo($"{Tag} Host config sync is {(value ? "ON" : "OFF")} (from lobby owner {HostIdText()}).");
             Reconcile();
+        }
+
+        /// <summary>
+        /// Lobby MaxCount values from the ViewModel: this player's own (UI edit, SE restoring them at startup)
+        /// or, as a client, the lobby owner's. Either way they replace the lobby values in effect now.
+        /// </summary>
+        internal static void OnMaxCountsSet(string raw, string normalized)
+        {
+            Role role = CurrentRole();
+            if (role != Role.Client) _ownMaxCounts = normalized;
+            string source = role == Role.Client ? $"lobby owner {HostIdText()}" : role == Role.Host ? "you, as host" : "you";
+            LobbyMaxCounts.SetLobbyValues(raw, source);
         }
 
         internal static void OnHostBlobSet(byte[] blob)
@@ -474,6 +491,8 @@ namespace CrusaderDETweaker.Config.Sync
             _clientHostId = null;
             // The field held the host's value; put this player's own preference back.
             Lobby?.RestoreOwnSyncEnabled(_ownSyncEnabled);
+            Lobby?.RestoreOwnMaxCounts(_ownMaxCounts);
+            LobbyMaxCounts.SetLobbyValues(_ownMaxCounts, "your own (no longer in the host's lobby)");
         }
 
         private static void OnSessionStarting(string hook)

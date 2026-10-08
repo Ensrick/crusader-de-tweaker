@@ -20,6 +20,7 @@
 //      field 0 throughout. (Higher = faster while the bonus applies: the step function moves bonus + 1
 //      sub-steps per step, RVA 0x1857B3.)
 //   4a. Apothecary healing and BedouinHealMultiplier 0 (GitLab #4): see Tests/HeadlessSelfTest.Healing.cs.
+//   4b'. Lobby MaxCount values (GitLab #5): see Tests/HeadlessSelfTest.LobbyCaps.cs.
 //   4b. Former crash units (2.9.1): the Crossbowman EngageRange the runner writes must be in effect through
 //      EngageDistancePatch (not SE's engage hook, which crashed it), and a Crossbowman, a Bedouin Heavy Camel and
 //      an Arabian Ballista, each with EngageRange 80, must run 300 ticks next to an enemy.
@@ -247,6 +248,16 @@ namespace CrusaderDETweaker.Tests
                         if (SimStalled(now)) return;
                         if (BedouinHealTick())
                         {
+                            if (StartLobbyCapsTest()) { _stage = 42; _deadline = now + 180; }
+                            else { StartCrossbowGuard(); _deadline = now + 180; }
+                        }
+                        return;
+                    }
+                    if (_stage == 42)
+                    {
+                        if (SimStalled(now)) return;
+                        if (LobbyCapsTick())
+                        {
                             StartCrossbowGuard();
                             _deadline = now + 180;
                         }
@@ -262,6 +273,7 @@ namespace CrusaderDETweaker.Tests
                 Note("FAIL exception: " + ex);
                 if (_stage == 2) Note($"progress: slow archer {Pos(_slowArcher)} ticks={_slowTicks}, fast archer {Pos(_fastArcher)} ticks={_fastTicks}");
                 if (_stage == 40) Note($"progress: apothecary step {_apoStep}, building {_apoId}, A {Pos(_hA)} health {SafeHealth(_hA)}, D {Pos(_hD)} health {SafeHealth(_hD)}, heals recorded {HealRecords().Count}");
+                if (_stage == 42) Note($"progress: lobby MaxCount step {_capStep}, units {CapSpawned(eChimps.CHIMP_TYPE_KNIGHT)} / {CapSpawned(eChimps.CHIMP_TYPE_MACEMAN)}");
                 if (_stage == 41) Note($"progress: Bedouin step {_bedStep}, heals seen {_bedEvents}, target health {SafeHealth(_bedTarget)}");
                 if (_stage == 5) Note($"progress: knight phase {_kPhase}, knight {Pos(_knight)}; " + string.Join("; ", _knightPhases.Select(KnightName).Zip(_knightPhases, (n, p) => n + ": " + p.Detail)));
                 if (_stage == 3) Note($"progress: range phase {_phase}, rung {_rung}, shooter {Pos(_shooter)}, target {Pos(_target)}; " +

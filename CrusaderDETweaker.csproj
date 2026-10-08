@@ -147,6 +147,7 @@
     <Compile Include="Config\Sync\ConfigSyncCodec.cs" />
     <Compile Include="Config\Sync\ConfigSyncLobbySettings.cs" />
     <Compile Include="Config\Sync\ConfigSyncManager.cs" />
+    <Compile Include="Config\Sync\LobbyMaxCounts.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixGenerator.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixLoader.cs" />
     <Compile Include="Config\DamageMatrix\Core\MatrixPaths.cs" />
@@ -223,8 +224,10 @@
     <Compile Include="Tests\TemplateBaselineTest.cs" />
     <Compile Include="Tests\TeamColorsTest.cs" />
     <Compile Include="Tests\ApothecaryHealingTest.cs" />
+    <Compile Include="Tests\LobbyMaxCountsTest.cs" />
     <Compile Include="Tests\HeadlessSelfTest.cs" />
     <Compile Include="Tests\HeadlessSelfTest.Healing.cs" />
+    <Compile Include="Tests\HeadlessSelfTest.LobbyCaps.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
     <Compile Include="Data\StructureTypeHelpers.cs" />

@@ -222,6 +222,9 @@ namespace CrusaderDETweaker.Config.Toml
 
             UnitCapHandler.Subscribe(_unitCaps);
             BuildingCapHandler.Subscribe(_buildingCaps);
+            // Lobby MaxCount values (GitLab #5) go into the same tables; registered now so they apply even
+            // without a Units / Structures file. LoadUnitCaps / LoadBuildingCaps hand over the file caps.
+            global::CrusaderDETweaker.Config.Sync.LobbyMaxCounts.Attach(_unitCaps, _buildingCaps);
 
             // ["Apothecary Healing"]: heal passes on the game tick + combat stamps (settings come from ApplyAllGlobalConfigs).
             Config.Core.ApothecaryHealing.Subscribe();
@@ -702,6 +705,7 @@ namespace CrusaderDETweaker.Config.Toml
             }
             if (_unitCaps.Count > 0)
                 Plugin.Logger.LogInfo($"[UnitCaps] Loaded {_unitCaps.Count} unit cap(s) from TOML.");
+            global::CrusaderDETweaker.Config.Sync.LobbyMaxCounts.UnitFileCapsLoaded(_unitCaps);   // + lobby MaxCount values (GitLab #5)
         }
 
         private static void LoadBuildingCaps(TomlTable structModel)
@@ -724,6 +728,7 @@ namespace CrusaderDETweaker.Config.Toml
             }
             if (_buildingCaps.Count > 0)
                 Plugin.Logger.LogInfo($"[BuildingCaps] Loaded {_buildingCaps.Count} building cap(s) from TOML.");
+            global::CrusaderDETweaker.Config.Sync.LobbyMaxCounts.BuildingFileCapsLoaded(_buildingCaps);   // + lobby MaxCount values (GitLab #5)
         }
 
         private static long ClampInteger(string section, string key, long value, long minimum, long maximum)

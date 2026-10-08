@@ -333,6 +333,14 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
   no longer a client. GameplaySettings is session state and follows the session hooks through
   `ConfigPaths.Globals`; never write it from the sync code.
 - Log prefix `[ConfigSync]`; on-load suites `ConfigSync` (codec) and `TemplateBaseline` (journal, apply N times == once).
+- Lobby MaxCount (GitLab #5, unreleased): `Config/Sync/LobbyMaxCounts.cs`. One `[SyncHostOnly]` string property
+  `MaxCounts` ("KEY=V;KEY=V", -1 = unlimited, empty = file value) on the ViewModel; UI-only rows
+  (`UnitMaxCounts` / `BuildingMaxCounts`) rebuild it. Overlaid on the file caps inside the SAME dictionaries
+  `UnitCapHandler` / `MakeTroopRecruitHook` / `BuildingCapHandler` read (`LoadUnitCaps` / `LoadBuildingCaps` hand
+  over the file caps after every re-apply). Applies on every peer whatever the file-sync switch says; own value
+  restored in `LeaveClientRole`. The tab is reachable in single-player skirmish: SE's `SE_ModOptionsHost`
+  (FrontendMenus.xaml patch) shows on `Show_MultiplayerSetup`, which the game's skirmish setup also sets
+  (FRONT_Multiplayer, `skirmishGame`), and on `Show_StandaloneSetup`.
 
 ---
 
@@ -361,6 +369,7 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | Game-value baseline for exact revert | `Config/Core/TemplateBaseline.cs` |
 | `["Team Colors"]` (sprite palettes + UI colour tables, managed only) | `Config/Core/TeamColors.cs` |
 | `["Apothecary Healing"]` (heal pass on the game tick, combat stamps) | `Config/Core/ApothecaryHealing.cs` |
+| Lobby MaxCount boxes (lobby tab -> cap tables) | `Config/Sync/LobbyMaxCounts.cs` |
 
 ---
 
@@ -413,7 +422,7 @@ Enable debug: `BepInEx\config\BepInEx.cfg` → `LogLevels = ..., Debug`
 handlers only, make no game-API calls, and log PASS/FAIL to `BepInEx\LogOutput.log`. A regression in
 core logic shows up in the log immediately. Do not gate or remove it.
 
-Eight suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**, **TemplateBaseline** (the one template write path: apply N times == once), **ConfigSync** (host config sync package), **TeamColors** (team colour parsing + palette restore-then-apply), **ApothecaryHealing** (section parsing, heal amount, footprint distance, healed types). Look for:
+Nine suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**, **TemplateBaseline** (the one template write path: apply N times == once), **ConfigSync** (host config sync package), **TeamColors** (team colour parsing + palette restore-then-apply), **ApothecaryHealing** (section parsing, heal amount, footprint distance, healed types), **LobbyMaxCounts** (lobby MaxCount box input, synced string, overlay). Look for:
 ```
 === CORE LOGIC UNIT TEST SUITE ===
   [PASS] PropertyHandler: N test(s)
@@ -424,11 +433,12 @@ Eight suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**
   [PASS] ConfigSync: N test(s)
   [PASS] TeamColors: N test(s)
   [PASS] ApothecaryHealing: N test(s)
-=== ALL 8 TEST SUITES PASSED ===
+  [PASS] LobbyMaxCounts: N test(s)
+=== ALL 9 TEST SUITES PASSED ===
 ```
 
 Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/PropertyRegistryTest.cs`,
-`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`, `Tests/TemplateBaselineTest.cs`, `Tests/ConfigSyncTest.cs`, `Tests/TeamColorsTest.cs`, `Tests/ApothecaryHealingTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
+`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`, `Tests/TemplateBaselineTest.cs`, `Tests/ConfigSyncTest.cs`, `Tests/TeamColorsTest.cs`, `Tests/ApothecaryHealingTest.cs`, `Tests/LobbyMaxCountsTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
 
 ---
 
@@ -525,5 +535,5 @@ and `info.json`**; packaging and ship preflight refuse a mismatch.
 3. **Three-tier config**: TOML → CSV matrices → BepInEx multipliers
 4. **CSV is the only damage tier**; rows = defenders, columns = attackers; `-1` = leave unchanged
 5. **Build**: `.\scripts\build.ps1` then `.\scripts\deploy.ps1`; **ship**: `.\scripts\ship.ps1`
-6. **Test**: Launch game, check `LogOutput.log` (the 8 test suites run on load)
+6. **Test**: Launch game, check `LogOutput.log` (the 9 test suites run on load)
 7. **AI dev comments** at top of every .cs file

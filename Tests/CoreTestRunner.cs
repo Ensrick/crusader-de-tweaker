@@ -14,6 +14,7 @@
 // - ConfigSync: multiplayer host config package codec
 // - TeamColors: ["Team Colors"] value parsing + palette restore-then-apply
 // - ApothecaryHealing: ["Apothecary Healing"] parsing, heal amount, footprint distance, healed unit types
+// - LobbyMaxCounts: lobby tab MaxCount values (box input, synced string, overlay on the file caps)
 //
 // IMPORTANT FOR AI AGENTS:
 // - Tests use BepInEx logger for output (visible in LogOutput.log)
@@ -55,7 +56,8 @@ namespace CrusaderDETweaker.Tests
                     RunSuite("TemplateBaseline", TemplateBaselineTest.RunTests),
                     RunSuite("ConfigSync", ConfigSyncTest.RunTests),
                     RunSuite("TeamColors", TeamColorsTest.RunTests),
-                    RunSuite("ApothecaryHealing", ApothecaryHealingTest.RunTests)
+                    RunSuite("ApothecaryHealing", ApothecaryHealingTest.RunTests),
+                    RunSuite("LobbyMaxCounts", LobbyMaxCountsTest.RunTests)
                 };
             }
             finally

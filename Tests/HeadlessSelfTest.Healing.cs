@@ -43,7 +43,7 @@ namespace CrusaderDETweaker.Tests
         private const int ApoX = 390, ApoY = 370, HealStepTicks = 3000;
         private const eChimps HealSubject = eChimps.CHIMP_TYPE_SPEARMAN;
 
-        private int _apoStep, _apoId, _apoStepTick, _apoPassMark, _apoHitTick = -1;
+        private int _apoStep, _apoId, _apoStepTick, _apoPassMark, _apoLogMark, _apoHitTick = -1;
         private int _hA, _hB, _hC, _hD, _hStartA, _hStartB, _hStartC, _hMax;
         private int _fMinX, _fMinY, _fMaxX, _fMaxY;
         private ApothecaryHealing.Settings _fileHeal;
@@ -126,6 +126,7 @@ namespace CrusaderDETweaker.Tests
             _apoStep = step;
             _apoStepTick = global::Director.instance.getSimTickCount();
             _apoPassMark = ApothecaryHealing.PassCount;
+            _apoLogMark = HealRecords().Count;
         }
 
         private double Dist(int unitId)
@@ -212,7 +213,7 @@ namespace CrusaderDETweaker.Tests
             if (_apoStep == 4)
             {
                 if (tick - _apoStepTick < 3 * HealTestInterval + 10) return false;
-                int healsAfter = HealRecords().Count(r => r.Tick >= _apoStepTick);
+                int healsAfter = HealRecords().Count - _apoLogMark;   // not by tick: the last heal pass may share the step's start tick
                 Check("HealPercent / HealHitPoints = -1: no healing (game behaviour)", healsAfter == 0 && units.GetCurrentHealth(_hA) == _hStartA && passes == 0,
                     $"{tick - _apoStepTick} ticks: {passes} passes, {healsAfter} heals, A health {_hStartA} -> {units.GetCurrentHealth(_hA)}");
                 return EndApothecaryTest();
