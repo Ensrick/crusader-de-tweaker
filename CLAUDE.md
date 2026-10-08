@@ -30,6 +30,11 @@
 ## Critical Rules
 
 ### DO
+- **Check the Script Extender version at the start of every task** (bug triage, tests, replies, ships): installed
+  `<game>\BepInEx\plugins\000shcdese\info.json` `Version` vs the latest release
+  (`https://gitlab.com/api/v4/projects/74440776/releases?per_page=1`). Say when it is behind; findings and test
+  results from an older SE must be re-checked on the latest. `test_headless.ps1` prints this and saves
+  `script-extender.txt` in the run folder. Installing a new SE into the shared game folder needs the owner's go.
 - Use PropertyHandler system for properties
 - Follow Template Method pattern for handlers
 - Add AI dev comments at top of every .cs file

@@ -14,7 +14,12 @@
 //   3. Spawns a Catapult and a Siege Tower (speed fields must equal the configured 8 / 1), then two
 //      Archers 10 tiles from a target: one created while the table says 8, one after setting the table
 //      to 1. Both walk the same 10 tiles; the Speed 8 archer must take clearly longer (ticks counted).
-//   4. Crash guard (2.9.1): the Crossbowman EngageRange the runner writes must be refused, and a Crossbowman
+//   4. Knight run speed: with KnightRunSpeedBonus 2 (game), 0 and 8, a Knight walks 20 tiles on a move order;
+//      the times must match (the game writes the bonus only in the knight's AI state 101, not on a move order)
+//      and the knight's speed-bonus field is sampled every frame. Measured 2026-10-08: 311 / 315 / 312 ticks,
+//      field 0 throughout. (Higher = faster while the bonus applies: the step function moves bonus + 1
+//      sub-steps per step, RVA 0x1857B3.)
+//   4b. Crash guard (2.9.1): the Crossbowman EngageRange the runner writes must be refused, and a Crossbowman
 //      must run 300 ticks next to an enemy (without the guard SE <= 2.13.1 crashes on its first update).
 //   5. Ranges: checks the Archer AttackRange / EngageRange from the Units file reached the Script
 //      Extender, then measures behaviour in four phases (game ranges, AttackRange only, EngageRange only,
@@ -82,6 +87,32 @@ namespace CrusaderDETweaker.Tests
         internal const int GuardEngageRange = 80;
         private const int GuardTicks = 300;
         private int _guardUnit, _guardEnemy, _guardTick;
+
+        // KnightRunSpeedBonus is an immediate in the knight's update (CrusaderDE.dll RVA 0x1496B5, game 2.8.2) that
+        // the update writes into the unit's speed-bonus field (+0x916). The movement step (RVA 0x184203) waits
+        // until more than Speed (+0x9A2) + that field + one more field (+0x74C) ticks have passed since the last step.
+        // The knight update (jump table at RVA 0x14A330) writes the bonus only in AI state 101 (unit +0x918).
+        private const int KnightWalkTiles = 20, KnightChargeTiles = 10, KnightPhaseTicks = 1500;
+        private const int SpeedToBonus = 0x9A2 - 0x916, SpeedToTickCounter = 0x9AC - 0x9A2;
+
+        private sealed class KnightPhase
+        {
+            internal ushort Bonus;
+            internal bool Charge;
+            internal int Ticks = -1, CounterStart, TickStart;
+            internal string Detail = "not run";
+            internal readonly System.Collections.Generic.SortedDictionary<int, int> Seen = new System.Collections.Generic.SortedDictionary<int, int>();
+        }
+
+        private readonly KnightPhase[] _knightPhases =
+        {
+            new KnightPhase { Bonus = 2 }, new KnightPhase { Bonus = 0 }, new KnightPhase { Bonus = 8 },
+            // Charge phases (Charge = true) need a knight that engages: on 2026-10-08 an idle knight did not attack a
+            // pinned enemy Pikeman 10 tiles away in the editor map within 1500 ticks, so they are not run.
+        };
+        private int _kPhase = -1, _knight, _kTarget, _kTargetHp, _kTargetX, _kTargetY, _speedOffset;
+        private ushort _knightBonusGame;
+
 
         private readonly string _result;
         private readonly StringBuilder _details = new StringBuilder();
@@ -177,8 +208,18 @@ namespace CrusaderDETweaker.Tests
                         Check("Archer walk time",
                             _fastTicks > 0 && _slowTicks > _fastTicks * 2.5,
                             $"{WalkTiles} tiles: Speed {FastArcherSpeed} took {_fastTicks} ticks, Speed {ArcherSpeed} took {_slowTicks} ticks (ratio {(_fastTicks > 0 ? (double)_slowTicks / _fastTicks : 0):0.00}; the game's step formula predicts about 4.5 with no speed bonus)");
-                        StartCrossbowGuard();
-                        _deadline = now + 120;
+                        StartKnightTest();
+                        _stage = 5; _deadline = now + 600;
+                        return;
+                    }
+                    if (_stage == 5)
+                    {
+                        _next = now;   // sample the knight's speed-bonus field every frame
+                        if (KnightTick())
+                        {
+                            StartCrossbowGuard();
+                            _deadline = now + 120;
+                        }
                         return;
                     }
                     if (_stage == 3) { if (SimStalled(now)) return; RangeTick(); }
@@ -190,6 +231,7 @@ namespace CrusaderDETweaker.Tests
                 _failures++;
                 Note("FAIL exception: " + ex);
                 if (_stage == 2) Note($"progress: slow archer {Pos(_slowArcher)} ticks={_slowTicks}, fast archer {Pos(_fastArcher)} ticks={_fastTicks}");
+                if (_stage == 5) Note($"progress: knight phase {_kPhase}, knight {Pos(_knight)}; " + string.Join("; ", _knightPhases.Select(KnightName).Zip(_knightPhases, (n, p) => n + ": " + p.Detail)));
                 if (_stage == 3) Note($"progress: range phase {_phase}, rung {_rung}, shooter {Pos(_shooter)}, target {Pos(_target)}; " +
                                       string.Join("; ", _rangePhases.Select(p => p.Name + ": " + p.Detail)));
                 Finish();
@@ -282,6 +324,132 @@ namespace CrusaderDETweaker.Tests
             int id = (int)GameUnitManagerAPI.Instance.CreateUnitLocal(owner, owner, x, y, 8, type);
             if (id <= 0) throw new InvalidOperationException($"could not spawn {type} for player {owner} at {x},{y}");
             return id;
+        }
+
+        // ===================================================
+        // Knight run speed
+        // ===================================================
+
+        private static string KnightName(KnightPhase p) => $"{(p.Charge ? "charge" : "move")}, KnightRunSpeedBonus {p.Bonus}";
+
+        private void StartKnightTest()
+        {
+            var units = GameUnitManagerAPI.Instance;
+            // The speed-stage archers would shoot the charge target.
+            foreach (int id in new[] { _catapult, _tower, _slowArcher, _fastArcher })
+                if (id > 0) units.KillUnit(id);
+            _catapult = _tower = _slowArcher = _fastArcher = 0;
+
+            var prop = Plugin.GlobalsApi?.KnightRunSpeedBonus ?? throw new InvalidOperationException("the Script Extender found no KnightRunSpeedBonus");
+            _knightBonusGame = prop.GetValue();
+            Note($"Knight: KnightRunSpeedBonus in the game {_knightBonusGame}, Speed {units.GetDefaultSpeed(eChimps.CHIMP_TYPE_KNIGHT)}");
+            NextKnightPhase();
+        }
+
+        /// <summary>Ends the current knight phase and starts the next; true when all phases are done.</summary>
+        private unsafe bool NextKnightPhase()
+        {
+            var units = GameUnitManagerAPI.Instance;
+            var prop = Plugin.GlobalsApi.KnightRunSpeedBonus;
+            if (_kTarget > 0) units.KillUnit(_kTarget);
+            if (_knight > 0) units.KillUnit(_knight);
+            _kTarget = _knight = 0;
+            if (_kPhase >= 0) Note($"Knight phase '{KnightName(_knightPhases[_kPhase])}': {_knightPhases[_kPhase].Detail}");
+
+            if (++_kPhase >= _knightPhases.Length)
+            {
+                prop.SetValue(_knightBonusGame);
+                ReportKnight();
+                return true;
+            }
+            var p = _knightPhases[_kPhase];
+            prop.SetValue(p.Bonus);
+            _knight = Spawn(eChimps.CHIMP_TYPE_KNIGHT, 350, 400 + 4 * _kPhase);   // fresh ground each phase
+            if (_speedOffset == 0)
+            {
+                if (!units.TryGetUnitById(_knight, out GameUnit* u)) throw new InvalidOperationException("knight not found");
+                _speedOffset = (int)((byte*)&u->r_CurrentSpeed2 - (byte*)u);
+                Note($"Unit layout: speed (game +0x9A2) = SE r_CurrentSpeed2 at +0x{_speedOffset:X}; speed-bonus field at +0x{_speedOffset - SpeedToBonus:X} " +
+                     $"(SE r_SpeedBonus at +0x{(int)((byte*)&u->r_SpeedBonus - (byte*)u):X})");
+            }
+            var at = units.GetCurrentLocalTilePosition(_knight);
+            if (p.Charge)
+            {
+                _kTarget = Spawn(RangeTarget, at.X + KnightChargeTiles, at.Y, owner: 2);
+                _kTargetHp = units.GetCurrentHealth(_kTarget);
+                // Pin the target so the time to contact is the knight's own movement.
+                units.SetSpeed(_kTarget, 30000);
+                WriteUnitField16(_kTarget, _speedOffset, 30000);
+            }
+            else
+            {
+                _kTargetX = at.X + KnightWalkTiles; _kTargetY = at.Y;
+                units.MoveToTile(_knight, _kTargetX, _kTargetY);
+            }
+            p.TickStart = global::Director.instance.getSimTickCount();
+            p.CounterStart = ReadUnitField32(_knight, _speedOffset + SpeedToTickCounter);
+            Note($"Knight phase '{KnightName(p)}': KnightRunSpeedBonus now {prop.GetValue()}; knight {_knight} at {at.X},{at.Y}" +
+                 (p.Charge ? $", enemy Pikeman {_kTarget} {KnightChargeTiles} tiles east (pinned)" : $", ordered {KnightWalkTiles} tiles east"));
+            return false;
+        }
+
+        /// <summary>Samples the knight's speed-bonus field; true when all knight phases are done.</summary>
+        private bool KnightTick()
+        {
+            var units = GameUnitManagerAPI.Instance;
+            var p = _knightPhases[_kPhase];
+            int tick = global::Director.instance.getSimTickCount();
+            int bonus = ReadUnitField16(_knight, _speedOffset - SpeedToBonus);
+            p.Seen.TryGetValue(bonus, out int n);
+            p.Seen[bonus] = n + 1;
+
+            bool done = p.Charge ? units.GetCurrentHealth(_kTarget) < _kTargetHp : At(_knight, _kTargetX, _kTargetY);
+            if (done)
+            {
+                p.Ticks = tick - p.TickStart;
+                int counter = ReadUnitField32(_knight, _speedOffset + SpeedToTickCounter) - p.CounterStart;
+                p.Detail = $"{(p.Charge ? "first hit on the enemy" : "arrived")} after {p.Ticks} ticks; speed-bonus field values seen (samples): {Seen(p)}; " +
+                           $"unit step counter (+0x9AC) advanced {counter}";
+                return NextKnightPhase();
+            }
+            if (tick - p.TickStart > KnightPhaseTicks)
+            {
+                p.Detail = $"no {(p.Charge ? "hit" : "arrival")} within {KnightPhaseTicks} ticks (knight at {Pos(_knight)}); speed-bonus field values seen (samples): {Seen(p)}";
+                return NextKnightPhase();
+            }
+            return false;
+        }
+
+        private void ReportKnight()
+        {
+            KnightPhase game = _knightPhases[0], zero = _knightPhases[1], eight = _knightPhases[2];
+            bool same = zero.Ticks > 0 && game.Ticks > 0 && eight.Ticks > 0 && Math.Max(zero.Ticks, Math.Max(game.Ticks, eight.Ticks)) <= Math.Min(zero.Ticks, Math.Min(game.Ticks, eight.Ticks)) * 1.05;
+            Check("KnightRunSpeedBonus leaves move orders unchanged", same && zero.Seen.Keys.All(v => v == 0) && eight.Seen.Keys.All(v => v == 0),
+                $"{KnightWalkTiles} tiles: bonus 0 {T(zero)}, game {_knightBonusGame} {T(game)}, bonus 8 {T(eight)}; speed-bonus field seen: {Seen(eight)}");
+            if (_knightPhases.Length < 6) return;
+            KnightPhase cGame = _knightPhases[3], cZero = _knightPhases[4], cEight = _knightPhases[5];
+            Note($"KnightRunSpeedBonus on a charge ({KnightChargeTiles} tiles to a pinned enemy, until the first hit): bonus 0 {T(cZero)}, game {_knightBonusGame} {T(cGame)}, bonus 8 {T(cEight)}");
+        }
+
+        private static string T(KnightPhase p) => p.Ticks > 0 ? p.Ticks + " ticks" : "no result";
+
+        private static string Seen(KnightPhase p) => string.Join(", ", p.Seen.Select(kv => $"{kv.Key} x{kv.Value}"));
+
+        private static unsafe int ReadUnitField16(int unitId, int offset)
+        {
+            if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* u)) return int.MinValue;
+            return *(short*)((byte*)u + offset);
+        }
+
+        private static unsafe int ReadUnitField32(int unitId, int offset)
+        {
+            if (unitId <= 0 || !GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* u)) return int.MinValue;
+            return *(int*)((byte*)u + offset);
+        }
+
+        private static unsafe void WriteUnitField16(int unitId, int offset, short value)
+        {
+            if (unitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* u)) *(short*)((byte*)u + offset) = value;
         }
 
         // ===================================================

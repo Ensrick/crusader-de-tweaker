@@ -51,6 +51,17 @@ if ($console -match '(?m)^Enabled\s*=\s*true\s*$') { throw 'BepInEx console is e
 
 $run = Join-Path $repo ('logs\selftest-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 New-Item -ItemType Directory -Path $run -Force | Out-Null
+
+# Results only count for the current Script Extender: report the installed version against the latest release.
+$seInfo = Join-Path $GamePath 'BepInEx\plugins\000shcdese\info.json'
+$seInstalled = if (Test-Path -LiteralPath $seInfo) { (Get-Content -LiteralPath $seInfo -Raw | ConvertFrom-Json).Version } else { 'not installed' }
+try {
+    $seLatest = (Invoke-RestMethod -Uri 'https://gitlab.com/api/v4/projects/74440776/releases?per_page=1' -TimeoutSec 15)[0].tag_name.TrimStart('v')
+} catch { $seLatest = 'unknown (GitLab not reachable)' }
+$seLine = "Script Extender installed $seInstalled, latest release $seLatest"
+if ($seLatest -match '^\d' -and $seInstalled -ne $seLatest) { Write-Warning "$seLine. Results are for the installed version; update the Script Extender (with the owner's go) before trusting them." }
+else { Write-Host $seLine }
+Set-Content -LiteralPath (Join-Path $run 'script-extender.txt') -Value $seLine -Encoding utf8
 $result = Join-Path $run 'result.txt'
 $configDir = Join-Path $GamePath 'BepInEx\config\CrusaderDETweaker'
 $snapshot = Join-Path $run 'config-before'

@@ -53,6 +53,8 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
+    <!-- Tests/HeadlessSelfTest.cs reads unit fields through the Script Extender's GameUnit pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
