@@ -4,12 +4,14 @@
 
 .DESCRIPTION
     Launches the game in -batchmode (no window, no sound) with -cdt-selftest. The plugin creates a
-    disposable editor map, checks team colours on the real palettes / UI tables and Speed values above
-    the Script Extender's 6 on spawned units, apothecary healing (["Apothecary Healing"]) and
-    BedouinHealMultiplier 0 on real units, lobby-tab MaxCount values, measures how far an Archer engages with the game's
-    ranges, with AttackRange only, EngageRange only and both (and a Crossbowman), checks the economy settings
+    disposable editor map, checks the unit limit (UnitLimit) and the advanced gameplay options' master
+    switches (a Spearman with ImprovedSpearman, in a real custom skirmish run last), team colours on the real palettes /
+    UI tables and Speed values above the Script Extender's 6 on spawned units, apothecary healing (["Apothecary Healing"])
+    and BedouinHealMultiplier 0 on real units, lobby-tab MaxCount values, measures how far an Archer engages with the
+    game's ranges, with AttackRange only, EngageRange only and both (and a Crossbowman), checks the economy settings
     (Stockpile build cost, worker GoodYieldMultiplier, skirmish starting troops), writes PASS / FAIL and quits.
     -Only economy runs the menu, colour and speed-table checks and the economy stages only (a few minutes).
+    -Quick (development) runs only the unit limit / gameplay options stages (editor map, then a real custom skirmish).
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
     first, the test values below are written, and afterwards every file is put back byte for byte;
@@ -27,8 +29,9 @@
 [CmdletBinding()]
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
-    [int]$TimeoutSeconds = 2400,
-    [ValidateSet('', 'economy')][string]$Only = ''
+    [int]$TimeoutSeconds = 5400,
+    [ValidateSet('', 'economy')][string]$Only = '',
+    [switch]$Quick
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -45,6 +48,9 @@ $macemanMaxCount = '1'         # HeadlessSelfTest.FileMacemanCap (the lobby MaxC
 $stockpileCost = [ordered]@{ 'GoldCost' = 20; 'WoodCost' = 5 }       # [STRUCT_GOODS_YARD]; the game's Stockpile is free
 $goodYield = [ordered]@{ 'CHIMP_TYPE_WOODCUTTER' = '2.0'; 'CHIMP_TYPE_HUNTER' = '1.25' }   # GoodYieldMultiplier
 $startTroops = [ordered]@{ 'Archer' = 3; 'Spearman' = 0; 'Knight' = 2 }   # ["Skirmish Starting Troops".Normal]; the real skirmish stage expects exactly these
+$unitLimit = 4000   # ["Army Size"] UnitLimit (HeadlessSelfTest.LimitConfigured); the game's value is 3000
+# ImprovedSpearman on with both master switches off: the switches must be raised by the mod itself.
+$gameplayOptions = [ordered]@{ 'ImprovedSpearman' = 'true'; 'AdvancedOptionsEnabled' = 'false'; 'AdvancedSkirmishOptionsEnabled' = 'false' }
 
 if (Get-Process -Name $processName -ErrorAction SilentlyContinue) { throw 'The game is running. Close it first: this script never touches a running game.' }
 if (-not (Get-Process -Name steam -ErrorAction SilentlyContinue)) { throw 'Steam must already be running. This script will not open it.' }
@@ -135,17 +141,21 @@ try {
     [IO.File]::WriteAllText($multipliersPath, $multipliers, $utf8)
     $globals = Add-TomlSection $globals '["Skirmish Starting Troops".Normal]'
     foreach ($k in $startTroops.Keys) { $globals = Set-TomlKey $globals '["Skirmish Starting Troops".Normal]' $k ([string]$startTroops[$k]) }
+    if ($globals -notmatch '(?m)^\["Army Size"\]') { $globals = $globals.TrimEnd() + "`r`n`r`n[`"Army Size`"]`r`n" }
+    $globals = Set-TomlKey $globals '["Army Size"]' 'UnitLimit' ([string]$unitLimit)
+    foreach ($k in $gameplayOptions.Keys) { $globals = Set-TomlKey $globals '["Gameplay Options"]' $k $gameplayOptions[$k] }
     [IO.File]::WriteAllText($globalsPath, $globals, $utf8)
     # Older Structures files have no Stockpile section; the launch keeps these values when it adds it.
     $structuresPath = Join-Path $configDir 'CrusaderDETweaker_Structures.toml'
     $structures = Add-TomlSection ([IO.File]::ReadAllText($structuresPath)) '[STRUCT_GOODS_YARD]'
     foreach ($k in $stockpileCost.Keys) { $structures = Set-TomlKey $structures '[STRUCT_GOODS_YARD]' $k ([string]$stockpileCost[$k]) }
     [IO.File]::WriteAllText($structuresPath, $structures, $utf8)
-    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange); Apothecary Healing $(($apothecaryHealing.Keys | ForEach-Object { "$_=$($apothecaryHealing[$_])" }) -join ' '); BedouinHealMultiplier=$bedouinHealMultiplier; Maceman MaxCount=$macemanMaxCount; Stockpile GoldCost=$($stockpileCost.GoldCost) WoodCost=$($stockpileCost.WoodCost); GoodYieldMultiplier $($goodYield.Keys | ForEach-Object { "$_=$($goodYield[$_])" }); Skirmish Starting Troops Normal Archer=$($startTroops.Archer) Spearman=$($startTroops.Spearman) Knight=$($startTroops.Knight)"
+    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange); Apothecary Healing $(($apothecaryHealing.Keys | ForEach-Object { "$_=$($apothecaryHealing[$_])" }) -join ' '); BedouinHealMultiplier=$bedouinHealMultiplier; Maceman MaxCount=$macemanMaxCount; Stockpile GoldCost=$($stockpileCost.GoldCost) WoodCost=$($stockpileCost.WoodCost); GoodYieldMultiplier $($goodYield.Keys | ForEach-Object { "$_=$($goodYield[$_])" }); Skirmish Starting Troops Normal Archer=$($startTroops.Archer) Spearman=$($startTroops.Spearman) Knight=$($startTroops.Knight); UnitLimit=$unitLimit; $($gameplayOptions.Keys | ForEach-Object { "$_=$($gameplayOptions[$_])" })"
 
     $env:SteamAppId = '3024040'; $env:SteamGameId = '3024040'
     $arguments = '-batchmode -nosound -silent-crashes -cdt-selftest "' + $result + '" -logFile "' + (Join-Path $run 'unity.log') + '"'
     if ($Only) { $arguments += " -cdt-selftest-only $Only" }
+    if ($Quick) { $arguments += ' -cdt-selftest-quick' }
     $owned = Start-Process -FilePath $exe -WorkingDirectory $GamePath -ArgumentList $arguments -WindowStyle Hidden -PassThru
     $env:SteamAppId = $oldApp; $env:SteamGameId = $oldGame
     try { $owned.PriorityClass = 'BelowNormal' } catch { }

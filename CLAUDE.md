@@ -195,6 +195,17 @@ heal (RVA 0x17491A). Combat stamps: `OnUnitTakeMeleeDamage` (Pre) and `OnUnitTak
 attacking unit. MULTIPLAYER: deterministic by construction; `Configure` must never reset stamps or the schedule (it
 runs on one client only when the local market spawns). `BedouinHealMultiplier = 0` is allowed (heal 0). Measured
 2026-10-08 (selftest-20261008-103828, 47/47 PASS); staffed-apothecary detection is [unverified].
+### Unit limit and advanced-options master switches (GameplaySettings, unreleased)
+
+- `["Army Size"] UnitLimit` (`Config/Core/UnitLimit.cs`, GitHub #3): writes the int at SE's
+  `LocalPlayerUnitLimitVA` (RVA 0x3668E34, game default 3000, 10000 = Extreme troops and the unit table size).
+  The game derives the per-player troop limits from it every tick (0xCBD90). Written ONLY from the Post hooks
+  (`ApplyAllGlobalConfigs` + `OnPostLoad`): in a Pre phase the skirmish start handler would read > 3000 as Extreme.
+  Game value remembered before the first write; `-1` and every `OnUnloadMap` Post put it back.
+- Advanced gameplay options (GitLab #1) count only while the mode's master switch is on
+  (mode 0x63 skirmish/trails -> AdvancedSkirmishOptions, else AdvancedOptions); the map start resets both.
+  `LoadPlayerOptions` raises both whenever a sub-option is true and logs it at Info when it had to.
+- `OnPostLoad` (after `EditorDirector.postLoading`) re-applies only these two (`ConfigLoader.ApplyAfterLoad`).
 
 ### `-1` = "use game default" sentinel (Units/Structures TOML, v2.3.0+)
 
@@ -393,6 +404,8 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | Units `GoodYieldMultiplier` (worker yield hook) | `Config/Core/GoodYield.cs` |
 | `["Skirmish Starting Troops"]` (start troop queue) | `Config/Core/SkirmishStartingTroops.cs` |
 | Native code / data lookup by pattern (CrusaderDE.dll on disk) | `Config/Core/GameCode.cs` |
+| `["Army Size"]` UnitLimit (native unit pool, written only in session Post hooks) | `Config/Core/UnitLimit.cs` |
+| In-game self-test limits stages (editor map first, a real custom skirmish last): unit limit + gameplay-options master switches | `Tests/HeadlessSelfTestLimits.cs` |
 
 ---
 

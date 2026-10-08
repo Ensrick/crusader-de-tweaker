@@ -1,4 +1,4 @@
-Version 2.9.1
+Version 2.10.0
 
 Updated for SHC DE v2.8.2 and Script Extender 2.10.1 or newer!
 

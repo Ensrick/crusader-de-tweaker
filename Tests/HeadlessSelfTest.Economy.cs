@@ -568,7 +568,8 @@ namespace CrusaderDETweaker.Tests
                 return;
             }
             SkirmishStartingTroops.SuspendedForSelfTest = false;
-            Finish();
+            if (_only == "economy") Finish();
+            else BeginLimitsSkirmish();   // last: the limits skirmish (HeadlessSelfTestLimits.cs)
         }
 
         /// <summary>Alive Archers / Spearmen / Knights and all military units (types Archer..Knight and the Arabian / Bedouin troops) of a player.</summary>

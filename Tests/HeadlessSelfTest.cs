@@ -7,6 +7,9 @@
 //          Without that flag (every normal launch) Create() returns at once and nothing runs.
 //
 // WHAT IT DOES (windowless; the runner sets the config values below and restores the files after):
+//   0. Limits stage, first on the editor map (Tests/HeadlessSelfTestLimits.cs): the unit limit (GitHub #3) and the
+//      advanced gameplay options' master switches (GitLab #1); its real-skirmish part runs last (after step 5).
+//      With -cdt-selftest-quick only those two run.
 //   1. Waits for the main menu, notes whether the menu-time team-colour apply already ran.
 //   2. Creates a disposable editor map (nothing is saved), checks the speed table and the colours:
 //      sprite palettes (default / lord / jester recoloured, knight-horse untouched), the game's own
@@ -59,6 +62,9 @@ namespace CrusaderDETweaker.Tests
     {
         internal const string Flag = "-cdt-selftest";
         internal const string OnlyFlag = "-cdt-selftest-only";
+        // Development only (test_headless.ps1 -Quick): run only the limits stages, editor map and skirmish (HeadlessSelfTestLimits.cs).
+        internal const string QuickFlag = "-cdt-selftest-quick";
+        private readonly bool _quick = Array.IndexOf(Environment.GetCommandLineArgs(), QuickFlag) >= 0;
 
         // Written into the configs by scripts/test_headless.ps1.
         internal const int CatapultSpeed = 8, SiegeTowerSpeed = 1, ArcherSpeed = 8, FastArcherSpeed = 1;
@@ -209,13 +215,22 @@ namespace CrusaderDETweaker.Tests
                 }
 
                 if (_stage == SkirmishStage) { StartRealSkirmish(); return; }   // outside the lock: the game swaps simulation threads
+                if (_stage == LimitsSkirmishStart) { StartLimitsSkirmish(now); return; }   // outside the lock: the game swaps simulation threads
 
                 lock (_engineLock)
                 {
+                    if (_stage > LimitsSkirmishStart) { LimitsSkirmishTick(now); return; }
                     if (_stage >= 2) KeepSimRunning();
                     if (_stage == 1)
                     {
                         if (!vm.IsMapEditorMode || !global::Director.instance.SimRunning) return;
+                        _stage = LimitsStage; _deadline = now + 900;   // unit limit + gameplay options first (HeadlessSelfTestLimits.cs)
+                        return;
+                    }
+                    if (_stage == LimitsStage)
+                    {
+                        if (!LimitsTick(now) || _done) return;
+                        if (_quick) { Note("Quick run (-cdt-selftest-quick): only the limits stages run"); BeginLimitsSkirmish(); return; }
                         CheckTeamColors();
                         CheckSpeedTableAndSpawn();
                         _stage = 2; _deadline = now + 180;
@@ -284,15 +299,16 @@ namespace CrusaderDETweaker.Tests
                     }
                     if (_stage == 3) { if (SimStalled(now)) return; RangeTick(); if (_stage == EconomyStage) StartEconomy(now); }
                     else if (_stage == 4) GuardTick(now);
-                    else if (_stage > SkirmishStage) SkirmishTick(now);
-                    else if (_stage >= EconomyStage) EconomyTick(now);
+                    else if (_stage > SkirmishStage && _stage < LimitsStage) SkirmishTick(now);
+                    else if (_stage >= EconomyStage && _stage < SkirmishStage) EconomyTick(now);
                 }
             }
             catch (Exception ex)
             {
                 _failures++;
                 Note("FAIL exception: " + ex);
-                if (_stage >= EconomyStage) Note("progress: economy stage " + _stage + "; " + EconomyProgress());
+                if (_stage >= EconomyStage && _stage < LimitsStage) Note("progress: economy stage " + _stage + "; " + EconomyProgress());
+                if (_stage == LimitsStage || _stage > LimitsSkirmishStart) Note($"progress: limits step {_lStep}, skirmish step {_skStep}, spearman phase {_spear}");
                 if (_stage == 2) Note($"progress: slow archer {Pos(_slowArcher)} ticks={_slowTicks}, fast archer {Pos(_fastArcher)} ticks={_fastTicks}");
                 if (_stage == 6) Note($"progress: apothecary step {_apoStep}, building {_apoId}, A {Pos(_hA)} health {SafeHealth(_hA)}, D {Pos(_hD)} health {SafeHealth(_hD)}, heals recorded {HealRecords().Count}");
                 if (_stage == 8) Note($"progress: lobby MaxCount step {_capStep}, units {CapSpawned(eChimps.CHIMP_TYPE_KNIGHT)} / {CapSpawned(eChimps.CHIMP_TYPE_MACEMAN)}");

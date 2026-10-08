@@ -206,6 +206,11 @@ AllUnitsAllowed = false
 AllTradeGoodsAllowed = false
 AllProductionGoodsAllowed = false
 [/code]
+[list]
+[*][b]Where they apply:[/b] skirmish, trails, the campaign and loaded saves. The game counts an advanced option (BetterHealers, FasterPeasants, ImprovedArabSwordsman, ImprovedFletchers, ImprovedLadderman, ImprovedSpearman, NerfEunuchs, RebalancedHorseArchers, UncappedPeasants) only while that mode's master switch is on: [b]AdvancedSkirmishOptionsEnabled[/b] in skirmish and trails, [b]AdvancedOptionsEnabled[/b] in the campaign. The game turns both off at the start of every campaign and trail mission (only the skirmish lobby and coop trails turn them on), so the mod turns both on itself, after the game's reset, whenever one of these options is true. You do not need to set them.
+[*]Each session start logs the switches, e.g. [b][GameplayOptions] ImprovedSpearman (session start): master switches AdvancedOptions (campaign, editor) = True, AdvancedSkirmishOptions (skirmish, trails) = True (raised: the game had turned them off)[/b].
+[*]Measured in game (a custom skirmish started by the windowless self-test): after the mod's session start both switches were on, and a Spearman with ImprovedSpearman ordered to attack used the game's improved run (running animation, speed bonus 1). With AdvancedSkirmishOptions off it did not (the situation in a regular trail before the mod turned the switch on); with the game set to the campaign rule, AdvancedOptions on made it run.
+[/list]
 
 [b]Pathfinding[/b]
 [code]
@@ -227,6 +232,25 @@ PeasantRespawnTickTargetValue = 4000  # Ticks before a new peasant spawns. Lower
 PeasantRespawnTickResetValue = 2000   # Tick counter reset value after a spawn.
 CampPeasantsCap = 24                  # Max peasants waiting at the campfire. 0 = no cap.
 [/code]
+
+[b]Army Size[/b] (unreleased)
+
+How many units the whole map can hold: one shared pool for every player's troops, workers and animals. [b]-1 = the game's value: 3000[/b], or 10000 when Extreme troops is on. Allowed values: 1000 to 10000 (10000 is the size of the game's unit table; a higher value is lowered to 10000 with a warning).
+[code]
+["Army Size"]
+UnitLimit = 10000  # default: 3000
+[/code]
+[list]
+[*][b]Each player's troop limit comes from it.[/b] In skirmish and trails: (UnitLimit - 100) / number of players - 40. With the game's 3000 that is 322 troops per player with 8 players and 1410 with 2 players; with 10000 it is 1197 and 4910. In the campaign, free build and invasion the player's limit is UnitLimit itself. The game recomputes these limits every moment from UnitLimit, so they follow it.
+[*]The troop limit blocks the human player's recruiting (barracks, mercenary post, engineers guild, tunnelers, Bedouin units). The AI is held back only by the shared pool, except in online multiplayer.
+[*][b]Side effects above 3000:[/b] the game uses "more than 3000" as its own Extreme troops test, so some Extreme troops rules also apply: outposts use their Extreme timing, and a per-player meter (probably the Extreme power bar) fills three times faster.
+[*]Applied at every session start (new game, trail / campaign map, loaded save) and put back to the game's value when the map is unloaded. A game saved with a raised limit keeps that limit when loaded.
+[*]Lowering it below the number of units already on the map does not remove any unit; new units simply cannot appear until enough are gone.
+[*]Multiplayer: every player needs the same value (host config sync sends the host's file to everyone). The value is part of the game's own state check, so a different value very likely ends in a desync.
+[*]Not possible yet: a per-player troop limit beyond the formula above (it would need a hook on the game's per-tick limit function).
+[*]The log line [b][UnitLimit] Unit limit 10000 (game 3000) (session start); read back 10000.[/b] confirms it.
+[*]Measured in game (a custom skirmish with 2 players, started by the windowless self-test): UnitLimit = 4000 gave each player a troop limit of 1910 (1410 with the game's 3000), and the game did not switch to Extreme troops. In the map editor, with the unit limit set so that only 3 unit slots were free, 3 of 6 new units were created and the other 3 were refused.
+[/list]
 
 [b]Team Colors[/b] (v2.9.0+)
 
