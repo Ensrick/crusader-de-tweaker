@@ -12,6 +12,7 @@
 //
 using System;
 using System.Text;
+using System.Globalization;
 using CrusaderDETweaker.Config.Toml.Core;
 
 namespace CrusaderDETweaker.Tests
@@ -48,6 +49,7 @@ namespace CrusaderDETweaker.Tests
             Test_FormatValue_Boolean();
             Test_FormatValue_Float();
             Test_FormatValue_Integer();
+            Test_NumericFormattingAcrossCultures();
 
             // Test ValidateValue
             Test_ValidateValue_Default();
@@ -184,6 +186,57 @@ namespace CrusaderDETweaker.Tests
             
             // Should be limited to 3 decimal places
             AssertTrue("FormatValue_Float", formatted == "3.142");
+        }
+
+        private static void Test_NumericFormattingAcrossCultures()
+        {
+            var previousCulture = CultureInfo.CurrentCulture;
+            try
+            {
+                foreach (string culture in new[] { "de-DE", "en-US" })
+                {
+                    CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(culture);
+                    var single = new MockFloatPropertyHandler("Value");
+                    var precise = new MockDoublePropertyHandler("Value");
+                    double[] values = { 3.14159, -2.125, -1.0, 0.0, 2.0 };
+                    string[] expected = { "3.142", "-2.125", "-1", "0", "2" };
+                    for (int i = 0; i < values.Length; i++)
+                    {
+                        string floatText = single.FormatValue((float)values[i]);
+                        string doubleText = precise.FormatValue(values[i]);
+                        AssertTrue("Float_Invariant_" + culture + "_" + i, floatText == expected[i]);
+                        AssertTrue("Double_Invariant_" + culture + "_" + i, doubleText == expected[i]);
+                        var parsed = Tomlyn.Toml.ToModel("Single = " + floatText + "\nDouble = " + doubleText + "\n");
+                        double rounded = double.Parse(expected[i], CultureInfo.InvariantCulture);
+                        AssertTrue("Numeric_RoundTrip_" + culture + "_" + i,
+                            Convert.ToDouble(parsed["Single"], CultureInfo.InvariantCulture) == rounded &&
+                            Convert.ToDouble(parsed["Double"], CultureInfo.InvariantCulture) == rounded);
+                    }
+                    Test_Migration_Float_DefaultBecomesSentinel();
+                    Test_Migration_Float_OverridePreserved();
+                    Test_Migration_ExistingSentinelKept();
+                    single.SetApiValue(1.0f);
+                    precise.SetApiValue(1.0);
+                    var singleOutput = new StringBuilder();
+                    var doubleOutput = new StringBuilder();
+                    bool singleOk = single.TryGenerateWithOverride(TestEntity.EntityA, singleOutput, Existing("Value", 1.5));
+                    bool doubleOk = precise.TryGenerateWithOverride(TestEntity.EntityA, doubleOutput, Existing("Value", 1.5));
+                    AssertTrue("Migration_RoundTrip_" + culture, singleOk && doubleOk &&
+                        Convert.ToDouble(Tomlyn.Toml.ToModel(singleOutput.ToString())["Value"], CultureInfo.InvariantCulture) == 1.5 &&
+                        Convert.ToDouble(Tomlyn.Toml.ToModel(doubleOutput.ToString())["Value"], CultureInfo.InvariantCulture) == 1.5);
+                    foreach (double stored in new[] { 1.0, -1.0 })
+                    {
+                        var output = new StringBuilder();
+                        bool ok = precise.TryGenerateWithOverride(TestEntity.EntityA, output, Existing("Value", stored));
+                        AssertTrue("Double_Migration_Sentinel_" + culture + "_" + stored,
+                            ok && Convert.ToDouble(Tomlyn.Toml.ToModel(output.ToString())["Value"], CultureInfo.InvariantCulture) == -1.0);
+                    }
+                }
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = previousCulture;
+            }
         }
 
         private static void Test_FormatValue_Integer()
@@ -527,8 +580,19 @@ namespace CrusaderDETweaker.Tests
         }
 
         /// <summary>
-        /// String property handler for testing.
+        /// Double property handler for culture and migration tests.
         /// </summary>
+        private class MockDoublePropertyHandler : PropertyHandler<TestEntity, double>
+        {
+            private double _apiValue;
+            public MockDoublePropertyHandler(string name) : base(name) { }
+            public void SetApiValue(double value) => _apiValue = value;
+            protected override bool TryGetFromAPI(TestEntity entity, out double value) { value = _apiValue; return true; }
+            protected override bool TryGetOriginalValue(TestEntity entity, out double value) => TryGetFromAPI(entity, out value);
+            protected override void SetToAPI(TestEntity entity, double value) { }
+            public new string FormatValue(double value) => base.FormatValue(value);
+        }
+
         private class MockStringPropertyHandler : PropertyHandler<TestEntity, string>
         {
             public MockStringPropertyHandler(string name) : base(name) { }
