@@ -27,7 +27,7 @@ The log records every value the mod writes and, for trade prices, reads back fro
 [*]Extract this mod's zip into the game folder (it contains a BepInEx folder; merge it with the existing one).
 [*]Launch the game once and go to the main menu, then quit. This creates the config files in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\[/b].
 [/list]
-Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 7 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
+Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 8 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
 
 [b]2. Your first change: make Knights cost 5000 gold[/b]
 [list=1]
@@ -130,7 +130,7 @@ HighWallCostMultiplier = 0.5               # Cost multiplier for high/crenel wal
 # Fire, Heal & Disease Multipliers
 UnitFireDamageTakenMultiplier = 1.0        # Fire damage taken by all units
 StructureFireDamageTakenMultiplier = 1.0   # Fire damage taken by all structures
-BedouinHealMultiplier = 1.0                # Healing amount from Bedouin healers
+BedouinHealMultiplier = 1.0                # Healing amount from Bedouin healers. 0 = they heal nothing (no healing in battle)
 DiseaseDamageMultiplier = 1.0              # Scales all three disease damage tiers (stacks with [Disease] TOML values)
 [/code]
 
@@ -241,6 +241,29 @@ Yellow = -1         # default: [255, 210, 35] on units, [198, 195, 0] in the int
 [*]Applied in the menus and at every session start, no restart needed after editing; setting a colour back to -1 restores the game's colour at the next session start.
 [*]A value outside 0-255 is clamped with a warning; an unreadable value is logged ([b][TeamColors] Red: ...[/b]) and that colour stays the game's. The log line [b][TeamColors] Applied (session start): Red=[255, 0, 0], ...[/b] confirms it.
 [*]In multiplayer with host config sync, the host's colours are used by everyone in the lobby.
+[/list]
+
+[b]Apothecary Healing[/b] (UCP-style healing; unreleased)
+
+Every apothecary heals its owner's wounded soldiers and Lord standing near it, out of combat, like the Unofficial Crusader Patch's "Healer heals casualties". [b]Off by default:[/b] while HealPercent and HealHitPoints are both -1 the apothecary does what it does in the game (it only cures plague). Example with healing on:
+[code]
+["Apothecary Healing"]
+HealPercent = 5         # -1 = off; % of the unit's max health per heal (up to 100, decimals allowed)
+HealHitPoints = -1      # -1 = off; health points per heal (added to HealPercent if both are set)
+RadiusTiles = 10        # how far from the apothecary's walls a unit is healed, in tiles
+IntervalTicks = 100     # one heal every this many game ticks (minimum 1)
+OutOfCombatTicks = 200  # a unit that hit or was hit (melee or projectile) waits this many ticks; 0 = heals during fights too
+NeedsWorker = true      # true = only an apothecary that has its worker heals
+[/code]
+[list]
+[*]Healed: soldiers (every unit you can recruit, mercenaries included) and the Lord, of the apothecary's owner only, standing within RadiusTiles of the building. Not healed: workers, siege engines, animals, allies' and enemies' units.
+[*]Each heal adds HealPercent of the unit's max health plus HealHitPoints, never above max health; the health bar updates the way the game's own healing updates it. A unit near two apothecaries still heals once per interval.
+[*]There is no walking healer: the Script Extender cannot drive the apothecary worker's own behaviour, so the building heals everyone in range at the same moment.
+[*]"Out of combat" means: no melee hit and no projectile hit taken or dealt for OutOfCombatTicks. It counts from the last hit, so a unit in a long fight waits until the fight is over. Fire, disease, Eunuch fire pots and other damage do not count as combat.
+[*]A switched-off apothecary never heals. With NeedsWorker = true an apothecary without its worker does not heal either.
+[*]To stop healing in battle altogether, also set [b]BedouinHealMultiplier = 0[/b] in CrusaderDETweaker_GlobalMultipliers.cfg: Bedouin healers then heal nothing (or set single units to 0 in DamageMatrices\CrusaderDETweaker_BedouinHeal.csv).
+[*]Applied at every session start (new game, trail / campaign map, loaded save). The log shows [b][ApothecaryHealing] On (session start): 5% of max health every 100 ticks within 10 tiles, ...[/b] and the first heal of each map ([b][ApothecaryHealing] First heal this map: ...[/b]).
+[*]In multiplayer with host config sync, the host's values are used by everyone; every player's game heals the same units on the same ticks.
 [/list]
 
 [b]Trade Prices[/b]

@@ -5,7 +5,8 @@
 .DESCRIPTION
     Launches the game in -batchmode (no window, no sound) with -cdt-selftest. The plugin creates a
     disposable editor map, checks team colours on the real palettes / UI tables and Speed values above
-    the Script Extender's 6 on spawned units, measures how far an Archer engages with the game's
+    the Script Extender's 6 on spawned units, apothecary healing (["Apothecary Healing"]) and
+    BedouinHealMultiplier 0 on real units, measures how far an Archer engages with the game's
     ranges, with AttackRange only, EngageRange only and both (and a Crossbowman), writes PASS / FAIL and quits.
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
@@ -35,6 +36,8 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 $unitSpeeds = [ordered]@{ 'CHIMP_TYPE_CATAPULT' = 8; 'CHIMP_TYPE_SIEGE_TOWER' = 1; 'CHIMP_TYPE_ARCHER' = 8 }
 $teamColors = [ordered]@{ 'Red' = '[0, 255, 0]'; 'Blue' = '"#FF00FF"' }
 $xbowRanges = [ordered]@{ 'AttackRange' = 80; 'EngageRange' = 80 }   # Archer, tiles; the game's AttackRange is 54, engage distance 50
+$apothecaryHealing = [ordered]@{ 'HealPercent' = '10'; 'HealHitPoints' = '-1'; 'RadiusTiles' = '8'; 'IntervalTicks' = '50'; 'OutOfCombatTicks' = '200'; 'NeedsWorker' = 'false' }
+$bedouinHealMultiplier = '0'   # HeadlessSelfTest.BedouinHealTestMultiplier
 
 if (Get-Process -Name $processName -ErrorAction SilentlyContinue) { throw 'The game is running. Close it first: this script never touches a running game.' }
 if (-not (Get-Process -Name steam -ErrorAction SilentlyContinue)) { throw 'Steam must already be running. This script will not open it.' }
@@ -100,7 +103,8 @@ try {
     # Test values. A missing Units file is generated at launch with -1 everywhere, which this test cannot use.
     $unitsPath = Join-Path $configDir 'CrusaderDETweaker_Units.toml'
     $globalsPath = Join-Path $configDir 'CrusaderDETweaker_GameplaySettings.toml'
-    if (-not (Test-Path -LiteralPath $unitsPath) -or -not (Test-Path -LiteralPath $globalsPath)) {
+    $multipliersPath = Join-Path $configDir 'CrusaderDETweaker_GlobalMultipliers.cfg'
+    if (-not (Test-Path -LiteralPath $unitsPath) -or -not (Test-Path -LiteralPath $globalsPath) -or -not (Test-Path -LiteralPath $multipliersPath)) {
         throw 'Config files missing; launch the game once with the mod installed to generate them.'
     }
     $units = [IO.File]::ReadAllText($unitsPath)
@@ -111,8 +115,12 @@ try {
     $globals = [IO.File]::ReadAllText($globalsPath)
     if ($globals -notmatch '(?m)^\["Team Colors"\]') { $globals = $globals.TrimEnd() + "`r`n`r`n[`"Team Colors`"]`r`n" }
     foreach ($k in $teamColors.Keys) { $globals = Set-TomlKey $globals '["Team Colors"]' $k $teamColors[$k] }
+    if ($globals -notmatch '(?m)^\["Apothecary Healing"\]') { $globals = $globals.TrimEnd() + "`r`n`r`n[`"Apothecary Healing`"]`r`n" }
+    foreach ($k in $apothecaryHealing.Keys) { $globals = Set-TomlKey $globals '["Apothecary Healing"]' $k $apothecaryHealing[$k] }
     [IO.File]::WriteAllText($globalsPath, $globals, $utf8)
-    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange)"
+    $multipliers = Set-TomlKey ([IO.File]::ReadAllText($multipliersPath)) '[Multipliers]' 'BedouinHealMultiplier' $bedouinHealMultiplier
+    [IO.File]::WriteAllText($multipliersPath, $multipliers, $utf8)
+    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange); Apothecary Healing $(($apothecaryHealing.Keys | ForEach-Object { "$_=$($apothecaryHealing[$_])" }) -join ' '); BedouinHealMultiplier=$bedouinHealMultiplier"
 
     $env:SteamAppId = '3024040'; $env:SteamGameId = '3024040'
     $arguments = '-batchmode -nosound -silent-crashes -cdt-selftest "' + $result + '" -logFile "' + (Join-Path $run 'unity.log') + '"'

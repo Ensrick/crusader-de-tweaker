@@ -305,6 +305,24 @@ namespace CrusaderDETweaker.Config.Toml
                 }
                 sb.AppendLine();
 
+                const string healSection = global::CrusaderDETweaker.Config.Core.ApothecaryHealing.Section;
+                sb.AppendLine("# ========================================");
+                sb.AppendLine("# Crusader DE Tweaker - Apothecary Healing (UCP-style)");
+                sb.AppendLine("# ========================================");
+                sb.AppendLine("# Every apothecary heals its owner's wounded soldiers and Lord standing near it, out of combat.");
+                sb.AppendLine("# Off while HealPercent and HealHitPoints are both -1 (game behaviour: the apothecary only cures plague).");
+                sb.AppendLine("# Each heal adds HealPercent of the unit's max health plus HealHitPoints (either or both), up to max health.");
+                sb.AppendLine("# No walking healer: the building heals everyone in range at once. Workers, siege engines and animals are not healed.");
+                sb.AppendLine("# To switch off the Bedouin healer's healing in battle, set BedouinHealMultiplier = 0 in CrusaderDETweaker_GlobalMultipliers.cfg.");
+                sb.AppendLine($"[\"{healSection}\"]");
+                sb.AppendLine($"HealPercent = {FormatTomlNumber(ExistingRaw(existingToml, healSection, "HealPercent"), "-1")}  # -1 = off; e.g. 5 = 5% of the unit's max health per heal (up to 100, decimals allowed)");
+                sb.AppendLine($"HealHitPoints = {ExistingOrDefault(existingToml, healSection, "HealHitPoints", -1L)}  # -1 = off; health points per heal");
+                sb.AppendLine($"RadiusTiles = {ExistingOrDefault(existingToml, healSection, "RadiusTiles", (long)global::CrusaderDETweaker.Config.Core.ApothecaryHealing.DefaultRadiusTiles)}  # how far from the apothecary's walls a unit is healed, in tiles");
+                sb.AppendLine($"IntervalTicks = {ExistingOrDefault(existingToml, healSection, "IntervalTicks", (long)global::CrusaderDETweaker.Config.Core.ApothecaryHealing.DefaultIntervalTicks)}  # one heal every this many game ticks (minimum 1)");
+                sb.AppendLine($"OutOfCombatTicks = {ExistingOrDefault(existingToml, healSection, "OutOfCombatTicks", (long)global::CrusaderDETweaker.Config.Core.ApothecaryHealing.DefaultOutOfCombatTicks)}  # a unit that hit or was hit in melee or by a projectile waits this many ticks; 0 = heals during fights too");
+                sb.AppendLine($"NeedsWorker = {FormatBool(ExistingOrDefault(existingToml, healSection, "NeedsWorker", true))}  # true = only an apothecary that has its worker heals; switched-off apothecaries never heal");
+                sb.AppendLine();
+
                 sb.AppendLine("# ========================================");
                 sb.AppendLine("# Crusader DE Tweaker - Player Options Configuration");
                 sb.AppendLine("# ========================================");
@@ -536,6 +554,23 @@ namespace CrusaderDETweaker.Config.Toml
         /// Formats a bool as TOML-required lowercase "true"/"false".
         /// </summary>
         private static string FormatBool(bool value) => value ? "true" : "false";
+
+        /// <summary>
+        /// Writes an existing TOML number back as the user wrote its type (integer or float; a string is kept
+        /// quoted so the loader can report it), or the fallback text when there is no value.
+        /// </summary>
+        private static string FormatTomlNumber(object raw, string fallback)
+        {
+            switch (raw)
+            {
+                case long l: return l.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                case double d when !double.IsNaN(d) && !double.IsInfinity(d):
+                    string text = d.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+                    return text.IndexOfAny(new[] { '.', 'E', 'e' }) >= 0 ? text : text + ".0";
+                case string s: return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
+                default: return fallback;
+            }
+        }
 
         /// <summary>
         /// Returns the user's existing value from a parsed globals TOML if present,
