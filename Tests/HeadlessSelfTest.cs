@@ -19,6 +19,8 @@
 //      and the knight's speed-bonus field is sampled every frame. Measured 2026-10-08: 311 / 315 / 312 ticks,
 //      field 0 throughout. (Higher = faster while the bonus applies: the step function moves bonus + 1
 //      sub-steps per step, RVA 0x1857B3.)
+//   4a. Apothecary healing and BedouinHealMultiplier 0 (GitLab #4): see Tests/HeadlessSelfTest.Healing.cs.
+//   4b'. Lobby MaxCount values (GitLab #5): see Tests/HeadlessSelfTest.LobbyCaps.cs.
 //   4b. Former crash units (2.9.1): the Crossbowman EngageRange the runner writes must be in effect through
 //      EngageDistancePatch (not SE's engage hook, which crashed it), and a Crossbowman, a Bedouin Heavy Camel and
 //      an Arabian Ballista, each with EngageRange 80, must run 300 ticks next to an enemy.
@@ -49,7 +51,7 @@ using UnityEngine;
 
 namespace CrusaderDETweaker.Tests
 {
-    internal sealed class HeadlessSelfTest
+    internal sealed partial class HeadlessSelfTest
     {
         internal const string Flag = "-cdt-selftest";
 
@@ -72,6 +74,7 @@ namespace CrusaderDETweaker.Tests
             internal eChimps Shooter = eChimps.CHIMP_TYPE_ARCHER;
             internal bool Attack, Engage;
             internal int HitAt = -1, ShotTick;
+            internal int TargetStamp = -1, ShooterStamp = -1;   // Apothecary Healing combat stamps when the target was damaged
             internal bool Damaged;
             internal string Detail = "not run";
         }
@@ -223,6 +226,38 @@ namespace CrusaderDETweaker.Tests
                         _next = now;   // sample the knight's speed-bonus field every frame
                         if (KnightTick())
                         {
+                            StartApothecaryTest();
+                            _stage = 40; _deadline = now + 600;
+                            _watchTick = global::Director.instance.getSimTickCount(); _watchTime = now; _lastProgressNote = now;
+                        }
+                        return;
+                    }
+                    if (_stage == 40)
+                    {
+                        _next = now;   // per frame: the melee hit and the heal records are tick-exact anyway
+                        if (SimStalled(now)) return;
+                        if (ApothecaryTick())
+                        {
+                            StartBedouinHealTest();
+                            _stage = 41; _deadline = now + 300;
+                        }
+                        return;
+                    }
+                    if (_stage == 41)
+                    {
+                        if (SimStalled(now)) return;
+                        if (BedouinHealTick())
+                        {
+                            if (StartLobbyCapsTest()) { _stage = 42; _deadline = now + 180; }
+                            else { StartCrossbowGuard(); _deadline = now + 180; }
+                        }
+                        return;
+                    }
+                    if (_stage == 42)
+                    {
+                        if (SimStalled(now)) return;
+                        if (LobbyCapsTick())
+                        {
                             StartCrossbowGuard();
                             _deadline = now + 180;
                         }
@@ -237,6 +272,9 @@ namespace CrusaderDETweaker.Tests
                 _failures++;
                 Note("FAIL exception: " + ex);
                 if (_stage == 2) Note($"progress: slow archer {Pos(_slowArcher)} ticks={_slowTicks}, fast archer {Pos(_fastArcher)} ticks={_fastTicks}");
+                if (_stage == 40) Note($"progress: apothecary step {_apoStep}, building {_apoId}, A {Pos(_hA)} health {SafeHealth(_hA)}, D {Pos(_hD)} health {SafeHealth(_hD)}, heals recorded {HealRecords().Count}");
+                if (_stage == 42) Note($"progress: lobby MaxCount step {_capStep}, units {CapSpawned(eChimps.CHIMP_TYPE_KNIGHT)} / {CapSpawned(eChimps.CHIMP_TYPE_MACEMAN)}");
+                if (_stage == 41) Note($"progress: Bedouin step {_bedStep}, heals seen {_bedEvents}, target health {SafeHealth(_bedTarget)}");
                 if (_stage == 5) Note($"progress: knight phase {_kPhase}, knight {Pos(_knight)}; " + string.Join("; ", _knightPhases.Select(KnightName).Zip(_knightPhases, (n, p) => n + ": " + p.Detail)));
                 if (_stage == 3) Note($"progress: range phase {_phase}, rung {_rung}, shooter {Pos(_shooter)}, target {Pos(_target)}; " +
                                       string.Join("; ", _rangePhases.Select(p => p.Name + ": " + p.Detail)));
@@ -552,6 +590,7 @@ namespace CrusaderDETweaker.Tests
                 if (damaged || tick - p.ShotTick > DamageWaitTicks)
                 {
                     p.Damaged = damaged;
+                    if (damaged) StampRangePhase(p);
                     p.Detail += damaged ? $"; target damaged {tick - p.ShotTick} ticks after the first shot (target at {Pos(_target)})"
                                         : $"; no damage within {DamageWaitTicks} ticks of the first shot (target at {Pos(_target)})";
                     NextRangePhase();
@@ -570,7 +609,7 @@ namespace CrusaderDETweaker.Tests
                 p.HitAt = RangeLadder[_rung];
                 p.ShotTick = tick;
                 p.Detail = $"first {(fired ? "shot" : "damage")} with the target placed {RangeLadder[_rung]} tiles away, after {tick - _rungTick} ticks (shooter at {s.X},{s.Y}, target at {t.X},{t.Y}, {now:0.#} tiles apart at that moment)";
-                if (damaged) { p.Damaged = true; NextRangePhase(); }
+                if (damaged) { p.Damaged = true; StampRangePhase(p); NextRangePhase(); }
                 return;
             }
             if (tick - _rungTick < TicksPerRung) return;
@@ -586,6 +625,14 @@ namespace CrusaderDETweaker.Tests
             SpawnRungTarget();
         }
 
+        private void StampRangePhase(RangePhase p)
+        {
+            p.TargetStamp = global::CrusaderDETweaker.Config.Core.ApothecaryHealing.LastCombatTick(_target);
+            p.ShooterStamp = global::CrusaderDETweaker.Config.Core.ApothecaryHealing.LastCombatTick(_shooter);
+        }
+
+        private static int SafeHealth(int unitId) => unitId > 0 ? GameUnitManagerAPI.Instance.GetCurrentHealth(unitId) : -1;
+
         private void ReportRanges()
         {
             RangePhase game = _rangePhases[0], attackOnly = _rangePhases[1], engageOnly = _rangePhases[2], both = _rangePhases[3];
@@ -600,6 +647,11 @@ namespace CrusaderDETweaker.Tests
                 game.HitAt > 0 && attackOnly.HitAt > game.HitAt && attackOnly.Damaged, $"{Rung(attackOnly)} vs game {Rung(game)}");
             Check($"Crossbowman AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange} engages farther than the game",
                 xGame.HitAt > 0 && xBoth.HitAt > xGame.HitAt && xBoth.Damaged, $"{Rung(xBoth)} vs game {Rung(xGame)}");
+            // Apothecary Healing: a unit hit by a projectile counts as in combat (OnUnitTakeProjectileDamageEx).
+            var hit = _rangePhases.Where(r => r.Damaged).ToList();
+            Check("Projectile hits stamp combat on the target (Apothecary Healing)", hit.Count > 0 && hit.All(r => r.TargetStamp >= r.ShotTick),
+                string.Join("; ", hit.Select(r => $"{r.Name}: shot at tick {r.ShotTick}, target stamp {r.TargetStamp}")));
+            Note("Projectile hits, shooter's combat stamp: " + string.Join("; ", hit.Select(r => $"{r.Name}: {r.ShooterStamp}")));
         }
 
         private void StartCrossbowGuard()

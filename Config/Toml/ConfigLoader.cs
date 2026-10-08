@@ -222,6 +222,12 @@ namespace CrusaderDETweaker.Config.Toml
 
             UnitCapHandler.Subscribe(_unitCaps);
             BuildingCapHandler.Subscribe(_buildingCaps);
+            // Lobby MaxCount values (GitLab #5) go into the same tables; registered now so they apply even
+            // without a Units / Structures file. LoadUnitCaps / LoadBuildingCaps hand over the file caps.
+            global::CrusaderDETweaker.Config.Sync.LobbyMaxCounts.Attach(_unitCaps, _buildingCaps);
+
+            // ["Apothecary Healing"]: heal passes on the game tick + combat stamps (settings come from ApplyAllGlobalConfigs).
+            Config.Core.ApothecaryHealing.Subscribe();
 
             Plugin.Logger.LogInfo("[GlobalConfig] Registered OnUnloadMap + OnStartMap + OnLoadMap + OnLoadSave + OnBuildingSpawn + OnUnitCreate + OnUnitTransition hooks (template settings re-applied after every SE unload reset).");
         }
@@ -231,7 +237,11 @@ namespace CrusaderDETweaker.Config.Toml
         /// </summary>
         internal static void ApplyAllGlobalConfigs()
         {
-            if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Globals)) return;
+            if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Globals))
+            {
+                Config.Core.ApothecaryHealing.Configure(null, "no GameplaySettings file");
+                return;
+            }
 
             bool dbg = BepInExConfigManager.DebugLogging?.Value ?? false;
 
@@ -245,6 +255,7 @@ namespace CrusaderDETweaker.Config.Toml
             {
                 // One syntax error takes the WHOLE file out: nothing below can run. Say so plainly.
                 Core.ErrorLogging.LogGlobalsSyntaxError(ConfigPaths.Globals, ex);
+                Config.Core.ApothecaryHealing.Configure(null, "GameplaySettings file has a syntax error");
                 return;
             }
 
@@ -262,12 +273,31 @@ namespace CrusaderDETweaker.Config.Toml
                 LoadAutoTrade(tomlModel);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: TeamColors...");
                 global::CrusaderDETweaker.Config.Core.TeamColors.ApplyToGame(TeamColorsSection(tomlModel), "session start", quiet: false);
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: ApothecaryHealing...");
+                ApplyApothecaryHealing(tomlModel, "session start");
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] All sections applied.");
             }
             catch (Exception ex)
             {
                 Core.ErrorLogging.LogConfigLoadException("global configs", ex);
             }
+        }
+
+        private static void ApplyApothecaryHealing(TomlTable tomlModel, string reason)
+        {
+            var section = tomlModel.TryGetValue(global::CrusaderDETweaker.Config.Core.ApothecaryHealing.Section, out var obj) ? obj as TomlTable : null;
+            var settings = global::CrusaderDETweaker.Config.Core.ApothecaryHealing.Parse(section, msg => Plugin.Logger.LogWarning(msg));
+            global::CrusaderDETweaker.Config.Core.ApothecaryHealing.Configure(settings, reason);
+        }
+
+        /// <summary>
+        /// Apply only the ["Apothecary Healing"] section (windowless self-test: the editor map raises no
+        /// session-start hook). Session state, not a template table: no TemplateBaseline involved.
+        /// </summary>
+        internal static void ApplyApothecaryHealingFromFile(string reason)
+        {
+            if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Globals)) return;
+            ApplyApothecaryHealing(Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(ConfigPaths.Globals)), reason);
         }
 
         private static TomlTable TeamColorsSection(TomlTable tomlModel) =>
@@ -675,6 +705,7 @@ namespace CrusaderDETweaker.Config.Toml
             }
             if (_unitCaps.Count > 0)
                 Plugin.Logger.LogInfo($"[UnitCaps] Loaded {_unitCaps.Count} unit cap(s) from TOML.");
+            global::CrusaderDETweaker.Config.Sync.LobbyMaxCounts.UnitFileCapsLoaded(_unitCaps);   // + lobby MaxCount values (GitLab #5)
         }
 
         private static void LoadBuildingCaps(TomlTable structModel)
@@ -697,6 +728,7 @@ namespace CrusaderDETweaker.Config.Toml
             }
             if (_buildingCaps.Count > 0)
                 Plugin.Logger.LogInfo($"[BuildingCaps] Loaded {_buildingCaps.Count} building cap(s) from TOML.");
+            global::CrusaderDETweaker.Config.Sync.LobbyMaxCounts.BuildingFileCapsLoaded(_buildingCaps);   // + lobby MaxCount values (GitLab #5)
         }
 
         private static long ClampInteger(string section, string key, long value, long minimum, long maximum)

@@ -27,7 +27,7 @@ The log records every value the mod writes and, for trade prices, reads back fro
 [*]Extract this mod's zip into the game folder (it contains a BepInEx folder; merge it with the existing one).
 [*]Launch the game once and go to the main menu, then quit. This creates the config files in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\[/b].
 [/list]
-Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 7 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
+Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 9 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
 
 [b]2. Your first change: make Knights cost 5000 gold[/b]
 [list=1]
@@ -56,6 +56,9 @@ Replace only the [b]BepInEx\plugins\CrusaderDETweaker[/b] folder. Keep your conf
 
 [b]6. Multiplayer[/b]
 The lobby host's configs are sent to everyone who joins (tab [b]Crusader DE Tweaker[/b] in the lobby's Mod Options window); your own files are not changed and apply again when you leave. See "Multiplayer: host config sync" below.
+
+[b]6b. Unit and building limits in the lobby[/b]
+The same tab has a box for each unit and building: type a MaxCount there instead of editing the Units / Structures files, in single-player skirmish too. See "Limits in the lobby (MaxCount)" below.
 
 [b]7. Ranged units: range[/b]
 Archers, crossbowmen, slingers, siege engines and the other ranged units have [b]AttackRange[/b] (the farthest they pick a target and shoot, in tiles) and [b]EngageRange[/b] (how far away an idle unit notices an enemy) in the Units file, for example [b]AttackRange = 80[/b] under [b][CHIMP_TYPE_ARCHER][/b]. Raising AttackRange alone is enough to make them shoot from farther away: with EngageRange left at -1, the distance at which idle units react grows with it (2.9.1; measured in game: an idle Archer with AttackRange 80 first shot and hit an enemy 72 tiles away, 48 with the game's values). See the Units section below.
@@ -130,7 +133,7 @@ HighWallCostMultiplier = 0.5               # Cost multiplier for high/crenel wal
 # Fire, Heal & Disease Multipliers
 UnitFireDamageTakenMultiplier = 1.0        # Fire damage taken by all units
 StructureFireDamageTakenMultiplier = 1.0   # Fire damage taken by all structures
-BedouinHealMultiplier = 1.0                # Healing amount from Bedouin healers
+BedouinHealMultiplier = 1.0                # Healing amount from Bedouin healers. 0 = they heal nothing (no healing in battle)
 DiseaseDamageMultiplier = 1.0              # Scales all three disease damage tiers (stacks with [Disease] TOML values)
 [/code]
 
@@ -243,6 +246,29 @@ Yellow = -1         # default: [255, 210, 35] on units, [198, 195, 0] in the int
 [*]In multiplayer with host config sync, the host's colours are used by everyone in the lobby.
 [/list]
 
+[b]Apothecary Healing[/b] (UCP-style healing; unreleased)
+
+Every apothecary heals its owner's wounded soldiers and Lord standing near it, out of combat, like the Unofficial Crusader Patch's "Healer heals casualties". [b]Off by default:[/b] while HealPercent and HealHitPoints are both -1 the apothecary does what it does in the game (it only cures plague). Example with healing on:
+[code]
+["Apothecary Healing"]
+HealPercent = 5         # -1 = off; % of the unit's max health per heal (up to 100, decimals allowed)
+HealHitPoints = -1      # -1 = off; health points per heal (added to HealPercent if both are set)
+RadiusTiles = 10        # how far from the apothecary's walls a unit is healed, in tiles
+IntervalTicks = 100     # one heal every this many game ticks (minimum 1)
+OutOfCombatTicks = 200  # a unit that hit or was hit (melee or projectile) waits this many ticks; 0 = heals during fights too
+NeedsWorker = true      # true = only an apothecary that has its worker heals
+[/code]
+[list]
+[*]Healed: soldiers (every unit you can recruit, mercenaries included) and the Lord, of the apothecary's owner only, standing within RadiusTiles of the building. Not healed: workers, siege engines, animals, allies' and enemies' units.
+[*]Each heal adds HealPercent of the unit's max health plus HealHitPoints, never above max health; the health bar updates the way the game's own healing updates it. A unit near two apothecaries still heals once per interval.
+[*]There is no walking healer: the Script Extender cannot drive the apothecary worker's own behaviour, so the building heals everyone in range at the same moment.
+[*]"Out of combat" means: no melee hit and no projectile hit taken or dealt for OutOfCombatTicks. It counts from the last hit, so a unit in a long fight waits until the fight is over. Fire, disease, Eunuch fire pots and other damage do not count as combat.
+[*]A switched-off apothecary never heals. With NeedsWorker = true an apothecary without its worker does not heal either.
+[*]To stop healing in battle altogether, also set [b]BedouinHealMultiplier = 0[/b] in CrusaderDETweaker_GlobalMultipliers.cfg: Bedouin healers then heal nothing (or set single units to 0 in DamageMatrices\CrusaderDETweaker_BedouinHeal.csv).
+[*]Applied at every session start (new game, trail / campaign map, loaded save). The log shows [b][ApothecaryHealing] On (session start): 5% of max health every 100 ticks within 10 tiles, ...[/b] and the first heal of each map ([b][ApothecaryHealing] First heal this map: ...[/b]).
+[*]In multiplayer with host config sync, the host's values are used by everyone; every player's game heals the same units on the same ticks.
+[/list]
+
 [b]Trade Prices[/b]
 
 Override the market buy/sell price for individual goods. [b]0 = use the game's default price[/b] (no override). Requires a Trade Post. Re-applied at every session start: new game, trail / campaign map, and loading a saved game (v2.6.5+; earlier versions skipped loaded saves). Every applied price is logged with a read-back from the game, e.g. [b][Trade Prices] STORED_BOWS: buy 155 -> 52, sell 75 -> 25 (read back 52/25)[/b].
@@ -333,7 +359,7 @@ MaxCount = -1                      # -1 = unlimited (default)
 [*][b]KnightRunSpeedBonus / ArabHorsemanRunSpeedBonus / BedouinCamelLancerRunSpeedBonus / BedouinHeavyCamelRunSpeedBonus[/b] (only in that unit's section) — how much faster the mounted unit is while it runs. [b]Higher = faster[/b], the opposite of Speed; the game's value is 2 for all four. 0 = walking pace. Gains get smaller as the value rises (traced in the game code). Values of 32768 and above count as negative and stop the unit while it runs, so stay well below that. It does not change a normal move order: a Knight walked 20 tiles in the same time at 0, 2 and 8 (311-315 ticks, measured in game); the game applies the bonus only in one AI state of the unit.
 [*][b]ShieldHealth[/b] — Bedouin Demolisher only: shield durability (game default 40000). The game stores it in 16 bits, so [b]65535 is the maximum[/b]; a larger value is clamped to 65535 and a warning is logged.
 [*][b]RequiresHorse[/b] — When true, hiring needs a free stable horse and the unit occupies that stable slot until it dies. Add [b]RequiresHorse = true[/b] to any recruitable unit's section: Barracks units are checked by the game itself, Mercenary Post units (Horse Archer, Camel Lancer, Heavy Camel, ...) by the mod at hire time (the hire is refused when no horse is free; a batch request is trimmed to the free horses). The Mercenary Post hover shows no horse icon - that UI is hard-wired to the Barracks.
-[*][b]MaxCount[/b] — Limit on units of this type alive at once for the local player. [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (cannot be recruited at all), [b]>0[/b] = max alive at once. Recruiting at/over the cap is refused up front (no gold spent); a request for more than the remaining room is trimmed to fit.
+[*][b]MaxCount[/b] — Limit on units of this type alive at once for the local player. [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (cannot be recruited at all), [b]>0[/b] = max alive at once. Recruiting at/over the cap is refused up front (no gold spent); a request for more than the remaining room is trimmed to fit. A value typed into the lobby tab replaces this one (see "Limits in the lobby (MaxCount)").
 [*][b]AttackRange[/b] (ranged units only, new in 2.8.0) - how far the unit picks targets and, for normal arrows, bolts, stones and siege shots, how far the projectile flies, in [b]map tiles[/b]. The [b]# Default:[/b] comment shows the game's current range. Maximum 32767 (larger values are clamped with a warning). Units: Archer, Arabian Bow (Arab archer), Horse Archer, Crossbowman, Slinger, Fire Thrower (grenadier), Bedouin Ambusher, Bedouin Skirmisher, Catapult, Trebuchet, Mangonel, Ballista, Arabian Ballista. While [b]EngageRange[/b] is -1, the distance at which idle units react is scaled with AttackRange (game value x your AttackRange / game AttackRange), so a higher AttackRange really makes idle soldiers start shooting from farther away (2.9.1).
 [*][b]EngageRange[/b] (ranged units only, new in 2.8.0, reworked in 2.9.1) - in [b]map tiles[/b]: how far away an enemy can be when an idle unit notices it and starts to engage. The [b]# Default:[/b] comment shows the game's value: 50 tiles for archers, crossbowmen, Arabian bows, slingers, fire throwers and skirmishers, 54 for horse archers and Bedouin heavy camels, 85 for ballistas. [b]-1[/b] = the game's value, scaled with AttackRange when you set one. EngageRange does not change how far the unit can shoot: an enemy noticed beyond AttackRange is only shot once it comes within AttackRange (measured: EngageRange 80 with the game's AttackRange 54 still first shot at 48 tiles). Maximum 4000 tiles. Units: Archer, Arabian Bow, Horse Archer, Crossbowman, Slinger, Fire Thrower, Bedouin Skirmisher, Bedouin Heavy Camel, Ballista, Arabian Ballista. The Catapult, Trebuchet and Mangonel have no engage check in the game, so they do not get the setting.
 [/list]
@@ -429,6 +455,22 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [b]In the log[/b] ([b]BepInEx\LogOutput.log[/b]) every step starts with [b][ConfigSync][/b]: "Packed your configs" (host, at launch), "Received the host's configs ... Verified OK", "Applied the host's configs", "match starting with the host's configs", "Reverted to your own configs". Include these lines in a bug report.
 
 Single player and skirmish are not affected.
+
+
+[size=5][b]Limits in the lobby (MaxCount)[/b][/size]
+[b]Unreleased.[/b] The [b]Crusader DE Tweaker[/b] tab of the [b]Mod Options[/b] window (the Script Extender's Mod Options button on the skirmish and multiplayer lobby screens) lists every recruitable unit and siege engine and every building, each with a box:
+[list]
+[*][b]empty[/b] = use the MaxCount of the Units / Structures file
+[*][b]-1[/b] = no limit in this lobby, even if the file has one
+[*][b]0[/b] = not allowed
+[*][b]a number[/b] = at most that many at once (units alive, buildings placed)
+[/list]
+[list]
+[*]A value applies as soon as you leave the box, and works exactly like the file's MaxCount: recruiting over the limit is refused, building placement over the limit is blocked. Only your own (human) player is limited, as with the file values.
+[*]In multiplayer only the host can type; players see the host's values (greyed out) and every player is limited by them, whether "Players who join use my configs" is on or off. When you leave the lobby your own values return.
+[*]Your values are kept for the next game (the Script Extender stores them in [b]BepInEx\plugins\CrusaderDETweaker\LobbyModSettings\[/b]); the config files are not changed. Clear a box to go back to the file's value.
+[*]The log shows [b][LobbyMaxCounts] Lobby MaxCount values (you): CHIMP_TYPE_KNIGHT=10, ...[/b] whenever they change.
+[/list]
 
 
 [size=5][b]Quick Tips[/b][/size]

@@ -5,6 +5,7 @@ using R3;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
+using SHCDESE.Interop.Enums; // AliveState, PlayerRelationship
 
 namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
 {
@@ -44,6 +45,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                         if (Plugin.PlayerApi?.IsAIPlayer(owner) ?? false)
                             return;
 
+                        // Includes the new unit (still NeedsInit here), so count > cap keeps at most `cap`.
                         int count = CountPlayerUnitsOfType(owner, unitType);
 
                         if (dbg)
@@ -75,15 +77,23 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
         }
 
         // internal so MakeTroopRecruitHook can reuse the exact same count semantics at recruit time.
-        internal static int CountPlayerUnitsOfType(int playerId, eChimps unitType)
+        //
+        // BUGFIX (unreleased, found with the GitLab #5 self-test): units still initialising count too. A new unit is
+        // AliveState.NeedsInit during its own OnUnitCreate event and for the rest of that tick (measured in game,
+        // selftest-20261008-105719: "NeedsInit at creation" for every spawned Knight). Counting IsAlive only left
+        // the new unit out, so `count > cap` let spawned units reach MaxCount + 1 (Knight cap 2: three spawned
+        // Knights all stayed), and units spawned in the same tick did not count each other at all.
+        // MarkedForDeletion (removed by this handler or dying) and units killed by a projectile are not counted.
+        internal static unsafe int CountPlayerUnitsOfType(int playerId, eChimps unitType)
         {
+            var api = Plugin.UnitApi;
+            var ids = new List<int>();
+            api.GetAllUnits(ids, null, unitType, PlayerRelationship.Self, playerId);
             int count = 0;
-            var allAlive = Plugin.UnitApi.GetAllAliveUnits();
-            for (int i = 0; i < allAlive.Length; i++)
+            foreach (int id in ids)
             {
-                int id = allAlive[i];
-                if (id <= 0) continue; // GetAllAliveUnits can surface the reserved slot 0; GetOwner(0) logs an error
-                if (Plugin.UnitApi.GetOwner(id) == playerId && Plugin.UnitApi.GetType(id) == unitType)
+                if (!api.TryGetUnitById(id, out GameUnit* u) || u == null) continue;
+                if ((u->r_AliveState == AliveState.IsAlive || u->r_AliveState == AliveState.NeedsInit) && u->r_IsKilledByProjectile == 0)
                     count++;
             }
             return count;

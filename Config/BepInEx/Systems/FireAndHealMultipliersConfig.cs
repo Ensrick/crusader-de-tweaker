@@ -57,6 +57,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                 1.0f,
                 "Global multiplier for the healing amount provided by Bedouin healers to all unit types.\n" +
                 "Example: Set to 1.5 to increase healing by 50%, or 0.75 to reduce it by 25%.\n" +
+                "0 = Bedouin healers heal nothing (no healing in battle); see [\"Apothecary Healing\"] in the GameplaySettings file for healing at the apothecary instead.\n" +
                 "Applied once at startup (requires game restart to change). For per-unit values, edit BedouinHeal.csv."
             );
 
@@ -171,7 +172,11 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems
                         return () => Plugin.UnitApi.SetBedouinHeal(unit, original);
                     });
                     int current = Plugin.UnitApi.GetBedouinHeal(unit);
-                    int modified = Mathf.Max(1, (int)(current * BedouinHealMultiplier.Value));
+                    // Exactly 0 switches Bedouin healing off (GitLab #4, "no offensive healing"); any other
+                    // value keeps the floor of 1 so a small multiplier never silently stops healing. The heal
+                    // hook adds the table value unchanged (SE BulkUnitDetours, game RVA 0x17491A), so 0 heals 0.
+                    int floor = BedouinHealMultiplier.Value == 0f ? 0 : 1;
+                    int modified = Mathf.Max(floor, (int)(current * BedouinHealMultiplier.Value));
                     Plugin.UnitApi.SetBedouinHeal(unit, modified);
                     applied++;
                 }
