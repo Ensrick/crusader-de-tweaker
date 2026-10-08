@@ -1,4 +1,4 @@
-﻿// Config/Toml/Core/PropertyHandler.cs
+// Config/Toml/Core/PropertyHandler.cs
 //
 // PURPOSE: Base class for all TOML property handlers using Template Method pattern.
 //
@@ -17,6 +17,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Globalization;
 
 namespace CrusaderDETweaker.Config.Toml.Core
 {
@@ -355,12 +356,12 @@ namespace CrusaderDETweaker.Config.Toml.Core
             if (value is bool b)
                 return b ? "true" : "false";
 
-            // Floats/doubles - limit to 3 decimal places (sufficient given Round5 rounding)
+            // TOML requires a decimal point regardless of the current culture. Keep existing rounding.
             if (value is float f)
-                return f.ToString("0.###");
+                return f.ToString("0.###", CultureInfo.InvariantCulture);
 
             if (value is double d)
-                return d.ToString("0.###");
+                return d.ToString("0.###", CultureInfo.InvariantCulture);
 
             // Everything else uses ToString()
             return value.ToString();
