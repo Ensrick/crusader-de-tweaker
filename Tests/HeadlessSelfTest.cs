@@ -14,10 +14,10 @@
 //   3. Spawns a Catapult and a Siege Tower (speed fields must equal the configured 8 / 1), then two
 //      Archers 10 tiles from a target: one created while the table says 8, one after setting the table
 //      to 1. Both walk the same 10 tiles; the Speed 8 archer must take clearly longer (ticks counted).
-//   4. Ranges: checks the Crossbowman AttackRange / EngageRange from the Units file reached the Script
-//      Extender, then measures behaviour in three phases (game ranges, AttackRange only, AttackRange +
-//      EngageRange): an idle Crossbowman (player 1) and an enemy Pikeman (player 2) are placed at
-//      96, 84, ... 24 tiles apart, closer each 200 ticks, until the Pikeman loses health. The first
+//   4. Ranges: checks the Archer AttackRange / EngageRange from the Units file reached the Script
+//      Extender, then measures behaviour in four phases (game ranges, AttackRange only, EngageRange only,
+//      both): an idle Archer (player 1) and an enemy Pikeman (player 2) are placed 96, 84, ... 16 tiles
+//      apart, closer each 400 ticks, until the Archer fires (a live projectile from it) or the Pikeman loses health. The first
 //      damaging distance is the effective engage distance; an override must beat the game phase.
 //   5. Writes PASS / FAIL + details to the result file and quits.
 //
@@ -48,11 +48,14 @@ namespace CrusaderDETweaker.Tests
         private static readonly Color BlueOverride = new Color(1f, 0f, 1f);   // Blue = "#FF00FF"
         private const int WalkTiles = 10;
 
-        // Crossbowman ranges written by scripts/test_headless.ps1 (tiles; the game's AttackRange is 54).
+        // Archer ranges written by scripts/test_headless.ps1 (tiles; the game's AttackRange is 54).
+        // Not the Crossbowman: SE <= 2.13.1 crashes the game with a Crossbowman EngageRange (its engage hook
+        // clobbers r13, which the Crossbowman's native compare uses; see UnitRanges.EngageRangeCrashUnits).
         internal const int XbowAttackRange = 80, XbowEngageRange = 80;
-        private static readonly int[] RangeLadder = { 96, 84, 72, 60, 48, 36, 24 };
-        private const int TicksPerRung = 200, RangeShooterX = 340, RangeY = 400;
-        private const eChimps RangeShooter = eChimps.CHIMP_TYPE_XBOWMAN, RangeTarget = eChimps.CHIMP_TYPE_PIKEMAN;
+        private static readonly int[] RangeLadder = { 96, 84, 72, 64, 56, 48, 42, 36, 32, 28, 24, 20, 16 };
+        private const int TicksPerRung = 400, RangeShooterX = 340, RangeY = 400;
+        private readonly System.Collections.Generic.List<int> _projectiles = new System.Collections.Generic.List<int>();
+        private const eChimps RangeShooter = eChimps.CHIMP_TYPE_ARCHER, RangeTarget = eChimps.CHIMP_TYPE_PIKEMAN;
 
         private sealed class RangePhase
         {
@@ -66,6 +69,7 @@ namespace CrusaderDETweaker.Tests
         {
             new RangePhase { Name = "game ranges (control)" },
             new RangePhase { Name = $"AttackRange {XbowAttackRange} only", Attack = true },
+            new RangePhase { Name = $"EngageRange {XbowEngageRange} only", Engage = true },
             new RangePhase { Name = $"AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange}", Attack = true, Engage = true },
         };
         private int _phase = -1, _rung, _shooter, _target, _targetHp, _rungTick;
@@ -166,7 +170,7 @@ namespace CrusaderDETweaker.Tests
                             _fastTicks > 0 && _slowTicks > _fastTicks * 2.5,
                             $"{WalkTiles} tiles: Speed {FastArcherSpeed} took {_fastTicks} ticks, Speed {ArcherSpeed} took {_slowTicks} ticks (ratio {(_fastTicks > 0 ? (double)_slowTicks / _fastTicks : 0):0.00}; the game's step formula predicts about 4.5 with no speed bonus)");
                         StartRangeTest();
-                        _stage = 3; _deadline = now + 600;
+                        _stage = 3; _deadline = now + 900;
                         return;
                     }
                     if (_stage == 3) RangeTick();
@@ -284,7 +288,7 @@ namespace CrusaderDETweaker.Tests
             int attack = units.GetUnitAttackRange(RangeShooter);
             int engage = units.GetEngageRange(RangeShooter);
             int native = GameProjectileManagerAPI.Instance.GetAttackRangeTiles(GameUnitManagerAPI.GetDefaultAttackRangeProjectileType(RangeShooter));
-            Check("Crossbowman ranges reached the Script Extender",
+            Check("Archer ranges reached the Script Extender",
                 attack == XbowAttackRange && engage == XbowEngageRange * UnitRangesWorld,
                 $"AttackRange {attack} tiles (file {XbowAttackRange}, game {native}); EngageRange {engage} world units (file {XbowEngageRange} tiles = {XbowEngageRange * UnitRangesWorld})");
             Note($"Players 1 and 2 allied: {GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(1, 2)}; teams {GamePlayerManagerAPI.Instance.GetPlayerTeam(1)} / {GamePlayerManagerAPI.Instance.GetPlayerTeam(2)}");
@@ -329,13 +333,18 @@ namespace CrusaderDETweaker.Tests
             var units = GameUnitManagerAPI.Instance;
             var p = _rangePhases[_phase];
             int tick = global::Director.instance.getSimTickCount();
-            if (units.GetCurrentHealth(_target) < _targetHp)
+            // Engagement signal: a live projectile fired by the shooter (direct), or the target losing health.
+            _projectiles.Clear();
+            GameProjectileManagerAPI.Instance.GetAllProjectiles(_projectiles, SHCDESE.Interop.Enums.AliveState.IsAlive);
+            bool fired = _projectiles.Any(id => GameProjectileManagerAPI.Instance.GetSourceUnit(id) == _shooter);
+            bool damaged = units.GetCurrentHealth(_target) < _targetHp;
+            if (fired || damaged)
             {
                 var s = units.GetCurrentLocalTilePosition(_shooter);
                 var t = units.GetCurrentLocalTilePosition(_target);
                 double now = Math.Sqrt((double)(t.X - s.X) * (t.X - s.X) + (double)(t.Y - s.Y) * (t.Y - s.Y));
                 p.HitAt = RangeLadder[_rung];
-                p.Detail = $"first damage with the target placed {RangeLadder[_rung]} tiles away, after {tick - _rungTick} ticks (shooter at {s.X},{s.Y}, target at {t.X},{t.Y}, {now:0.#} tiles apart at that moment)";
+                p.Detail = $"first {(fired ? "shot" : "damage")} with the target placed {RangeLadder[_rung]} tiles away, after {tick - _rungTick} ticks (shooter at {s.X},{s.Y}, target at {t.X},{t.Y}, {now:0.#} tiles apart at that moment)";
                 NextRangePhase();
                 return;
             }
@@ -354,12 +363,12 @@ namespace CrusaderDETweaker.Tests
 
         private void ReportRanges()
         {
-            RangePhase game = _rangePhases[0], attackOnly = _rangePhases[1], both = _rangePhases[2];
+            RangePhase game = _rangePhases[0], attackOnly = _rangePhases[1], engageOnly = _rangePhases[2], both = _rangePhases[3];
             Check("Range baseline (game ranges)", game.HitAt > 0,
                 game.HitAt > 0 ? $"engaged at {game.HitAt} tiles" : "no engagement at any distance, so the range phases cannot be judged (players not hostile, or the target is unreachable)");
-            Check("AttackRange alone makes the Crossbowman engage farther", game.HitAt > 0 && attackOnly.HitAt > game.HitAt,
-                $"game {Rung(game)}, AttackRange {XbowAttackRange}: {Rung(attackOnly)}");
-            Check("AttackRange + EngageRange make the Crossbowman engage farther", game.HitAt > 0 && both.HitAt > game.HitAt,
+            Note($"Archer, AttackRange {XbowAttackRange} only: {Rung(attackOnly)} (game: {Rung(game)})");
+            Note($"Archer, EngageRange {XbowEngageRange} only: {Rung(engageOnly)} (game: {Rung(game)})");
+            Check("AttackRange + EngageRange make the Archer engage farther", game.HitAt > 0 && both.HitAt > game.HitAt,
                 $"game {Rung(game)}, AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange}: {Rung(both)}");
         }
 

@@ -53,14 +53,35 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
             eChimps.CHIMP_TYPE_BALLISTA, eChimps.CHIMP_TYPE_ARAB_BALLISTA
         };
 
-        /// <summary>Unit types whose native update function SE hooks for the engage range (BulkUnitDetours).</summary>
+        /// <summary>
+        /// Unit types for which SE actually installs an engage-range hook (BulkUnitDetours walks each update
+        /// function for "cmp [base+index+8FEh], reg"). SE also walks the Catapult, Trebuchet and Mangonel update
+        /// functions but finds no such compare, so no hook exists and an EngageRange there could never act
+        /// (SE log: "Hooking unit update function ... CATAPULT" with no "Installing dynamic inline hook" after it).
+        /// </summary>
         internal static readonly HashSet<eChimps> EngageRangeUnits = new HashSet<eChimps>
         {
             eChimps.CHIMP_TYPE_ARCHER, eChimps.CHIMP_TYPE_ARAB_BOW, eChimps.CHIMP_TYPE_ARAB_HORSEMAN,
             eChimps.CHIMP_TYPE_XBOWMAN, eChimps.CHIMP_TYPE_ARAB_SLINGER, eChimps.CHIMP_TYPE_ARAB_GRENADIER,
             eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER, eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
-            eChimps.CHIMP_TYPE_CATAPULT, eChimps.CHIMP_TYPE_TREBUCHET, eChimps.CHIMP_TYPE_MANGONEL,
             eChimps.CHIMP_TYPE_BALLISTA, eChimps.CHIMP_TYPE_ARAB_BALLISTA
+        };
+
+        /// <summary>
+        /// Unit types whose EngageRange crashes the game (SE 2.10.0 - 2.13.1, the newest checked). SE's engage hook
+        /// stub ("UnitUpdateEngageRange_*") loads the unit id into r13 and its own pointers into r14 / r15, then
+        /// re-executes the native compare with those registers still overwritten. These units' native compares
+        /// address the unit array through r13 / r14 (decoded from CrusaderDE.dll, game 2.8.2):
+        ///   Crossbowman          cmp [rcx+r13+8FEh], ax   and   cmp [rdi+r13+8FEh], ax
+        ///   Bedouin Heavy Camel  cmp [rcx+r13+8FEh], ax   and   cmp [rbx+r13+8FEh], ax
+        ///   Arabian Ballista     cmp [rbx+r14+8FEh], ax
+        /// Reproduced by the self-test: Crossbowman EngageRange set -> EXCEPTION_ACCESS_VIOLATION reading 0x1220
+        /// (= unit 2 * 0x490 + unit id 2 + 0x8FE) on the new Crossbowman's first update. The other units' compares
+        /// use none of r13-r15. Applying is refused with a warning until a Script Extender with a fix is verified.
+        /// </summary>
+        internal static readonly HashSet<eChimps> EngageRangeCrashUnits = new HashSet<eChimps>
+        {
+            eChimps.CHIMP_TYPE_XBOWMAN, eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL, eChimps.CHIMP_TYPE_ARAB_BALLISTA
         };
 
         /// <summary>Largest EngageRange in tiles whose world value still fits in SE's signed 16-bit store.</summary>
@@ -157,6 +178,12 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
 
         protected override void SetToAPI(eChimps unit, int value)
         {
+            if (UnitRanges.EngageRangeCrashUnits.Contains(unit))
+            {
+                Plugin.Logger.LogWarning($"[{Name}] {unit}: {value} not applied. The Script Extender (2.13.1 and older) crashes the game " +
+                                         "when an EngageRange is set for this unit, so the game's own engage distance is kept. AttackRange still applies.");
+                return;
+            }
             int tiles = UnitRanges.ClampWithWarning(Name, unit, value, UnitRanges.MaxEngageTiles);
             int world = tiles * UnitRanges.WorldUnitsPerTile;
             ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(), () =>
