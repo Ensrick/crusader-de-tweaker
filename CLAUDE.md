@@ -164,6 +164,18 @@ the game's default-palette colour for that slot) and the UI tables `OnScreenText
 `TemplateBaseline`. Applied from `ApplyAllGlobalConfigs` (session start) and quietly after every `OnUnloadMap`
 Post (menus). Minimap (native `DLL_SetMPRadarColours`) and lobby shield images are out of reach.
 
+### Unit limit and advanced-options master switches (GameplaySettings, unreleased)
+
+- `["Army Size"] UnitLimit` (`Config/Core/UnitLimit.cs`, GitHub #3): writes the int at SE's
+  `LocalPlayerUnitLimitVA` (RVA 0x3668E34, game default 3000, 10000 = Extreme troops and the unit table size).
+  The game derives the per-player troop limits from it every tick (0xCBD90). Written ONLY from the Post hooks
+  (`ApplyAllGlobalConfigs` + `OnPostLoad`): in a Pre phase the skirmish start handler would read > 3000 as Extreme.
+  Game value remembered before the first write; `-1` and every `OnUnloadMap` Post put it back.
+- Advanced gameplay options (GitLab #1) count only while the mode's master switch is on
+  (mode 0x63 skirmish/trails -> AdvancedSkirmishOptions, else AdvancedOptions); the map start resets both.
+  `LoadPlayerOptions` raises both whenever a sub-option is true and logs it at Info when it had to.
+- `OnPostLoad` (after `EditorDirector.postLoading`) re-applies only these two (`ConfigLoader.ApplyAfterLoad`).
+
 ### `-1` = "use game default" sentinel (Units/Structures TOML, v2.3.0+)
 
 Numeric stat properties (Health, Speed, GoldCost, ShieldHealth, structure health/costs, housing,
@@ -348,6 +360,8 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | MP host config sync (wire format, pure) | `Config/Sync/ConfigSyncCodec.cs` |
 | Game-value baseline for exact revert | `Config/Core/TemplateBaseline.cs` |
 | `["Team Colors"]` (sprite palettes + UI colour tables, managed only) | `Config/Core/TeamColors.cs` |
+| `["Army Size"]` UnitLimit (native unit pool, written only in session Post hooks) | `Config/Core/UnitLimit.cs` |
+| In-game self-test limits stages (editor map first, a real custom skirmish last): unit limit + gameplay-options master switches | `Tests/HeadlessSelfTestLimits.cs` |
 
 ---
 

@@ -4,9 +4,11 @@
 
 .DESCRIPTION
     Launches the game in -batchmode (no window, no sound) with -cdt-selftest. The plugin creates a
-    disposable editor map, checks team colours on the real palettes / UI tables and Speed values above
-    the Script Extender's 6 on spawned units, measures how far an Archer engages with the game's
+    disposable editor map, checks the unit limit (UnitLimit) and the advanced gameplay options' master
+    switches (a Spearman with ImprovedSpearman, in a real custom skirmish run last), team colours on the real palettes / UI tables and Speed
+    values above the Script Extender's 6 on spawned units, measures how far an Archer engages with the game's
     ranges, with AttackRange only, EngageRange only and both (and a Crossbowman), writes PASS / FAIL and quits.
+    -Quick (development) runs only the unit limit / gameplay options stages (editor map, then a real custom skirmish).
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
     first, the test values below are written, and afterwards every file is put back byte for byte;
@@ -24,7 +26,8 @@
 [CmdletBinding()]
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
-    [int]$TimeoutSeconds = 2400
+    [int]$TimeoutSeconds = 2400,
+    [switch]$Quick
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -35,6 +38,9 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 $unitSpeeds = [ordered]@{ 'CHIMP_TYPE_CATAPULT' = 8; 'CHIMP_TYPE_SIEGE_TOWER' = 1; 'CHIMP_TYPE_ARCHER' = 8 }
 $teamColors = [ordered]@{ 'Red' = '[0, 255, 0]'; 'Blue' = '"#FF00FF"' }
 $xbowRanges = [ordered]@{ 'AttackRange' = 80; 'EngageRange' = 80 }   # Archer, tiles; the game's AttackRange is 54, engage distance 50
+$unitLimit = 4000   # ["Army Size"] UnitLimit (HeadlessSelfTest.LimitConfigured); the game's value is 3000
+# ImprovedSpearman on with both master switches off: the switches must be raised by the mod itself.
+$gameplayOptions = [ordered]@{ 'ImprovedSpearman' = 'true'; 'AdvancedOptionsEnabled' = 'false'; 'AdvancedSkirmishOptionsEnabled' = 'false' }
 
 if (Get-Process -Name $processName -ErrorAction SilentlyContinue) { throw 'The game is running. Close it first: this script never touches a running game.' }
 if (-not (Get-Process -Name steam -ErrorAction SilentlyContinue)) { throw 'Steam must already be running. This script will not open it.' }
@@ -111,11 +117,15 @@ try {
     $globals = [IO.File]::ReadAllText($globalsPath)
     if ($globals -notmatch '(?m)^\["Team Colors"\]') { $globals = $globals.TrimEnd() + "`r`n`r`n[`"Team Colors`"]`r`n" }
     foreach ($k in $teamColors.Keys) { $globals = Set-TomlKey $globals '["Team Colors"]' $k $teamColors[$k] }
+    if ($globals -notmatch '(?m)^\["Army Size"\]') { $globals = $globals.TrimEnd() + "`r`n`r`n[`"Army Size`"]`r`n" }
+    $globals = Set-TomlKey $globals '["Army Size"]' 'UnitLimit' ([string]$unitLimit)
+    foreach ($k in $gameplayOptions.Keys) { $globals = Set-TomlKey $globals '["Gameplay Options"]' $k $gameplayOptions[$k] }
     [IO.File]::WriteAllText($globalsPath, $globals, $utf8)
-    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange)"
+    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange); UnitLimit=$unitLimit; $($gameplayOptions.Keys | ForEach-Object { "$_=$($gameplayOptions[$_])" })"
 
     $env:SteamAppId = '3024040'; $env:SteamGameId = '3024040'
     $arguments = '-batchmode -nosound -silent-crashes -cdt-selftest "' + $result + '" -logFile "' + (Join-Path $run 'unity.log') + '"'
+    if ($Quick) { $arguments += ' -cdt-selftest-quick' }
     $owned = Start-Process -FilePath $exe -WorkingDirectory $GamePath -ArgumentList $arguments -WindowStyle Hidden -PassThru
     $env:SteamAppId = $oldApp; $env:SteamGameId = $oldGame
     try { $owned.PriorityClass = 'BelowNormal' } catch { }

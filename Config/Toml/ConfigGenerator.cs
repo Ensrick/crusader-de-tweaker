@@ -287,6 +287,19 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine($"CampPeasantsCap = {campPeasantsCap}  # default: {DefaultCampPeasantsCap}");
                 sb.AppendLine();
 
+                // Army Size (GitHub #3): see Config/Core/UnitLimit.cs for the game facts behind these comments.
+                string armySection = global::CrusaderDETweaker.Config.Core.UnitLimit.Section, unitLimitKey = global::CrusaderDETweaker.Config.Core.UnitLimit.Key;
+                var unitLimit = ExistingOrDefault(existingToml, armySection, unitLimitKey, -1L);
+                sb.AppendLine($"[\"{armySection}\"]");
+                sb.AppendLine("# UnitLimit: how many units the whole map can hold, shared by every player's troops, workers and animals.");
+                sb.AppendLine("# -1 = game value: 3000, or 10000 with Extreme troops. Allowed: 1000 to 10000 (the size of the game's unit table).");
+                sb.AppendLine("# Each player's troop limit comes from it. Skirmish and trails: (UnitLimit - 100) / players - 40, so 322 troops each with");
+                sb.AppendLine("# 8 players and 1410 with 2 players at 3000, 1197 and 4910 at 10000. Campaign, free build and invasion: UnitLimit itself.");
+                sb.AppendLine("# Above 3000 the game also runs some of its Extreme troops rules (outposts, probably the Extreme power bar).");
+                sb.AppendLine("# Applied at every session start; a game saved with a raised limit keeps it. Multiplayer: every player needs the same value.");
+                sb.AppendLine($"{unitLimitKey} = {unitLimit}  # default: {(global::CrusaderDETweaker.Config.Core.UnitLimit.GameValue)}");
+                sb.AppendLine();
+
                 sb.AppendLine("# ========================================");
                 sb.AppendLine("# Crusader DE Tweaker - Team Colors");
                 sb.AppendLine("# ========================================");

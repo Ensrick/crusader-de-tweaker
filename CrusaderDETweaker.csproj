@@ -142,6 +142,7 @@
     <Compile Include="Config\Core\StableTracking.cs" />
     <Compile Include="Config\Core\TeamColors.cs" />
     <Compile Include="Config\Core\TemplateBaseline.cs" />
+    <Compile Include="Config\Core\UnitLimit.cs" />
     <Compile Include="Config\Core\UnitTransitionDispatcher.cs" />
     <Compile Include="Config\Sync\ConfigSyncCodec.cs" />
     <Compile Include="Config\Sync\ConfigSyncLobbySettings.cs" />
@@ -222,6 +223,7 @@
     <Compile Include="Tests\TemplateBaselineTest.cs" />
     <Compile Include="Tests\TeamColorsTest.cs" />
     <Compile Include="Tests\HeadlessSelfTest.cs" />
+    <Compile Include="Tests\HeadlessSelfTestLimits.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
     <Compile Include="Data\StructureTypeHelpers.cs" />

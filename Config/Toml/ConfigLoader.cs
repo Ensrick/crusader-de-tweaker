@@ -192,6 +192,19 @@ namespace CrusaderDETweaker.Config.Toml
                     ApplyAllGlobalConfigs();
                 });
 
+            // Last step of every map / save load (SE raises OnPostLoad after EditorDirector.postLoading, which
+            // runs after DLL_LoadMapToPlay / DLL_LoadSaveGame and starts the simulation). No native writer of the
+            // options block or the unit pool after the Post events above was found (RE report 2026-10-08), so this
+            // is a cheap final re-apply of the two values a missed write would silently break (GitLab #1, GitHub #3).
+            MapLoaderR3EventHooks.OnPostLoad.Observable
+                .Subscribe(_ => ApplyAfterLoad());
+
+            // The unit pool is session state the game resets at the next map start; put the game's value back now
+            // so nothing (a menu, the next save) sees this mod's value outside a session.
+            MapLoaderR3EventHooks.OnUnloadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ => global::CrusaderDETweaker.Config.Core.UnitLimit.RestoreGameValue("map unload"));
+
             // SetAutoTrade requires the marketplace to be active. Subscribe to building spawns so
             // auto-trade is applied the moment the local player's market is built (or re-spawned
             // from a save). Skips AI players via PlayerId check.
@@ -223,7 +236,27 @@ namespace CrusaderDETweaker.Config.Toml
             UnitCapHandler.Subscribe(_unitCaps);
             BuildingCapHandler.Subscribe(_buildingCaps);
 
-            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnUnloadMap + OnStartMap + OnLoadMap + OnLoadSave + OnBuildingSpawn + OnUnitCreate + OnUnitTransition hooks (template settings re-applied after every SE unload reset).");
+            Plugin.Logger.LogInfo("[GlobalConfig] Registered OnUnloadMap + OnStartMap + OnLoadMap + OnLoadSave + OnPostLoad + OnBuildingSpawn + OnUnitCreate + OnUnitTransition hooks (template settings re-applied after every SE unload reset).");
+        }
+
+        /// <summary>
+        /// OnPostLoad: re-applies only the gameplay options (with their master switches) and the unit limit.
+        /// The simulation thread is already running here; both are single 32-bit writes.
+        /// </summary>
+        private static void ApplyAfterLoad()
+        {
+            try
+            {
+                if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Globals)) return;
+                var tomlModel = Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(ConfigPaths.Globals));
+                LoadPlayerOptions(tomlModel, "after load");
+                global::CrusaderDETweaker.Config.Core.UnitLimit.ApplyFromConfig(tomlModel, "after load");
+            }
+            catch (Exception ex)
+            {
+                // A syntax error is reported by the session-start apply that ran just before.
+                Plugin.Logger.LogDebug($"[GlobalConfig] After-load re-apply skipped: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -255,7 +288,9 @@ namespace CrusaderDETweaker.Config.Toml
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadPeasantSpawning...");
                 LoadPeasantSpawning(tomlModel);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadPlayerOptions...");
-                LoadPlayerOptions(tomlModel, dbg);
+                LoadPlayerOptions(tomlModel, "session start", dbg);
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: UnitLimit...");
+                global::CrusaderDETweaker.Config.Core.UnitLimit.ApplyFromConfig(tomlModel, "session start");
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadTradePrices...");
                 LoadTradePrices(tomlModel);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadAutoTrade...");
@@ -453,7 +488,7 @@ namespace CrusaderDETweaker.Config.Toml
                 Plugin.GlobalsApi?.CampPeasantsCap?.SetValue((ushort)ClampInteger("Peasant Spawning", "CampPeasantsCap", cap, ushort.MinValue, ushort.MaxValue));
         }
 
-        private static void LoadPlayerOptions(TomlTable tomlModel, bool dbg = false)
+        private static void LoadPlayerOptions(TomlTable tomlModel, string reason, bool dbg = false)
         {
             if (!tomlModel.TryGetValue("Gameplay Options", out var settingsObj) || !(settingsObj is TomlTable settingsTable))
                 return;
@@ -474,20 +509,23 @@ namespace CrusaderDETweaker.Config.Toml
             // Each call is individually guarded — some options rely on map-load-time structures.
             // Getter is optional: if provided, the result is read back to confirm the setting took effect.
             //
-            // Advanced sub-options (ChoreManagerOptions-backed) are tracked so the game's master
-            // flags can be raised below: whether the game honors a sub-option while AdvancedOptions /
-            // AdvancedSkirmishOptions is off is undocumented, so the masters are set whenever any
-            // sub-option is in use. The read-back only confirms the memory write, not the gate.
-            bool advancedOptionUsed = false;
-            advancedOptionUsed |= TryApply("BetterHealers",             () => Plugin.PlayerApi?.SetBetterHealers(true),            () => Plugin.PlayerApi?.IsBetterHealers());
-            advancedOptionUsed |= TryApply("FasterPeasants",            () => Plugin.PlayerApi?.SetFasterPeasants(true),           () => Plugin.PlayerApi?.IsFasterPeasants());
-            advancedOptionUsed |= TryApply("ImprovedArabSwordsman",     () => Plugin.PlayerApi?.SetImprovedArabSwordsman(true),    () => Plugin.PlayerApi?.IsImprovedArabSwordsman());
-            advancedOptionUsed |= TryApply("ImprovedFletchers",         () => Plugin.PlayerApi?.SetImprovedFletchers(true),        () => Plugin.PlayerApi?.IsImprovedFletchers());
-            advancedOptionUsed |= TryApply("ImprovedLadderman",         () => Plugin.PlayerApi?.SetImprovedLadderman(true),        () => Plugin.PlayerApi?.IsImprovedLadderman());
-            advancedOptionUsed |= TryApply("ImprovedSpearman",          () => Plugin.PlayerApi?.SetImprovedSpearman(true),         () => Plugin.PlayerApi?.IsImprovedSpearman());
-            advancedOptionUsed |= TryApply("NerfEunuchs",               () => Plugin.PlayerApi?.SetNerfEunuchs(true),              () => Plugin.PlayerApi?.IsNerfEunuchs());
-            advancedOptionUsed |= TryApply("RebalancedHorseArchers",    () => Plugin.PlayerApi?.SetRebalancedHorseArchers(true),   () => Plugin.PlayerApi?.IsRebalancedHorseArchers());
-            advancedOptionUsed |= TryApply("UncappedPeasants",          () => Plugin.PlayerApi?.SetUncappedPeasants(true),         () => Plugin.PlayerApi?.IsUncappedPeasants());
+            // Advanced sub-options (ChoreManagerOptions-backed) count only while the game mode's master
+            // flag is on: every reader checks mode == 0x63 (skirmish, trails) ? AdvancedSkirmishOptions :
+            // AdvancedOptions (campaign, editor), e.g. ImprovedSpearmen at RVA 0x143BF3-0x143D4B, game 2.8.2.
+            // The map start resets both masters and all sub-options (0x211A0), and only the skirmish lobby /
+            // coop trail sets the masters again, so they are raised below whenever a sub-option is in use
+            // (without this, options were dead in regular trails and the campaign: GitLab #1).
+            var advancedUsed = new List<string>();
+            void Advanced(string key, Action action, Func<bool?> getter) { if (TryApply(key, action, getter)) advancedUsed.Add(key); }
+            Advanced("BetterHealers",             () => Plugin.PlayerApi?.SetBetterHealers(true),            () => Plugin.PlayerApi?.IsBetterHealers());
+            Advanced("FasterPeasants",            () => Plugin.PlayerApi?.SetFasterPeasants(true),           () => Plugin.PlayerApi?.IsFasterPeasants());
+            Advanced("ImprovedArabSwordsman",     () => Plugin.PlayerApi?.SetImprovedArabSwordsman(true),    () => Plugin.PlayerApi?.IsImprovedArabSwordsman());
+            Advanced("ImprovedFletchers",         () => Plugin.PlayerApi?.SetImprovedFletchers(true),        () => Plugin.PlayerApi?.IsImprovedFletchers());
+            Advanced("ImprovedLadderman",         () => Plugin.PlayerApi?.SetImprovedLadderman(true),        () => Plugin.PlayerApi?.IsImprovedLadderman());
+            Advanced("ImprovedSpearman",          () => Plugin.PlayerApi?.SetImprovedSpearman(true),         () => Plugin.PlayerApi?.IsImprovedSpearman());
+            Advanced("NerfEunuchs",               () => Plugin.PlayerApi?.SetNerfEunuchs(true),              () => Plugin.PlayerApi?.IsNerfEunuchs());
+            Advanced("RebalancedHorseArchers",    () => Plugin.PlayerApi?.SetRebalancedHorseArchers(true),   () => Plugin.PlayerApi?.IsRebalancedHorseArchers());
+            Advanced("UncappedPeasants",          () => Plugin.PlayerApi?.SetUncappedPeasants(true),         () => Plugin.PlayerApi?.IsUncappedPeasants());
             // Native-global-pointer options (not ChoreManagerOptions-backed): no master flag involved
             TryApply("NoKnockdownWalls",                   () => Plugin.PlayerApi?.SetNoKnockdownWalls(true),                   () => Plugin.PlayerApi?.IsNoKnockdownWalls());
             TryApply("GlobalImprovedSiegeBehaviour",       () => Plugin.PlayerApi?.SetGlobalImprovedSiegeBehaviour(true),       () => Plugin.PlayerApi?.IsGlobalImprovedSiegeBehaviour());
@@ -501,13 +539,18 @@ namespace CrusaderDETweaker.Config.Toml
             // other option, and both are auto-enabled when any advanced sub-option above was overridden.
             TryApply("AdvancedOptionsEnabled",         () => Plugin.PlayerApi?.SetAdvancedOptionsEnabled(true),         () => Plugin.PlayerApi?.IsAdvancedOptionsEnabled());
             TryApply("AdvancedSkirmishOptionsEnabled", () => Plugin.PlayerApi?.SetAdvancedSkirmishOptionsEnabled(true), () => Plugin.PlayerApi?.IsAdvancedSkirmishOptionsEnabled());
-            if (advancedOptionUsed)
+            if (advancedUsed.Count > 0)
             {
                 try
                 {
+                    bool wereOn = Plugin.PlayerApi?.IsAdvancedOptionsEnabled() == true && Plugin.PlayerApi?.IsAdvancedSkirmishOptionsEnabled() == true;
                     Plugin.PlayerApi?.SetAdvancedOptionsEnabled(true);
                     Plugin.PlayerApi?.SetAdvancedSkirmishOptionsEnabled(true);
-                    if (dbg) Plugin.Logger.LogInfo("[GameplayOptions] Advanced sub-option overrides active — raised AdvancedOptions/AdvancedSkirmishOptions master flags");
+                    bool? campaign = Plugin.PlayerApi?.IsAdvancedOptionsEnabled(), skirmish = Plugin.PlayerApi?.IsAdvancedSkirmishOptionsEnabled();
+                    string line = $"[GameplayOptions] {string.Join(", ", advancedUsed)} ({reason}): master switches AdvancedOptions (campaign, editor) = {campaign?.ToString() ?? "n/a"}, AdvancedSkirmishOptions (skirmish, trails) = {skirmish?.ToString() ?? "n/a"}";
+                    if (campaign != true || skirmish != true) Plugin.Logger.LogWarning(line + ": not raised, the options may have no effect.");
+                    else if (!wereOn) Plugin.Logger.LogInfo(line + " (raised: the game had turned them off).");
+                    else if (dbg) Plugin.Logger.LogInfo(line + " (already on).");
                 }
                 catch (Exception ex)
                 {
