@@ -1,6 +1,14 @@
-Version 2.9.0
+Version 2.9.1
 
 Updated for SHC DE v2.8.2 and Script Extender 2.10.1 or newer!
+
+[b]2.9.1: Crossbowman crash fix; what the range settings really do[/b]
+[list]
+[*][b]Fix: an EngageRange on the Crossbowman, Bedouin Heavy Camel or Arabian Ballista no longer crashes the game.[/b] The Script Extender (2.13.1 and older) crashes with an EngageRange on those three, so the mod now refuses it with a warning in the log; their AttackRange still applies. Reported to the Script Extender.
+[*][b]Known limitation, measured in game:[/b] idle archers, crossbowmen, slingers, horse archers, skirmishers and fire throwers only start to react when an enemy comes within about 50 tiles. The Script Extender does not reach that check yet (reported), so raising AttackRange or EngageRange does not make them shoot sooner. Lowering AttackRange works. The Catapult, Trebuchet and Mangonel have no such check.
+[*]EngageRange is no longer offered for the Catapult, Trebuchet and Mangonel (it could never act on them).
+[*]Every applied AttackRange / EngageRange is now written to BepInEx\LogOutput.log with the game's default and the value the Script Extender reports back.
+[/list]
 
 [b]2.9.0: Team colors; Speed above 6[/b]
 [list]
@@ -11,7 +19,7 @@ Updated for SHC DE v2.8.2 and Script Extender 2.10.1 or newer!
 
 [b]2.8.0: Attack and engage range for ranged units (requires Script Extender 2.10.1 or newer)[/b]
 [list]
-[*][b]New in the Units file for ranged units: AttackRange and EngageRange, in tiles.[/b] AttackRange = how far the unit shoots (target selection and, for normal arrows, bolts, stones and siege shots, projectile reach). EngageRange = how close enemies must come before the unit reacts on its own. -1 = game default. Archers, Arabian bows, horse archers, crossbowmen, slingers, fire throwers, Bedouin skirmishers / ambushers / heavy camels, catapults, trebuchets, mangonels, ballistas.
+[*][b]New in the Units file for ranged units: AttackRange and EngageRange, in tiles.[/b] AttackRange = the farthest the unit picks a target and shoots (lowering works; raising it does not make idle soldiers shoot sooner, see 2.9.1). EngageRange = how far an enemy can be before an engaging unit gives up. -1 = game default. Archers, Arabian bows, horse archers, crossbowmen, slingers, fire throwers, Bedouin skirmishers / ambushers / heavy camels, catapults, trebuchets, mangonels, ballistas.
 [*]Limits from the Script Extender: AttackRange max 32767 tiles, EngageRange max 4095 tiles (clamped with a warning); special projectile modes can partly ignore AttackRange; a custom EngageRange removes the game's small gap between engaging and disengaging.
 [*]Update the Script Extender to 2.10.1 or newer first; the mod refuses to load on an older one and says so in the log.
 [/list]

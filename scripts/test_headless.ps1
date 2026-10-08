@@ -95,6 +95,7 @@ try {
     $units = [IO.File]::ReadAllText($unitsPath)
     foreach ($k in $unitSpeeds.Keys) { $units = Set-TomlKey $units "[$k]" 'Speed' ([string]$unitSpeeds[$k]) }
     foreach ($k in $xbowRanges.Keys) { $units = Set-TomlKey $units '[CHIMP_TYPE_ARCHER]' $k ([string]$xbowRanges[$k]) }
+    $units = Set-TomlKey $units '[CHIMP_TYPE_XBOWMAN]' 'EngageRange' '80'   # must be refused by the 2.9.1 crash guard (HeadlessSelfTest.GuardEngageRange)
     [IO.File]::WriteAllText($unitsPath, $units, $utf8)
     $globals = [IO.File]::ReadAllText($globalsPath)
     if ($globals -notmatch '(?m)^\["Team Colors"\]') { $globals = $globals.TrimEnd() + "`r`n`r`n[`"Team Colors`"]`r`n" }
