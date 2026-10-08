@@ -27,7 +27,7 @@ The log records every value the mod writes and, for trade prices, reads back fro
 [*]Extract this mod's zip into the game folder (it contains a BepInEx folder; merge it with the existing one).
 [*]Launch the game once and go to the main menu, then quit. This creates the config files in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\[/b].
 [/list]
-Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 9 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
+Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 10 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
 
 [b]2. Your first change: make Knights cost 5000 gold[/b]
 [list=1]
@@ -140,7 +140,7 @@ DiseaseDamageMultiplier = 1.0              # Scales all three disease damage tie
 [b]Multipliers stack.[/b] Example: WallDamageTakenMultiplier = 0.5 and StructureDamageTakenMultiplier = 2.0 → walls take 1.0× damage (0.5 × 2.0).
 
 [size=5][b]2. CrusaderDETweaker_GameplaySettings.toml[/b][/size]
-[b]Gameplay-wide settings[/b] — covers siege engines, stealth, gates, flags, team colors, trade, and auto-trade.
+[b]Gameplay-wide settings[/b] — covers siege engines, stealth, gates, flags, team colors, skirmish starting troops, trade, and auto-trade.
 
 [b]Siege Engines[/b]
 [code]
@@ -269,6 +269,28 @@ NeedsWorker = true      # true = only an apothecary that has its worker heals
 [*]In multiplayer with host config sync, the host's values are used by everyone; every player's game heals the same units on the same ticks.
 [/list]
 
+[b]Skirmish Starting Troops[/b] (new)
+
+The soldiers each player receives at the start of a custom skirmish, single player or multiplayer. The game delivers them in groups of up to 9 every 200 game ticks. One table per start option of the lobby: [b]Normal[/b], [b]Crusader[/b], [b]Deathmatch[/b]. [b]-1 = the game's number[/b] of that unit; 0 or more = exactly that many for every human player, whatever the lord (0 removes the unit). Maximum 1000.
+[code]
+["Skirmish Starting Troops"]
+ApplyToAI = false   # true = AI lords get these numbers too, instead of the starting troops of their AI file
+
+["Skirmish Starting Troops".Normal]
+# Game (before the AI advantage scaling): European lord 5 Archer + 7 Spearman; Arabian lord 6 ArabianBow + 6 Slave; Bedouin lord 10 Skirmisher
+Archer = 20         # 20 Archers for every human player
+Spearman = -1       # the game's number (7 for a European lord, 0 for the others)
+Knight = 4
+[/code]
+[list]
+[*]Units: Archer, Crossbowman, Spearman, Pikeman, Maceman, Swordsman, Knight, Engineer, Monk, ArabianBow, Slave, Slinger, Assassin, HorseArcher, ArabianSwordsman, FireThrower, ArabianBallista, CamelLancer, BedouinHealer, Eunuch, Ambusher, Skirmisher, HeavyCamel, Sapper, Demolisher (the 25 kinds the game's own delivery can hand out).
+[*]The comment above each table lists the game's own numbers, read from the game at launch. The game scales them with the lobby's AI advantage setting; a number you set is used as it is.
+[*]Not changed: trails and their missions, campaign missions, and loading a saved game.
+[*]Multiplayer: everyone needs the same values; host config sync sends this file to the players.
+[*]The log shows every skirmish start: [b][Skirmish Starting Troops] Normal start: player 1 (human): Archer 5 -> 20; player 2 (AI) unchanged (ApplyToAI = false)[/b], or why nothing was changed. If a game update moves the troop table the setting switches itself off and the log says so.
+[*]How it works: at every skirmish start the game fills a troop queue for each player from its table (humans) or the AI file (AI lords); the mod replaces the numbers you set in that queue right after the game filled it. Measured in a real skirmish: with Archer = 3, Spearman = 0, Knight = 2 the human player received exactly 3 Archers, no Spearmen and 2 Knights (the game: 5 Archers + 7 Spearmen), while the AI lord kept its own troops.
+[/list]
+
 [b]Trade Prices[/b]
 
 Override the market buy/sell price for individual goods. [b]0 = use the game's default price[/b] (no override). Requires a Trade Post. Re-applied at every session start: new game, trail / campaign map, and loading a saved game (v2.6.5+; earlier versions skipped loaded saves). Every applied price is logged with a read-back from the game, e.g. [b][Trade Prices] STORED_BOWS: buy 155 -> 52, sell 75 -> 25 (read back 52/25)[/b].
@@ -359,6 +381,7 @@ MaxCount = -1                      # -1 = unlimited (default)
 [*][b]KnightRunSpeedBonus / ArabHorsemanRunSpeedBonus / BedouinCamelLancerRunSpeedBonus / BedouinHeavyCamelRunSpeedBonus[/b] (only in that unit's section) — how much faster the mounted unit is while it runs. [b]Higher = faster[/b], the opposite of Speed; the game's value is 2 for all four. 0 = walking pace. Gains get smaller as the value rises (traced in the game code). Values of 32768 and above count as negative and stop the unit while it runs, so stay well below that. It does not change a normal move order: a Knight walked 20 tiles in the same time at 0, 2 and 8 (311-315 ticks, measured in game); the game applies the bonus only in one AI state of the unit.
 [*][b]ShieldHealth[/b] — Bedouin Demolisher only: shield durability (game default 40000). The game stores it in 16 bits, so [b]65535 is the maximum[/b]; a larger value is clamped to 65535 and a warning is logged.
 [*][b]RequiresHorse[/b] — When true, hiring needs a free stable horse and the unit occupies that stable slot until it dies. Add [b]RequiresHorse = true[/b] to any recruitable unit's section: Barracks units are checked by the game itself, Mercenary Post units (Horse Archer, Camel Lancer, Heavy Camel, ...) by the mod at hire time (the hire is refused when no horse is free; a batch request is trimmed to the free horses). The Mercenary Post hover shows no horse icon - that UI is hard-wired to the Barracks.
+[*][b]GoodYieldMultiplier[/b] (workers only, new) - how many goods a worker carries back per work cycle, as a multiple of the game's amount: [b]2[/b] = twice as much, [b]0.5[/b] = half, [b]-1[/b] or [b]1[/b] = the game's amount. Greater than 0, at most 100. Fractions add up over the trips: 1.25 on a trip of 3 gives 3, 4, 4, 4. The game's productivity bonus is added on top of the multiplied amount, and one trip is at most 32767. Workers: Woodcutter, Fletcher, Hunter, Quarry Grunt (stone), Pitchman, Wheat / Hops / Apple / Dairy farmer, Miller, Baker, Brewer, Poleturner, Blacksmith, Armourer, Tanner, Miner (iron; [b]CHIMP_TYPE_MINER2[/b]). The Quarry Mason, the quarry Ox and [b]CHIMP_TYPE_MINER1[/b] never deliver goods themselves, so they do not get the setting. Measured in game: a Woodcutter with GoodYieldMultiplier = 2 carried 24 planks instead of 12, and the Stockpile gained exactly 24 wood.
 [*][b]MaxCount[/b] — Limit on units of this type alive at once for the local player. [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (cannot be recruited at all), [b]>0[/b] = max alive at once. Recruiting at/over the cap is refused up front (no gold spent); a request for more than the remaining room is trimmed to fit. A value typed into the lobby tab replaces this one (see "Limits in the lobby (MaxCount)").
 [*][b]AttackRange[/b] (ranged units only, new in 2.8.0) - how far the unit picks targets and, for normal arrows, bolts, stones and siege shots, how far the projectile flies, in [b]map tiles[/b]. The [b]# Default:[/b] comment shows the game's current range. Maximum 32767 (larger values are clamped with a warning). Units: Archer, Arabian Bow (Arab archer), Horse Archer, Crossbowman, Slinger, Fire Thrower (grenadier), Bedouin Ambusher, Bedouin Skirmisher, Catapult, Trebuchet, Mangonel, Ballista, Arabian Ballista. While [b]EngageRange[/b] is -1, the distance at which idle units react is scaled with AttackRange (game value x your AttackRange / game AttackRange), so a higher AttackRange really makes idle soldiers start shooting from farther away (2.9.1).
 [*][b]EngageRange[/b] (ranged units only, new in 2.8.0, reworked in 2.9.1) - in [b]map tiles[/b]: how far away an enemy can be when an idle unit notices it and starts to engage. The [b]# Default:[/b] comment shows the game's value: 50 tiles for archers, crossbowmen, Arabian bows, slingers, fire throwers and skirmishers, 54 for horse archers and Bedouin heavy camels, 85 for ballistas. [b]-1[/b] = the game's value, scaled with AttackRange when you set one. EngageRange does not change how far the unit can shoot: an enemy noticed beyond AttackRange is only shot once it comes within AttackRange (measured: EngageRange 80 with the game's AttackRange 54 still first shot at 48 tiles). Maximum 4000 tiles. Units: Archer, Arabian Bow, Horse Archer, Crossbowman, Slinger, Fire Thrower, Bedouin Skirmisher, Bedouin Heavy Camel, Ballista, Arabian Ballista. The Catapult, Trebuchet and Mangonel have no engage check in the game, so they do not get the setting.
@@ -396,6 +419,8 @@ MaxCount = 3                      # cap: limit Hovels to 3
 Same as units: each numeric stat defaults to [b]-1[/b] = "use the game default" (unchanged); set a real number to override. Cost properties with a default of 0 are omitted for cleanliness — you can add them manually (e.g. [b]StoneCost = 10[/b]) and the mod will apply them.
 
 [b]Available Properties:[/b] Health, GoldCost, WoodCost, StoneCost, IronCost, PitchCost, HousingPopulationSpace, MaxCount
+
+[b]Stockpile[/b] ([b][STRUCT_GOODS_YARD][/b], new): free in the game. Its section has only the five costs ([b]GoldCost[/b], [b]WoodCost[/b], [b]StoneCost[/b], [b]IronCost[/b], [b]PitchCost[/b], each [b]-1 # Default: 0[/b]); no Health, housing or MaxCount. With a cost set, placing a Stockpile costs it like any other building, and the build menu shows the cost. Measured in game: with GoldCost = 20 and WoodCost = 5, placing a Stockpile took exactly 20 gold and 5 wood.
 
 [b]MaxCount[/b] for buildings: [b]-1[/b] = unlimited (default), [b]0[/b] = disabled, [b]>0[/b] = max placed at once. Unlike units, building placement is refused [b]up front[/b] (like the game's own placement rules) — no resources are spent, and loading a save never removes buildings you already had.
 

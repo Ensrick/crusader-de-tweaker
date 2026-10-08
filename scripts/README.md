@@ -142,6 +142,8 @@ editor map and checks team colours on the real palettes / UI tables and Speed ab
 (Catapult 8, Siege Tower 1, two Archers walking 10 tiles at Speed 8 and 1). It writes test values into
 `BepInEx\config\CrusaderDETweaker\` and puts every file back byte for byte afterwards (created files are moved
 into the run folder). Evidence in `logs\selftest-<timestamp>\`. Stops only the process it started.
+It also checks the economy settings (Stockpile cost, worker `GoodYieldMultiplier`, skirmish starting troops);
+`-Only economy` runs the menu / colour / speed-table checks and the economy stages only (a few minutes).
 
 ### `check_game_running.ps1`
 Checks whether Stronghold Crusader DE is currently running. Exit 0 = running, Exit 1 = not.

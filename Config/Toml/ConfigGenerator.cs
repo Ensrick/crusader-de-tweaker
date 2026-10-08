@@ -21,6 +21,7 @@ using CrusaderDETweaker.Config.Toml.Units;
 using CrusaderDETweaker.Config.Toml.Structures;
 using CrusaderDETweaker.Data;
 using SHCDESE.Interop;
+using StartingTroops = CrusaderDETweaker.Config.Core.SkirmishStartingTroops;
 
 namespace CrusaderDETweaker.Config.Toml
 {
@@ -155,8 +156,9 @@ namespace CrusaderDETweaker.Config.Toml
                 filePath: ConfigPaths.Structures,
                 registry: StructurePropertyRegistry.Instance,
                 allEntities: Enum.GetValues(typeof(eStructs)).Cast<eStructs>().ToArray(),
-                nonModifiableEntities: Data.StructureCategories.NonModable,
-                entityTypeName: "structure"
+                nonModifiableEntities: Data.StructureCategories.TomlNonModable,
+                entityTypeName: "structure",
+                hasMaxCount: s => !Data.StructureCategories.IsCostOnly(s)
             );
         }
 
@@ -352,6 +354,8 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine($"AllProductionGoodsAllowed = {FormatBool(ExistingOrDefault(existingToml, "Gameplay Options", "AllProductionGoodsAllowed", false))}");
                 sb.AppendLine();
 
+                WriteSkirmishStartingTroops(sb, existingToml);
+
                 var nonTradeableGoods = new System.Collections.Generic.HashSet<string>
                 {
                     "STORED_NULL",        // null/empty good sentinel — not a real good
@@ -456,7 +460,8 @@ namespace CrusaderDETweaker.Config.Toml
             PropertyRegistry<TEntity> registry,
             TEntity[] allEntities,
             TEntity[] nonModifiableEntities,
-            string entityTypeName)
+            string entityTypeName,
+            Func<TEntity, bool> hasMaxCount = null)
         {
             // Load existing values for migration if file already exists
             TomlTable existingToml = null;
@@ -526,15 +531,18 @@ namespace CrusaderDETweaker.Config.Toml
                             : handler.TryGenerate(entity, sb);
                     }
 
-                    int existingMaxCount = -1;
-                    if (existingSection != null && existingSection.TryGetValue("MaxCount", out var mcVal) && mcVal is long mc)
+                    if (hasMaxCount == null || hasMaxCount(entity))
                     {
-                        existingMaxCount = (int)mc;
-                        // Migrate pre-2.2.1 "0 = no cap" to the new "-1 = unlimited".
-                        if (oldMaxCountScheme && existingMaxCount == 0)
-                            existingMaxCount = -1;
+                        int existingMaxCount = -1;
+                        if (existingSection != null && existingSection.TryGetValue("MaxCount", out var mcVal) && mcVal is long mc)
+                        {
+                            existingMaxCount = (int)mc;
+                            // Migrate pre-2.2.1 "0 = no cap" to the new "-1 = unlimited".
+                            if (oldMaxCountScheme && existingMaxCount == 0)
+                                existingMaxCount = -1;
+                        }
+                        sb.AppendLine($"MaxCount = {existingMaxCount}  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once");
                     }
-                    sb.AppendLine($"MaxCount = {existingMaxCount}  # -1 = unlimited (default), 0 = disabled, >0 = max placed at once");
 
                     sb.AppendLine();
                     processedCount++;
@@ -569,6 +577,58 @@ namespace CrusaderDETweaker.Config.Toml
                     return text.IndexOfAny(new[] { '.', 'E', 'e' }) >= 0 ? text : text + ".0";
                 case string s: return "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
                 default: return fallback;
+            }
+        }
+
+        /// <summary>
+        /// ["Skirmish Starting Troops"] (GitHub #2; Config/Core/SkirmishStartingTroops.cs): ApplyToAI plus one table per
+        /// start option. The comment above each table lists the game's own counts, read from its table.
+        /// </summary>
+        private static void WriteSkirmishStartingTroops(StringBuilder sb, TomlTable existingToml)
+        {
+            string section = StartingTroops.Section;
+            bool readable = StartingTroops.TryResolve(out string problem);
+
+            sb.AppendLine("# ========================================");
+            sb.AppendLine("# Crusader DE Tweaker - Skirmish Starting Troops");
+            sb.AppendLine("# ========================================");
+            sb.AppendLine("# The soldiers each player receives at the start of a custom skirmish (single player or multiplayer); the");
+            sb.AppendLine("# game delivers them in groups of up to 9 every 200 game ticks. One table per start option of the lobby.");
+            sb.AppendLine("# -1 = the game's number of that unit (it depends on the lord and on the AI advantage setting).");
+            sb.AppendLine("# 0 or more = exactly that many for every human player, whatever the lord; 0 removes the unit. Maximum 1000.");
+            sb.AppendLine("# Trails, campaign missions and loaded saves are not changed. Multiplayer: everyone needs the same values");
+            sb.AppendLine("# (host config sync sends this file). The log shows each start: [Skirmish Starting Troops] ...");
+            sb.AppendLine($"[\"{section}\"]");
+            sb.AppendLine($"ApplyToAI = {FormatBool(ExistingOrDefault(existingToml, section, "ApplyToAI", false))}  # true = AI lords get these numbers too (instead of the starting troops of their AI file)");
+            sb.AppendLine();
+
+            var levels = StartingTroops.Levels;
+            var slots = StartingTroops.Slots;
+            for (int level = 0; level < levels.Length; level++)
+            {
+                sb.AppendLine($"[\"{section}\".{levels[level]}]");
+                if (readable)
+                {
+                    var factions = new List<string>();
+                    for (int f = 0; f < StartingTroops.FactionRows.Length; f++)
+                    {
+                        int[] row = StartingTroops.ReadRow(
+                            StartingTroops.FactionRows[f] + level);
+                        var units = slots.Where(s => row[s.Slot] > 0).Select(s => $"{row[s.Slot]} {s.Key}");
+                        factions.Add($"{StartingTroops.FactionNames[f]} {string.Join(" + ", units)}");
+                    }
+                    sb.AppendLine($"# Game (before the AI advantage scaling): {string.Join("; ", factions)}");
+                }
+                else
+                {
+                    sb.AppendLine($"# This setting is switched off: {problem}");
+                }
+                foreach (var slot in slots)
+                {
+                    long count = ExistingOrDefaultNested(existingToml, section, levels[level], slot.Key, -1L);
+                    sb.AppendLine($"{slot.Key} = {count}");
+                }
+                sb.AppendLine();
             }
         }
 

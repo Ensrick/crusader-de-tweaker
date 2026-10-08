@@ -33,12 +33,22 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
             );
 
             value = GetCost(cost);
-            return value > 0;
+            // The Stockpile costs nothing in the game; it shows all five costs at "-1 # Default: 0".
+            return value > 0 || StructureCategories.IsCostOnly(structure);
         }
 
         protected override bool TryGetOriginalValue(eStructs entity, out int defaultValue)
         {
             return TryGetFromAPI(entity, out defaultValue);
+        }
+
+        // Remember the game's cost even when it is 0 (TryGetFromAPI skips zero costs to keep the file short),
+        // so setting a cost back to -1 restores 0 exactly (TemplateBaseline).
+        protected override System.Action CaptureBaselineRestore(eStructs structure)
+        {
+            if (StructureCategories.IsWall(structure)) return null;
+            int original = GetCost(Plugin.BuildingApi.GetDefaultCost(structure));
+            return () => SetToAPI(structure, original);
         }
 
         protected override void SetToAPI(eStructs structure, int value)

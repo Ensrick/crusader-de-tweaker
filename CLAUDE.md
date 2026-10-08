@@ -59,7 +59,8 @@ PluginInfo.cs                # Single source of truth: GUID / name / version
 Plugin.cs                    # BepInEx entry point
 Config/
 ├── ConfigManager.cs         # Orchestrates the 4 IConfigSystems
-├── Core/                    # IConfigSystem, AtomicFileWriter, StableTracking, TemplateBaseline, UnitTransitionDispatcher
+├── Core/                    # IConfigSystem, AtomicFileWriter, StableTracking, TemplateBaseline, UnitTransitionDispatcher,
+│                            #   GameCode (native pattern lookup), GoodYield, SkirmishStartingTroops
 ├── Sync/                    # Multiplayer host config sync: ConfigSyncCodec (pure), ConfigSyncManager, ConfigSyncLobbySettings
 ├── BepInEx/                 # Real-time multipliers (event hooks, no restart)
 │   ├── Core/                # BepInExConfigHelper, ConfigSystemInitializer, IBepInExConfigSystem
@@ -153,6 +154,25 @@ no comparison against captured original defaults; that subsystem was deleted.
   EngageRange 80 run without crashing.
 - InteractRange is not exposed (UI-only; SE squares it in a signed 32-bit int).
 - Known limit (document, do not work around): special projectile modes can bypass AttackRange.
+
+### Economy settings (unreleased, branch feature/economy)
+
+- **Stockpile cost** (GitLab #8): `STRUCT_GOODS_YARD` stays in `StructureCategories.NonModable` (matrices, multipliers)
+  but is "cost only" (`IsCostOnly`, `TomlNonModable`): its Structures section has just the five costs (`-1 # Default: 0`),
+  no Health / housing / MaxCount. The game charges the row like any building: pay function RVA 0xC8A90 (no Stockpile
+  exception), called by the build RVA 0x6D580 at 0x6DF40 unless free, affordability RVA 0xCC420. The map editor
+  never charges (game type 1, 0xC8ABE), so the self-test switches the game type to 2 for two `CreatePrefab` calls.
+  [unverified in game] The game copies the default cost table into the per-map table only once per process (RVA
+  0xC33A0, guard byte 0x8F9BE0 is only ever set), so building costs written after the first map (host sync) may
+  not reach the per-map table.
+- **GoodYieldMultiplier** (GitHub #1, `Config/Core/GoodYield.cs`): 17 worker types call the yield function RVA
+  0x18D940 at the end of a work cycle; SE's `OnCalculateBonusYield` Pre scales `GoodAmount` (per-unit remainder in
+  thousandths), Post clamps the 16-bit carried count. Never use `SkipOriginalFunction` there (returns 0).
+- **Skirmish starting troops** (GitHub #2, `Config/Core/SkirmishStartingTroops.cs`): the per-player queue at RVA
+  0x382D354 + p * 0x70 (28 slots) that the skirmish start handler RVA 0x94350 rebuilds; written on `OnStartMap` Post
+  for custom skirmishes only (canary in unread slot 7 proves the rebuild). Measured in a real headless skirmish (self-test,
+  `FRONT_Multiplayer.RestartSkirmishGame`): Archer 3 / Spearman 0 / Knight 2 arrived exactly; control 5 + 7. Never use SE's
+  `Get/SetPlayerSkirmishDefaultUnitsAmount` (AIV buffer, `(0x220A + unit) / 4` puts 4 unit types in one slot).
 
 ### Team colours (v2.9.0, GameplaySettings `["Team Colors"]`)
 
@@ -370,6 +390,9 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | `["Team Colors"]` (sprite palettes + UI colour tables, managed only) | `Config/Core/TeamColors.cs` |
 | `["Apothecary Healing"]` (heal pass on the game tick, combat stamps) | `Config/Core/ApothecaryHealing.cs` |
 | Lobby MaxCount boxes (lobby tab -> cap tables) | `Config/Sync/LobbyMaxCounts.cs` |
+| Units `GoodYieldMultiplier` (worker yield hook) | `Config/Core/GoodYield.cs` |
+| `["Skirmish Starting Troops"]` (start troop queue) | `Config/Core/SkirmishStartingTroops.cs` |
+| Native code / data lookup by pattern (CrusaderDE.dll on disk) | `Config/Core/GameCode.cs` |
 
 ---
 
@@ -422,7 +445,7 @@ Enable debug: `BepInEx\config\BepInEx.cfg` → `LogLevels = ..., Debug`
 handlers only, make no game-API calls, and log PASS/FAIL to `BepInEx\LogOutput.log`. A regression in
 core logic shows up in the log immediately. Do not gate or remove it.
 
-Nine suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**, **TemplateBaseline** (the one template write path: apply N times == once), **ConfigSync** (host config sync package), **TeamColors** (team colour parsing + palette restore-then-apply), **ApothecaryHealing** (section parsing, heal amount, footprint distance, healed types), **LobbyMaxCounts** (lobby MaxCount box input, synced string, overlay). Look for:
+Ten suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**, **TemplateBaseline** (the one template write path: apply N times == once), **ConfigSync** (host config sync package), **TeamColors** (team colour parsing + palette restore-then-apply), **ApothecaryHealing** (section parsing, heal amount, footprint distance, healed types), **LobbyMaxCounts** (lobby MaxCount box input, synced string, overlay), **Economy** (GoodYieldMultiplier scaling, starting troops parsing and apply decision). Look for:
 ```
 === CORE LOGIC UNIT TEST SUITE ===
   [PASS] PropertyHandler: N test(s)
@@ -434,11 +457,12 @@ Nine suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**,
   [PASS] TeamColors: N test(s)
   [PASS] ApothecaryHealing: N test(s)
   [PASS] LobbyMaxCounts: N test(s)
-=== ALL 9 TEST SUITES PASSED ===
+  [PASS] Economy: N test(s)
+=== ALL 10 TEST SUITES PASSED ===
 ```
 
 Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/PropertyRegistryTest.cs`,
-`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`, `Tests/TemplateBaselineTest.cs`, `Tests/ConfigSyncTest.cs`, `Tests/TeamColorsTest.cs`, `Tests/ApothecaryHealingTest.cs`, `Tests/LobbyMaxCountsTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
+`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`, `Tests/TemplateBaselineTest.cs`, `Tests/ConfigSyncTest.cs`, `Tests/TeamColorsTest.cs`, `Tests/ApothecaryHealingTest.cs`, `Tests/LobbyMaxCountsTest.cs`, `Tests/EconomyTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
 
 ---
 
@@ -468,7 +492,7 @@ CHANGELOG entry + install/uninstall header). Never hand-edit it; edit the guide 
 `test_headless.ps1` + `Tests/HeadlessSelfTest.cs` (opt-in: only `-batchmode -cdt-selftest <result>` starts it)
 reach what the mock suites cannot: real palettes / UI tables and real units on a disposable editor map
 (pattern from shcde-naval-mod `runtime/test-headless.ps1`). Batch mode raises no menu map unload before the
-editor map, so the menu-path colour apply is called directly there. Extend it for new in-game features.
+editor map, so the menu-path colour apply is called directly there. Extend it for new in-game features. Economy stages: `Tests/HeadlessSelfTest.Economy.cs` (partial class); `test_headless.ps1 -Only economy` runs just those (minutes, for iterating).
 
 ### Checking Unit Categories
 ```csharp
@@ -535,5 +559,5 @@ and `info.json`**; packaging and ship preflight refuse a mismatch.
 3. **Three-tier config**: TOML → CSV matrices → BepInEx multipliers
 4. **CSV is the only damage tier**; rows = defenders, columns = attackers; `-1` = leave unchanged
 5. **Build**: `.\scripts\build.ps1` then `.\scripts\deploy.ps1`; **ship**: `.\scripts\ship.ps1`
-6. **Test**: Launch game, check `LogOutput.log` (the 9 test suites run on load)
+6. **Test**: Launch game, check `LogOutput.log` (the 10 test suites run on load)
 7. **AI dev comments** at top of every .cs file

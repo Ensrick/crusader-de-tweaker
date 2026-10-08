@@ -43,8 +43,9 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
 
         internal override bool CanApplyTo(eStructs structure)
         {
-            // All structures can have health modified (walls are in NonModableStructures and won't be processed)
-            return true;
+            // All structures can have health modified (walls are in NonModableStructures and won't be processed),
+            // except the cost-only Stockpile.
+            return !Data.StructureCategories.IsCostOnly(structure);
         }
 
         internal override bool ValidateValue(uint value)

@@ -88,6 +88,11 @@ namespace CrusaderDETweaker.Config.Toml.Core
             sb.AppendLine("#                  the game, Mercenary Post units (Horse Archer, Camel Lancer, ...) by the mod at hire time.");
             sb.AppendLine("# ShieldHealth:  Shield durability for the Bedouin Demolisher. The game stores it in 16 bits: maximum 65535");
             sb.AppendLine("#                  (a larger value is clamped to 65535 and logged).");
+            sb.AppendLine("# GoodYieldMultiplier: Workers only (Woodcutter, Fletcher, Hunter, Quarry Grunt, Pitchman, the four farmers,");
+            sb.AppendLine("#                  Miller, Baker, Brewer, Poleturner, Blacksmith, Armourer, Tanner, iron Miner): goods carried back");
+            sb.AppendLine("#                  per work cycle, as a multiple of the game's amount. 2 = twice as much, 0.5 = half; fractions");
+            sb.AppendLine("#                  add up over the trips (1.25 on 3 goods gives 3, 4, 4, 4). Greater than 0, at most 100.");
+            sb.AppendLine("#                  -1 or 1 = the game's amount. The game's productivity bonus is added on top.");
             sb.AppendLine("# MaxCount:      Limit on units of this type alive at once for the local player.");
             sb.AppendLine("#                  -1 = unlimited (default), 0 = disabled (every spawn removed), >0 = max alive. Excess removed on spawn.");
             sb.AppendLine("#");
@@ -116,6 +121,8 @@ namespace CrusaderDETweaker.Config.Toml.Core
         {
             sb.AppendLine("# Health: Maximum hit points");
             sb.AppendLine("# GoldCost, WoodCost, StoneCost, IronCost, PitchCost: Building costs");
+            sb.AppendLine("#   [STRUCT_GOODS_YARD] is the Stockpile: free in the game, it has only these five costs. Placing one");
+            sb.AppendLine("#   then costs them like any other building, and the build menu shows the cost.");
             sb.AppendLine("# HousingPopulationSpace: Population capacity (housing structures only)");
             sb.AppendLine("# MaxCount: Limit on buildings of this type placed at once for the local player.");
             sb.AppendLine("#            -1 = unlimited (default), 0 = disabled (every placement removed), >0 = max placed. Excess removed on placement.");
