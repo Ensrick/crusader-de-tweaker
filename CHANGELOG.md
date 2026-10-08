@@ -1,3 +1,8 @@
+2.9.1 - Range diagnostics (unreleased):
+
+       - **The log now shows every applied range.** Each `AttackRange` / `EngageRange` you set writes one line when it is applied, with the game's default and the value the Script Extender reports back, for example `[AttackRange] CHIMP_TYPE_XBOWMAN: 80 tiles (game default 54); Script Extender reports 80.` A value that does not take is logged as a warning. Before this, ranges were applied silently, so a bug report could not show them (GitHub #4).
+       - Developer: the windowless self-test (`scripts/test_headless.ps1`) now measures range behaviour in game: an idle Crossbowman and an enemy Pikeman are placed 96, 84, ... 24 tiles apart until the Pikeman takes damage, once with the game's ranges, once with `AttackRange = 80` only and once with `AttackRange = 80` + `EngageRange = 80`. Runner timeout raised to 900 s.
+
 2.9.0 - Team colors; Speed above 6 (2026-10-07):
 
        - **Fix: `Speed` above 6 is accepted (0-30), so a unit can be made slower than the game's slowest.** A Catapult set to `Speed = 8` was rejected (`Speed for CHIMP_TYPE_CATAPULT: Invalid value 8`) because the mod allowed only 0-6, copying the Script Extender's limit. The game has no such limit: Speed is the number of ticks a unit waits between movement steps (0 = fastest), read once when the unit is created (traced in the game code). Values 0-6 still go through the Script Extender's setter; 7-30 are written into the same Script Extender speed table, so its reset on map unload still covers them. Reported on GitLab (#6, "Catapult not slow enough").

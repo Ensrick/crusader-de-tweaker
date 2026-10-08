@@ -73,6 +73,13 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
             Plugin.Logger.LogWarning($"[{property}] {unit}: {value} is above the maximum {max} (the Script Extender stores it as a signed 16-bit value); using {max}.");
             return max;
         }
+
+        /// <summary>One line per applied range override, with the Script Extender's read-back (a mismatch is a warning).</summary>
+        internal static void LogApplied(string property, eChimps unit, string applied, bool readBackOk, string readBack)
+        {
+            if (readBackOk) Plugin.Logger.LogInfo($"[{property}] {unit}: {applied}; {readBack}.");
+            else Plugin.Logger.LogWarning($"[{property}] {unit}: {applied}, but {readBack}. The override did not take.");
+        }
     }
 
     /// <summary>AttackRange (map tiles) for ranged unit types. -1 = game default (no override).</summary>
@@ -97,8 +104,15 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
         protected override void SetToAPI(eChimps unit, int value)
         {
             int tiles = UnitRanges.ClampWithWarning(Name, unit, value, UnitRanges.MaxStoredValue);
-            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(),
-                () => Plugin.UnitApi.SetUnitAttackRange(unit, tiles));
+            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(), () =>
+            {
+                Plugin.UnitApi.SetUnitAttackRange(unit, tiles);
+                // Read back through SE so the log proves what the game's range hooks will see.
+                int now = Plugin.UnitApi.GetUnitAttackRange(unit);
+                int native = SHCDESE.API.GameProjectileManagerAPI.Instance.GetAttackRangeTiles(
+                    SHCDESE.API.GameUnitManagerAPI.GetDefaultAttackRangeProjectileType(unit));
+                UnitRanges.LogApplied(Name, unit, $"{tiles} tiles (game default {native})", now == tiles, $"Script Extender reports {now}");
+            });
         }
 
         /// <summary>The game state before this mod wrote the cell is "no override": restore = Reset.</summary>
@@ -144,8 +158,15 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
         protected override void SetToAPI(eChimps unit, int value)
         {
             int tiles = UnitRanges.ClampWithWarning(Name, unit, value, UnitRanges.MaxEngageTiles);
-            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(),
-                () => Plugin.UnitApi.SetEngageRange(unit, tiles * UnitRanges.WorldUnitsPerTile));
+            int world = tiles * UnitRanges.WorldUnitsPerTile;
+            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(), () =>
+            {
+                Plugin.UnitApi.SetEngageRange(unit, world);
+                int now = Plugin.UnitApi.GetEngageRange(unit);
+                int observed = Plugin.UnitApi.GetDefaultEngageRange(unit);
+                string native = observed > 0 ? $"game default {observed / (double)UnitRanges.WorldUnitsPerTile:0.#}" : "game default not observed yet";
+                UnitRanges.LogApplied(Name, unit, $"{tiles} tiles = {world} world units ({native})", now == world, $"Script Extender reports {now} world units");
+            });
         }
 
         /// <summary>The game state before this mod wrote the cell is "no override": restore = Reset.</summary>

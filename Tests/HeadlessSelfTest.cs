@@ -14,7 +14,12 @@
 //   3. Spawns a Catapult and a Siege Tower (speed fields must equal the configured 8 / 1), then two
 //      Archers 10 tiles from a target: one created while the table says 8, one after setting the table
 //      to 1. Both walk the same 10 tiles; the Speed 8 archer must take clearly longer (ticks counted).
-//   4. Writes PASS / FAIL + details to the result file and quits.
+//   4. Ranges: checks the Crossbowman AttackRange / EngageRange from the Units file reached the Script
+//      Extender, then measures behaviour in three phases (game ranges, AttackRange only, AttackRange +
+//      EngageRange): an idle Crossbowman (player 1) and an enemy Pikeman (player 2) are placed at
+//      96, 84, ... 24 tiles apart, closer each 200 ticks, until the Pikeman loses health. The first
+//      damaging distance is the effective engage distance; an override must beat the game phase.
+//   5. Writes PASS / FAIL + details to the result file and quits.
 //
 // IMPORTANT FOR AI AGENTS:
 // - Keep the constants in sync with scripts/test_headless.ps1, which writes them into the configs.
@@ -42,6 +47,29 @@ namespace CrusaderDETweaker.Tests
         private static readonly Color RedOverride = new Color(0f, 1f, 0f);    // Red = [0, 255, 0]
         private static readonly Color BlueOverride = new Color(1f, 0f, 1f);   // Blue = "#FF00FF"
         private const int WalkTiles = 10;
+
+        // Crossbowman ranges written by scripts/test_headless.ps1 (tiles; the game's AttackRange is 54).
+        internal const int XbowAttackRange = 80, XbowEngageRange = 80;
+        private static readonly int[] RangeLadder = { 96, 84, 72, 60, 48, 36, 24 };
+        private const int TicksPerRung = 200, RangeShooterX = 340, RangeY = 400;
+        private const eChimps RangeShooter = eChimps.CHIMP_TYPE_XBOWMAN, RangeTarget = eChimps.CHIMP_TYPE_PIKEMAN;
+
+        private sealed class RangePhase
+        {
+            internal string Name;
+            internal bool Attack, Engage;
+            internal int HitAt = -1;
+            internal string Detail = "not run";
+        }
+
+        private readonly RangePhase[] _rangePhases =
+        {
+            new RangePhase { Name = "game ranges (control)" },
+            new RangePhase { Name = $"AttackRange {XbowAttackRange} only", Attack = true },
+            new RangePhase { Name = $"AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange}", Attack = true, Engage = true },
+        };
+        private int _phase = -1, _rung, _shooter, _target, _targetHp, _rungTick;
+        private int _catapult, _tower;
 
         private readonly string _result;
         private readonly StringBuilder _details = new StringBuilder();
@@ -137,8 +165,11 @@ namespace CrusaderDETweaker.Tests
                         Check("Archer walk time",
                             _fastTicks > 0 && _slowTicks > _fastTicks * 2.5,
                             $"{WalkTiles} tiles: Speed {FastArcherSpeed} took {_fastTicks} ticks, Speed {ArcherSpeed} took {_slowTicks} ticks (ratio {(_fastTicks > 0 ? (double)_slowTicks / _fastTicks : 0):0.00}; the game's step formula predicts about 4.5 with no speed bonus)");
-                        Finish();
+                        StartRangeTest();
+                        _stage = 3; _deadline = now + 600;
+                        return;
                     }
+                    if (_stage == 3) RangeTick();
                 }
             }
             catch (Exception ex)
@@ -146,6 +177,8 @@ namespace CrusaderDETweaker.Tests
                 _failures++;
                 Note("FAIL exception: " + ex);
                 if (_stage == 2) Note($"progress: slow archer {Pos(_slowArcher)} ticks={_slowTicks}, fast archer {Pos(_fastArcher)} ticks={_fastTicks}");
+                if (_stage == 3) Note($"progress: range phase {_phase}, rung {_rung}, shooter {Pos(_shooter)}, target {Pos(_target)}; " +
+                                      string.Join("; ", _rangePhases.Select(p => p.Name + ": " + p.Detail)));
                 Finish();
             }
         }
@@ -210,10 +243,10 @@ namespace CrusaderDETweaker.Tests
             Check("Speed table Siege Tower", units.GetDefaultSpeed(eChimps.CHIMP_TYPE_SIEGE_TOWER) == SiegeTowerSpeed, $"GetDefaultSpeed={units.GetDefaultSpeed(eChimps.CHIMP_TYPE_SIEGE_TOWER)} (config {SiegeTowerSpeed}, game 3)");
             Check("Speed table Archer", units.GetDefaultSpeed(eChimps.CHIMP_TYPE_ARCHER) == ArcherSpeed, $"GetDefaultSpeed={units.GetDefaultSpeed(eChimps.CHIMP_TYPE_ARCHER)} (config {ArcherSpeed})");
 
-            int catapult = Spawn(eChimps.CHIMP_TYPE_CATAPULT, 395, 400);
-            int tower = Spawn(eChimps.CHIMP_TYPE_SIEGE_TOWER, 395, 406);
-            Check("New Catapult speed", units.GetSpeed(catapult) == CatapultSpeed, $"unit {catapult} speed={units.GetSpeed(catapult)}");
-            Check("New Siege Tower speed", units.GetSpeed(tower) == SiegeTowerSpeed, $"unit {tower} speed={units.GetSpeed(tower)}");
+            _catapult = Spawn(eChimps.CHIMP_TYPE_CATAPULT, 395, 400);
+            _tower = Spawn(eChimps.CHIMP_TYPE_SIEGE_TOWER, 395, 406);
+            Check("New Catapult speed", units.GetSpeed(_catapult) == CatapultSpeed, $"unit {_catapult} speed={units.GetSpeed(_catapult)}");
+            Check("New Siege Tower speed", units.GetSpeed(_tower) == SiegeTowerSpeed, $"unit {_tower} speed={units.GetSpeed(_tower)}");
 
             _slowArcher = Spawn(eChimps.CHIMP_TYPE_ARCHER, 400, 412);
             units.SetDefaultSpeed(eChimps.CHIMP_TYPE_ARCHER, FastArcherSpeed);
@@ -231,12 +264,106 @@ namespace CrusaderDETweaker.Tests
             Note($"Archers ordered {WalkTiles} tiles: slow {slowAt.X},{slowAt.Y} -> {_slowTargetX},{_slowTargetY}; fast {fastAt.X},{fastAt.Y} -> {_fastTargetX},{_fastTargetY}; tick {_startTick}");
         }
 
-        private int Spawn(eChimps type, int x, int y)
+        private int Spawn(eChimps type, int x, int y, int owner = 1)
         {
-            int id = (int)GameUnitManagerAPI.Instance.CreateUnitLocal(1, 1, x, y, 8, type);
-            if (id <= 0) throw new InvalidOperationException($"could not spawn {type}");
+            int id = (int)GameUnitManagerAPI.Instance.CreateUnitLocal(owner, owner, x, y, 8, type);
+            if (id <= 0) throw new InvalidOperationException($"could not spawn {type} for player {owner} at {x},{y}");
             return id;
         }
+
+        // ===================================================
+        // Ranges
+        // ===================================================
+
+        private void StartRangeTest()
+        {
+            var units = GameUnitManagerAPI.Instance;
+            foreach (int id in new[] { _catapult, _tower, _slowArcher, _fastArcher })
+                if (id > 0) units.KillUnit(id);
+
+            int attack = units.GetUnitAttackRange(RangeShooter);
+            int engage = units.GetEngageRange(RangeShooter);
+            int native = GameProjectileManagerAPI.Instance.GetAttackRangeTiles(GameUnitManagerAPI.GetDefaultAttackRangeProjectileType(RangeShooter));
+            Check("Crossbowman ranges reached the Script Extender",
+                attack == XbowAttackRange && engage == XbowEngageRange * UnitRangesWorld,
+                $"AttackRange {attack} tiles (file {XbowAttackRange}, game {native}); EngageRange {engage} world units (file {XbowEngageRange} tiles = {XbowEngageRange * UnitRangesWorld})");
+            Note($"Players 1 and 2 allied: {GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(1, 2)}; teams {GamePlayerManagerAPI.Instance.GetPlayerTeam(1)} / {GamePlayerManagerAPI.Instance.GetPlayerTeam(2)}");
+            NextRangePhase();
+        }
+
+        private const int UnitRangesWorld = 8;   // world units per tile (Config.Toml.Units.Properties.UnitRanges.WorldUnitsPerTile)
+
+        private void NextRangePhase()
+        {
+            var units = GameUnitManagerAPI.Instance;
+            if (_target > 0) units.KillUnit(_target);
+            if (_shooter > 0) units.KillUnit(_shooter);
+            _target = _shooter = 0;
+            if (_phase >= 0) Note($"Range phase '{_rangePhases[_phase].Name}': {_rangePhases[_phase].Detail}");
+
+            _phase++;
+            if (_phase >= _rangePhases.Length)
+            {
+                ReportRanges();
+                Finish();
+                return;
+            }
+            var p = _rangePhases[_phase];
+            if (p.Attack) units.SetUnitAttackRange(RangeShooter, XbowAttackRange); else units.ResetUnitAttackRange(RangeShooter);
+            if (p.Engage) units.SetEngageRange(RangeShooter, XbowEngageRange * UnitRangesWorld); else units.ResetUnitEngageRange(RangeShooter);
+            Note($"Range phase '{p.Name}': AttackRange now {units.GetUnitAttackRange(RangeShooter)} tiles, EngageRange {units.GetEngageRange(RangeShooter)} world units (observed game default {units.GetDefaultEngageRange(RangeShooter)})");
+            _rung = 0;
+            _shooter = Spawn(RangeShooter, RangeShooterX, RangeY);
+            SpawnRungTarget();
+        }
+
+        private void SpawnRungTarget()
+        {
+            _target = Spawn(RangeTarget, RangeShooterX + RangeLadder[_rung], RangeY, owner: 2);
+            _targetHp = GameUnitManagerAPI.Instance.GetCurrentHealth(_target);
+            _rungTick = global::Director.instance.getSimTickCount();
+        }
+
+        private void RangeTick()
+        {
+            var units = GameUnitManagerAPI.Instance;
+            var p = _rangePhases[_phase];
+            int tick = global::Director.instance.getSimTickCount();
+            if (units.GetCurrentHealth(_target) < _targetHp)
+            {
+                var s = units.GetCurrentLocalTilePosition(_shooter);
+                var t = units.GetCurrentLocalTilePosition(_target);
+                double now = Math.Sqrt((double)(t.X - s.X) * (t.X - s.X) + (double)(t.Y - s.Y) * (t.Y - s.Y));
+                p.HitAt = RangeLadder[_rung];
+                p.Detail = $"first damage with the target placed {RangeLadder[_rung]} tiles away, after {tick - _rungTick} ticks (shooter at {s.X},{s.Y}, target at {t.X},{t.Y}, {now:0.#} tiles apart at that moment)";
+                NextRangePhase();
+                return;
+            }
+            if (tick - _rungTick < TicksPerRung) return;
+
+            units.KillUnit(_target);
+            _target = 0;
+            if (++_rung >= RangeLadder.Length)
+            {
+                p.Detail = $"no damage at any distance down to {RangeLadder[RangeLadder.Length - 1]} tiles (shooter at {Pos(_shooter)})";
+                NextRangePhase();
+                return;
+            }
+            SpawnRungTarget();
+        }
+
+        private void ReportRanges()
+        {
+            RangePhase game = _rangePhases[0], attackOnly = _rangePhases[1], both = _rangePhases[2];
+            Check("Range baseline (game ranges)", game.HitAt > 0,
+                game.HitAt > 0 ? $"engaged at {game.HitAt} tiles" : "no engagement at any distance, so the range phases cannot be judged (players not hostile, or the target is unreachable)");
+            Check("AttackRange alone makes the Crossbowman engage farther", game.HitAt > 0 && attackOnly.HitAt > game.HitAt,
+                $"game {Rung(game)}, AttackRange {XbowAttackRange}: {Rung(attackOnly)}");
+            Check("AttackRange + EngageRange make the Crossbowman engage farther", game.HitAt > 0 && both.HitAt > game.HitAt,
+                $"game {Rung(game)}, AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange}: {Rung(both)}");
+        }
+
+        private static string Rung(RangePhase p) => p.HitAt > 0 ? $"engaged at {p.HitAt} tiles" : "no engagement";
 
         private static bool At(int unitId, int x, int y)
         {

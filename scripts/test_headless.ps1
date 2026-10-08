@@ -5,7 +5,8 @@
 .DESCRIPTION
     Launches the game in -batchmode (no window, no sound) with -cdt-selftest. The plugin creates a
     disposable editor map, checks team colours on the real palettes / UI tables and Speed values above
-    the Script Extender's 6 on spawned units, writes PASS / FAIL and quits.
+    the Script Extender's 6 on spawned units, measures how far a Crossbowman engages with the game's
+    ranges, with AttackRange only and with AttackRange + EngageRange, writes PASS / FAIL and quits.
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
     first, the test values below are written, and afterwards every file is put back byte for byte;
@@ -23,7 +24,7 @@
 [CmdletBinding()]
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
-    [int]$TimeoutSeconds = 420
+    [int]$TimeoutSeconds = 900
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -33,6 +34,7 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 # Keep in sync with Tests/HeadlessSelfTest.cs.
 $unitSpeeds = [ordered]@{ 'CHIMP_TYPE_CATAPULT' = 8; 'CHIMP_TYPE_SIEGE_TOWER' = 1; 'CHIMP_TYPE_ARCHER' = 8 }
 $teamColors = [ordered]@{ 'Red' = '[0, 255, 0]'; 'Blue' = '"#FF00FF"' }
+$xbowRanges = [ordered]@{ 'AttackRange' = 80; 'EngageRange' = 80 }   # tiles; the game's Crossbowman AttackRange is 54
 
 if (Get-Process -Name $processName -ErrorAction SilentlyContinue) { throw 'The game is running. Close it first: this script never touches a running game.' }
 if (-not (Get-Process -Name steam -ErrorAction SilentlyContinue)) { throw 'Steam must already be running. This script will not open it.' }
@@ -92,12 +94,13 @@ try {
     }
     $units = [IO.File]::ReadAllText($unitsPath)
     foreach ($k in $unitSpeeds.Keys) { $units = Set-TomlKey $units "[$k]" 'Speed' ([string]$unitSpeeds[$k]) }
+    foreach ($k in $xbowRanges.Keys) { $units = Set-TomlKey $units '[CHIMP_TYPE_XBOWMAN]' $k ([string]$xbowRanges[$k]) }
     [IO.File]::WriteAllText($unitsPath, $units, $utf8)
     $globals = [IO.File]::ReadAllText($globalsPath)
     if ($globals -notmatch '(?m)^\["Team Colors"\]') { $globals = $globals.TrimEnd() + "`r`n`r`n[`"Team Colors`"]`r`n" }
     foreach ($k in $teamColors.Keys) { $globals = Set-TomlKey $globals '["Team Colors"]' $k $teamColors[$k] }
     [IO.File]::WriteAllText($globalsPath, $globals, $utf8)
-    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue)"
+    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Crossbowman AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange)"
 
     $env:SteamAppId = '3024040'; $env:SteamGameId = '3024040'
     $arguments = '-batchmode -nosound -silent-crashes -cdt-selftest "' + $result + '" -logFile "' + (Join-Path $run 'unity.log') + '"'
