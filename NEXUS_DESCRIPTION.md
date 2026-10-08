@@ -2,6 +2,18 @@ Version 2.10.0
 
 Updated for SHC DE v2.8.2 and Script Extender 2.10.1 or newer!
 
+[b]2.10.0: Apothecary healing, lobby limits, Stockpile cost, worker yield, starting troops, army size[/b]
+[list]
+[*][b]New: apothecary healing[/b] (GameplaySettings, ["Apothecary Healing"], off by default): each apothecary heals its owner's wounded soldiers and Lord nearby, out of combat, like the Unofficial Crusader Patch. Set how much, how far, how often and how long after a fight. [b]BedouinHealMultiplier = 0[/b] now really switches Bedouin healing off.
+[*][b]New: unit and building limits (MaxCount) in the lobby[/b]: the Crusader DE Tweaker tab in the lobby's Mod Options has a box for each unit and building; the host's values apply to everyone.
+[*][b]Fix: MaxCount allowed one unit too many[/b] when the game spawns units instead of recruiting them.
+[*][b]New: the Stockpile can cost resources[/b] (Structures file, [STRUCT_GOODS_YARD]). Measured: a Stockpile set to 20 gold + 5 wood took exactly that.
+[*][b]New: GoodYieldMultiplier[/b] (Units file) for the 17 worker types: how many goods a worker carries back per trip. Measured: a woodcutter at 2 delivered 24 wood instead of 12.
+[*][b]New: skirmish starting troops[/b] (GameplaySettings, ["Skirmish Starting Troops"]): the soldiers each player gets at the start of a custom skirmish, per start option. Measured in a real skirmish: exactly the configured 3 archers + 2 knights instead of the game's 5 archers + 7 spearmen.
+[*][b]New: army size[/b] (GameplaySettings, ["Army Size"] UnitLimit, 1000-10000, game 3000): how many units the whole map can hold, which also raises each player's troop limit in skirmish (2 players: 1910 instead of 1410 with 4000).
+[*][b]Fix: gameplay options now apply in regular trails and the campaign[/b]: the game switches its advanced options off at every new map; the mod switches them back on (measured with ImprovedSpearman).
+[/list]
+
 [b]2.9.1: Ranges work; Crossbowman crash fixed[/b]
 [list]
 [*][b]Fix: a higher AttackRange now makes ranged units start shooting from farther away.[/b] Idle soldiers used to react only within 50 tiles whatever you set; the mod now changes that distance in the game itself. With EngageRange left at -1 it grows with AttackRange, so AttackRange alone is enough. Measured in game: an idle Archer with AttackRange 80 shot and hit an enemy 72 tiles away (game: 48); a Crossbowman with AttackRange 80 + EngageRange 80 went from 48 to 72 tiles.
