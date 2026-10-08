@@ -86,6 +86,8 @@ namespace CrusaderDETweaker.Config.Toml.Units
             _instance.Register(new BedouinCamelLancerRunSpeedBonusProperty());
             _instance.Register(new BedouinHeavyCamelRunSpeedBonusProperty());
 
+            _instance.Register(new GoodYieldMultiplierProperty());
+
             Plugin.Logger.LogInfo($"Registered {_instance.Count} unit property handlers");
         }
     }

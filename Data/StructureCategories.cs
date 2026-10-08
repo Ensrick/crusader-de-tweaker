@@ -196,8 +196,21 @@ namespace CrusaderDETweaker.Data
             eStructs.STRUCT_PARADEGROUND_HVY,
             eStructs.STRUCT_PARADEGROUND_TUN,
             eStructs.STRUCT_GATE_WOOD, // not in the game
-            eStructs.STRUCT_GOODS_YARD, // no modable properties, unless I guess someone wants to add a cost or something
+            eStructs.STRUCT_GOODS_YARD, // cost only (see _costOnlySet): stays out of the damage matrices and multipliers
             // add structures that aren't fully supported by SHCDE-SE or modifaible
+        };
+
+        /// <summary>
+        /// Structures that stay non-modifiable everywhere except the Structures TOML, where they get only the
+        /// five build-cost settings (GoldCost / WoodCost / StoneCost / IronCost / PitchCost): no Health, housing or
+        /// MaxCount. The Stockpile (GitLab #8): the game charges its row of the building cost table like any other
+        /// building (CrusaderDE.dll 2.8.2: pay function RVA 0xC8A90 has no Stockpile exception, the player build path
+        /// RVA 0x6D580 calls it at 0x6DF40 unless the placement is free, the affordability check RVA 0xCC420 reads the
+        /// same row). Its game cost is 0 in every resource.
+        /// </summary>
+        private static readonly System.Collections.Generic.HashSet<eStructs> _costOnlySet = new System.Collections.Generic.HashSet<eStructs>
+        {
+            eStructs.STRUCT_GOODS_YARD,
         };
 
         /// <summary>
@@ -207,11 +220,25 @@ namespace CrusaderDETweaker.Data
         internal static readonly eStructs[] NonModable = System.Linq.Enumerable.ToArray(_nonModableSet);
 
         /// <summary>
+        /// The structures the Structures TOML skips: NonModable minus the cost-only structures.
+        /// </summary>
+        internal static readonly eStructs[] TomlNonModable =
+            System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Where(_nonModableSet, s => !_costOnlySet.Contains(s)));
+
+        /// <summary>
         /// Check if a structure is non-modifiable (O(1) lookup).
         /// </summary>
         internal static bool IsNonModifiable(eStructs structure)
         {
             return _nonModableSet.Contains(structure);
+        }
+
+        /// <summary>
+        /// True for a structure whose Structures TOML section holds only the build costs (the Stockpile).
+        /// </summary>
+        internal static bool IsCostOnly(eStructs structure)
+        {
+            return _costOnlySet.Contains(structure);
         }
 
         // ========================================

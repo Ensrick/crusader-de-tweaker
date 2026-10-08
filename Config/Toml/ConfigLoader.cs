@@ -223,6 +223,10 @@ namespace CrusaderDETweaker.Config.Toml
             UnitCapHandler.Subscribe(_unitCaps);
             BuildingCapHandler.Subscribe(_buildingCaps);
 
+            // Units file GoodYieldMultiplier (GitHub #1) and GameplaySettings ["Skirmish Starting Troops"] (GitHub #2).
+            global::CrusaderDETweaker.Config.Core.GoodYield.Subscribe();
+            global::CrusaderDETweaker.Config.Core.SkirmishStartingTroops.Subscribe();
+
             Plugin.Logger.LogInfo("[GlobalConfig] Registered OnUnloadMap + OnStartMap + OnLoadMap + OnLoadSave + OnBuildingSpawn + OnUnitCreate + OnUnitTransition hooks (template settings re-applied after every SE unload reset).");
         }
 
@@ -693,6 +697,7 @@ namespace CrusaderDETweaker.Config.Toml
                 }
                 int cap = (int)mc;
                 if (!Enum.TryParse<eStructs>(kvp.Key, out var structure)) continue;
+                if (Data.StructureCategories.IsCostOnly(structure)) continue;   // the Stockpile takes costs only
                 _buildingCaps[structure] = cap;
             }
             if (_buildingCaps.Count > 0)
@@ -758,7 +763,7 @@ namespace CrusaderDETweaker.Config.Toml
                 var (processedCount, skippedCount, errorCount) = EntityProcessor.ProcessEntities(
                     tomlModel,
                     StructurePropertyRegistry.Instance,
-                    Data.StructureCategories.NonModable,
+                    Data.StructureCategories.TomlNonModable,
                     "structure",
                     TryParseStructure
                 );

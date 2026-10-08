@@ -44,8 +44,9 @@ namespace CrusaderDETweaker.Config.Toml.Structures.Properties
 
         internal override bool CanApplyTo(eStructs structure)
         {
-            // Allow loading for any structure (user can manually add housing to non-housing structures)
-            return true;
+            // Allow loading for any structure (user can manually add housing to non-housing structures),
+            // except the cost-only Stockpile.
+            return !Data.StructureCategories.IsCostOnly(structure);
         }
 
         internal override bool ValidateValue(ushort value)

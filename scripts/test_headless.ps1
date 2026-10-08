@@ -6,7 +6,9 @@
     Launches the game in -batchmode (no window, no sound) with -cdt-selftest. The plugin creates a
     disposable editor map, checks team colours on the real palettes / UI tables and Speed values above
     the Script Extender's 6 on spawned units, measures how far an Archer engages with the game's
-    ranges, with AttackRange only, EngageRange only and both (and a Crossbowman), writes PASS / FAIL and quits.
+    ranges, with AttackRange only, EngageRange only and both (and a Crossbowman), checks the economy settings
+    (Stockpile build cost, worker GoodYieldMultiplier, skirmish starting troops), writes PASS / FAIL and quits.
+    -Only economy runs the menu, colour and speed-table checks and the economy stages only (a few minutes).
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
     first, the test values below are written, and afterwards every file is put back byte for byte;
@@ -24,7 +26,8 @@
 [CmdletBinding()]
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
-    [int]$TimeoutSeconds = 2400
+    [int]$TimeoutSeconds = 2400,
+    [ValidateSet('', 'economy')][string]$Only = ''
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -35,6 +38,9 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 $unitSpeeds = [ordered]@{ 'CHIMP_TYPE_CATAPULT' = 8; 'CHIMP_TYPE_SIEGE_TOWER' = 1; 'CHIMP_TYPE_ARCHER' = 8 }
 $teamColors = [ordered]@{ 'Red' = '[0, 255, 0]'; 'Blue' = '"#FF00FF"' }
 $xbowRanges = [ordered]@{ 'AttackRange' = 80; 'EngageRange' = 80 }   # Archer, tiles; the game's AttackRange is 54, engage distance 50
+$stockpileCost = [ordered]@{ 'GoldCost' = 20; 'WoodCost' = 5 }       # [STRUCT_GOODS_YARD]; the game's Stockpile is free
+$goodYield = [ordered]@{ 'CHIMP_TYPE_WOODCUTTER' = '2.0'; 'CHIMP_TYPE_HUNTER' = '1.25' }   # GoodYieldMultiplier
+$startTroops = [ordered]@{ 'Archer' = 3; 'Knight' = 2 }               # ["Skirmish Starting Troops".Normal]
 
 if (Get-Process -Name $processName -ErrorAction SilentlyContinue) { throw 'The game is running. Close it first: this script never touches a running game.' }
 if (-not (Get-Process -Name steam -ErrorAction SilentlyContinue)) { throw 'Steam must already be running. This script will not open it.' }
@@ -90,6 +96,11 @@ function Set-TomlKey([string]$text, [string]$header, [string]$key, [string]$valu
     return $text.Substring(0, $body.Index) + "$key = $value`r`n" + $text.Substring($body.Index)
 }
 
+function Add-TomlSection([string]$text, [string]$header) {
+    if ($text -match ('(?m)^' + [regex]::Escape($header) + '[ \t]*\r?$')) { return $text }
+    return $text.TrimEnd() + "`r`n`r`n$header`r`n"
+}
+
 $before = Get-ConfigHashes $configDir
 if (Test-Path -LiteralPath $configDir) { Copy-Item -LiteralPath $configDir -Destination $snapshot -Recurse }
 if (Test-Path -LiteralPath $bepLog) { Copy-Item -LiteralPath $bepLog -Destination (Join-Path $run 'LogOutput.before.log') }
@@ -107,15 +118,24 @@ try {
     foreach ($k in $unitSpeeds.Keys) { $units = Set-TomlKey $units "[$k]" 'Speed' ([string]$unitSpeeds[$k]) }
     foreach ($k in $xbowRanges.Keys) { $units = Set-TomlKey $units '[CHIMP_TYPE_ARCHER]' $k ([string]$xbowRanges[$k]) }
     $units = Set-TomlKey $units '[CHIMP_TYPE_XBOWMAN]' 'EngageRange' '80'   # applied through the game constants; crashed with the Script Extender's hook (HeadlessSelfTest.GuardEngageRange)
+    foreach ($k in $goodYield.Keys) { $units = Set-TomlKey $units "[$k]" 'GoodYieldMultiplier' $goodYield[$k] }
     [IO.File]::WriteAllText($unitsPath, $units, $utf8)
     $globals = [IO.File]::ReadAllText($globalsPath)
     if ($globals -notmatch '(?m)^\["Team Colors"\]') { $globals = $globals.TrimEnd() + "`r`n`r`n[`"Team Colors`"]`r`n" }
     foreach ($k in $teamColors.Keys) { $globals = Set-TomlKey $globals '["Team Colors"]' $k $teamColors[$k] }
+    $globals = Add-TomlSection $globals '["Skirmish Starting Troops".Normal]'
+    foreach ($k in $startTroops.Keys) { $globals = Set-TomlKey $globals '["Skirmish Starting Troops".Normal]' $k ([string]$startTroops[$k]) }
     [IO.File]::WriteAllText($globalsPath, $globals, $utf8)
-    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange)"
+    # Older Structures files have no Stockpile section; the launch keeps these values when it adds it.
+    $structuresPath = Join-Path $configDir 'CrusaderDETweaker_Structures.toml'
+    $structures = Add-TomlSection ([IO.File]::ReadAllText($structuresPath)) '[STRUCT_GOODS_YARD]'
+    foreach ($k in $stockpileCost.Keys) { $structures = Set-TomlKey $structures '[STRUCT_GOODS_YARD]' $k ([string]$stockpileCost[$k]) }
+    [IO.File]::WriteAllText($structuresPath, $structures, $utf8)
+    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange); Stockpile GoldCost=$($stockpileCost.GoldCost) WoodCost=$($stockpileCost.WoodCost); GoodYieldMultiplier $($goodYield.Keys | ForEach-Object { "$_=$($goodYield[$_])" }); Skirmish Starting Troops Normal Archer=$($startTroops.Archer) Knight=$($startTroops.Knight)"
 
     $env:SteamAppId = '3024040'; $env:SteamGameId = '3024040'
     $arguments = '-batchmode -nosound -silent-crashes -cdt-selftest "' + $result + '" -logFile "' + (Join-Path $run 'unity.log') + '"'
+    if ($Only) { $arguments += " -cdt-selftest-only $Only" }
     $owned = Start-Process -FilePath $exe -WorkingDirectory $GamePath -ArgumentList $arguments -WindowStyle Hidden -PassThru
     $env:SteamAppId = $oldApp; $env:SteamGameId = $oldGame
     try { $owned.PriorityClass = 'BelowNormal' } catch { }

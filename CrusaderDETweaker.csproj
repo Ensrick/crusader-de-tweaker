@@ -140,6 +140,9 @@
     <Compile Include="Config\Core\AtomicFileWriter.cs" />
     <Compile Include="Config\Core\IConfigSystem.cs" />
     <Compile Include="Config\Core\StableTracking.cs" />
+    <Compile Include="Config\Core\GameCode.cs" />
+    <Compile Include="Config\Core\GoodYield.cs" />
+    <Compile Include="Config\Core\SkirmishStartingTroops.cs" />
     <Compile Include="Config\Core\TeamColors.cs" />
     <Compile Include="Config\Core\TemplateBaseline.cs" />
     <Compile Include="Config\Core\UnitTransitionDispatcher.cs" />
@@ -212,6 +215,7 @@
     <Compile Include="Config\Toml\Units\Properties\ArabHorsemanRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinCamelLancerRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinHeavyCamelRunSpeedBonusProperty.cs" />
+    <Compile Include="Config\Toml\Units\Properties\GoodYieldMultiplierProperty.cs" />
     <Compile Include="Config\Toml\Units\UnitPropertyRegistry.cs" />
     <Compile Include="Tests\CoreTestRunner.cs" />
     <Compile Include="Tests\PropertyHandlerTest.cs" />
@@ -220,8 +224,10 @@
     <Compile Include="Tests\CsvHelperTest.cs" />
     <Compile Include="Tests\ConfigSyncTest.cs" />
     <Compile Include="Tests\TemplateBaselineTest.cs" />
+    <Compile Include="Tests\EconomyTest.cs" />
     <Compile Include="Tests\TeamColorsTest.cs" />
     <Compile Include="Tests\HeadlessSelfTest.cs" />
+    <Compile Include="Tests\HeadlessSelfTest.Economy.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
     <Compile Include="Data\StructureTypeHelpers.cs" />

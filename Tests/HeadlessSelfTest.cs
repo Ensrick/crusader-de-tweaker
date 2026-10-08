@@ -29,7 +29,9 @@
 //      to 300 more ticks for damage. The first shot distance is the effective engage distance. Before 2.9.1 it
 //      was 48 tiles in every Archer phase (idle units woke at 400 world units, SE #195).
 //      A watchdog logs the tick every 60 s and fails the run if the simulation stops for 60 s.
-//   6. Writes PASS / FAIL + details to the result file and quits.
+//   6. Economy (Tests/HeadlessSelfTest.Economy.cs): Stockpile build cost, worker GoodYieldMultiplier, skirmish
+//      starting troops. "-cdt-selftest-only economy" (test_headless.ps1 -Only economy) runs steps 1, 2 and 6 only.
+//   7. Writes PASS / FAIL + details to the result file and quits.
 //
 // IMPORTANT FOR AI AGENTS:
 // - Keep the constants in sync with scripts/test_headless.ps1, which writes them into the configs.
@@ -49,9 +51,10 @@ using UnityEngine;
 
 namespace CrusaderDETweaker.Tests
 {
-    internal sealed class HeadlessSelfTest
+    internal sealed partial class HeadlessSelfTest
     {
         internal const string Flag = "-cdt-selftest";
+        internal const string OnlyFlag = "-cdt-selftest-only";
 
         // Written into the configs by scripts/test_headless.ps1.
         internal const int CatapultSpeed = 8, SiegeTowerSpeed = 1, ArcherSpeed = 8, FastArcherSpeed = 1;
@@ -136,8 +139,13 @@ namespace CrusaderDETweaker.Tests
             _engineLock = typeof(global::EngineInterface).GetField("threadLock", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null)
                           ?? new object();
             _deadline = Time.realtimeSinceStartup + 240;
-            Note("START Crusader DE Tweaker " + PluginInfo.PLUGIN_VERSION + " batch-mode self-test");
+            string[] args = Environment.GetCommandLineArgs();
+            int only = Array.IndexOf(args, OnlyFlag);
+            _only = only >= 0 && only + 1 < args.Length ? args[only + 1] : null;
+            Note("START Crusader DE Tweaker " + PluginInfo.PLUGIN_VERSION + " batch-mode self-test" + (_only != null ? $" (only: {_only})" : ""));
         }
+
+        private readonly string _only;
 
         /// <summary>Starts the self-test when the game was launched with the flag in batch mode; otherwise does nothing.</summary>
         internal static void StartIfRequested()
@@ -203,6 +211,12 @@ namespace CrusaderDETweaker.Tests
                         CheckTeamColors();
                         CheckSpeedTableAndSpawn();
                         _stage = 2; _deadline = now + 180;
+                        if (_only == "economy")
+                        {
+                            foreach (int id in new[] { _catapult, _tower, _slowArcher, _fastArcher }) GameUnitManagerAPI.Instance.KillUnit(id);
+                            _catapult = _tower = _slowArcher = _fastArcher = 0;
+                            StartEconomy(now);
+                        }
                         return;
                     }
                     if (_stage == 2)
@@ -228,14 +242,16 @@ namespace CrusaderDETweaker.Tests
                         }
                         return;
                     }
-                    if (_stage == 3) { if (SimStalled(now)) return; RangeTick(); }
+                    if (_stage == 3) { if (SimStalled(now)) return; RangeTick(); if (_stage == EconomyStage) StartEconomy(now); }
                     else if (_stage == 4) GuardTick(now);
+                    else if (_stage >= EconomyStage) EconomyTick(now);
                 }
             }
             catch (Exception ex)
             {
                 _failures++;
                 Note("FAIL exception: " + ex);
+                if (_stage >= EconomyStage) Note("progress: economy stage " + _stage + "; " + EconomyProgress());
                 if (_stage == 2) Note($"progress: slow archer {Pos(_slowArcher)} ticks={_slowTicks}, fast archer {Pos(_fastArcher)} ticks={_fastTicks}");
                 if (_stage == 5) Note($"progress: knight phase {_kPhase}, knight {Pos(_knight)}; " + string.Join("; ", _knightPhases.Select(KnightName).Zip(_knightPhases, (n, p) => n + ": " + p.Detail)));
                 if (_stage == 3) Note($"progress: range phase {_phase}, rung {_rung}, shooter {Pos(_shooter)}, target {Pos(_target)}; " +
@@ -495,7 +511,7 @@ namespace CrusaderDETweaker.Tests
             {
                 foreach (eChimps t in new[] { eChimps.CHIMP_TYPE_ARCHER, eChimps.CHIMP_TYPE_XBOWMAN }) { UnitRanges.ResetAttackRange(t); EngageDistancePatch.ClearEngage(t); }
                 ReportRanges();
-                Finish();
+                _stage = EconomyStage;   // Tick starts the economy stages next
                 return;
             }
             var p = _rangePhases[_phase];
@@ -667,6 +683,7 @@ namespace CrusaderDETweaker.Tests
         {
             if (_done) return;
             _done = true;
+            RestoreGameType();   // economy stages: the editor map's game type back (no-op otherwise)
             string verdict = _failures == 0 ? "PASS" : "FAIL";
             Note($"END {verdict} ({_failures} failure(s))");
             try { File.WriteAllText(_result, verdict + Environment.NewLine + _details); }
