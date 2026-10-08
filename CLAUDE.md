@@ -170,7 +170,8 @@ no comparison against captured original defaults; that subsystem was deleted.
   thousandths), Post clamps the 16-bit carried count. Never use `SkipOriginalFunction` there (returns 0).
 - **Skirmish starting troops** (GitHub #2, `Config/Core/SkirmishStartingTroops.cs`): the per-player queue at RVA
   0x382D354 + p * 0x70 (28 slots) that the skirmish start handler RVA 0x94350 rebuilds; written on `OnStartMap` Post
-  for custom skirmishes only (canary in unread slot 7 proves the rebuild). Never use SE's
+  for custom skirmishes only (canary in unread slot 7 proves the rebuild). Measured in a real headless skirmish (self-test,
+  `FRONT_Multiplayer.RestartSkirmishGame`): Archer 3 / Spearman 0 / Knight 2 arrived exactly; control 5 + 7. Never use SE's
   `Get/SetPlayerSkirmishDefaultUnitsAmount` (AIV buffer, `(0x220A + unit) / 4` puts 4 unit types in one slot).
 
 ### Team colours (v2.9.0, GameplaySettings `["Team Colors"]`)

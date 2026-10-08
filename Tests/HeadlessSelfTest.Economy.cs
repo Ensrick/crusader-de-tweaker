@@ -20,9 +20,18 @@
 //      everything restored; rebuild: the editor is no custom skirmish, so nothing applied) and a direct write / read-back
 //      of player 1's queue (3 Archers, 2 Knights); the queue is put back. The editor map never delivers the queue:
 //      SKIP note.
+//   4. Real skirmish (last; GitHub #2): a custom skirmish is started through the game's own skirmish restart path
+//      (FRONT_Multiplayer.RestartSkirmishGame, as the in-game "restart" uses it) on the first built-in multiplayer map:
+//      player 1 human, player 2 AI (lord type 0), start option Normal. The runner's file sets Normal Archer 3,
+//      Spearman 0, Knight 2. The mod's OnStartMap Post line must show the write ("Archer 5 -> 3, Spearman 7 -> 0" with
+//      the game's numbers), and within 1500 ticks player 1 must receive exactly 3 Archers, 0 Spearmen and 2 Knights
+//      from the queue (the AI keeps its own troops: ApplyToAI = false). Then the same skirmish is restarted with the mod's
+//      write suspended (control): the game's own 5 Archers + 7 Spearmen must arrive. A provisional FAIL result is written
+//      before the first skirmish starts, so a crash there cannot hide the earlier results.
 //
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using CrusaderDETweaker.Config.Core;
@@ -125,8 +134,8 @@ namespace CrusaderDETweaker.Tests
                     _yieldWatch?.Dispose();
                     _econStep = "starting troops";
                     StartingTroops();
-                    _econStep = "done";
-                    Finish();
+                    _econStep = "real skirmish";
+                    BeginRealSkirmish();
                     return;
             }
         }
@@ -434,6 +443,168 @@ namespace CrusaderDETweaker.Tests
             Note("SKIP Starting troop delivery: the delivery (RVA 0x119050) returns at once in the map editor (game type 1, check at RVA 0x11906C), " +
                  "reads the per-player queue only in the skirmish game mode (0x1190F9), and the editor map never runs the skirmish start handler " +
                  "(RVA 0x94350); traced in the game code only.");
+        }
+
+        // ===================================================
+        // Real skirmish start (GitHub #2): the troops actually arriving
+        // ===================================================
+
+        internal const int SkirmishStage = 30;
+        internal const int SkirmishArchers = 3, SkirmishSpearmen = 0, SkirmishKnights = 2;   // runner: ["Skirmish Starting Troops".Normal]
+        private const int SkirmishDeliveryTicks = 1500;
+        private int _skirmishTick0 = -1, _skArchers0, _skSpearmen0, _skKnights0, _aiTroops0;
+        private bool _skirmishControl;   // second skirmish: the mod's starting troops suspended, the game's own arrive
+        private float _skirmishNoteTime;
+        private string _skirmishMap;
+
+        /// <summary>Called inside the engine lock when the economy stages end: write a provisional FAIL, then start outside the lock.</summary>
+        private void BeginRealSkirmish()
+        {
+            try
+            {
+                File.WriteAllText(_result, "FAIL" + Environment.NewLine + _details +
+                    "FAIL the real skirmish stage did not finish (the game stopped or hung while starting a custom skirmish)" + Environment.NewLine);
+            }
+            catch (Exception ex) { Plugin.Logger.LogError("[SelfTest] could not write the provisional result: " + ex.Message); }
+            _stage = SkirmishStage;
+            _deadline = UnityEngine.Time.realtimeSinceStartup + 240;
+        }
+
+        /// <summary>Starts the skirmish OUTSIDE the engine lock (the game stops the editor's simulation thread and starts its own).</summary>
+        private void StartRealSkirmish()
+        {
+            var maps = global::MapFileManager.Instance;
+            if (maps == null || !maps.fileListLoaded) return;   // wait for the map list
+            var headers = maps.GetMultiplayerMaps(0, true, 2, true, false, false);
+            if (headers == null || headers.Count == 0) throw new InvalidOperationException("no built-in multiplayer map found");
+            global::FileHeader map = headers[0];
+            _skirmishMap = $"{map.display_filename} ({map.maxPlayers} players, {map.filePath})";
+
+            global::EditorDirector.instance.stopGameSim();
+            var setup = global::EngineInterface.initMultiplayerGame(skirmishGame: true);
+            setup.starting_goods_level = 1;   // Normal
+            setup.starting_gamespeed = global::ConfigSettings.Settings_GameSpeed;
+
+            var info = new global::CrusaderDE.HUD_IngameMenu.RestartSkirmishMapInfo
+            {
+                selectedHeader = map,
+                MPsetupData = setup,
+                customisedExtremeTrail = false,
+            };
+            for (int i = 0; i < 8; i++)
+            {
+                info.lordTypes.Add(i == 0 ? -1 : i == 1 ? 1 : -9999);   // human, AI lord type 0 (SetSkirmishPlayer: type * 8 + subtype + 1), empty
+                info.teams.Add(0);
+                info.colours.Add(i + 1);
+            }
+            Note(_skirmishControl
+                ? $"Control skirmish: restarting the same skirmish with the mod's starting troops suspended (fairness {setup.fairness})"
+                : $"Real skirmish: starting a custom skirmish on {_skirmishMap}, player 1 human, player 2 AI, start option Normal " +
+                  $"(fairness {setup.fairness}); file: Normal Archer {SkirmishArchers}, Spearman {SkirmishSpearmen}, Knight {SkirmishKnights}, ApplyToAI false");
+            global::CrusaderDE.MainViewModel.Instance.FRONTMultiplayer.RestartSkirmishGame(info);
+            _stage = SkirmishStage + 1;
+            _deadline = UnityEngine.Time.realtimeSinceStartup + 300;
+        }
+
+        private unsafe void SkirmishTick(float now)
+        {
+            var vm = global::CrusaderDE.MainViewModel.Instance;
+            var director = global::Director.instance;
+            // The skirmish opens on its briefing, which pauses a single-player game (MainViewModel.ButtonGotoBriefing).
+            if (vm.Show_HUD_Briefing) vm.ButtonBriefingResume(null);
+            if (director.Paused) director.SetPausedState(state: false);
+            if (!director.SimRunning || vm.IsMapEditorMode || !director.SkirmishModeGame) return;
+            int tick = director.getSimTickCount();
+            var players = GamePlayerManagerAPI.Instance;
+
+            if (_stage == SkirmishStage + 1)
+            {
+                _skirmishTick0 = tick;
+                CountPlayerTroops(1, out _skArchers0, out _skSpearmen0, out _skKnights0, out _);
+                CountPlayerTroops(2, out _, out _, out _, out _aiTroops0);
+                string result = SkirmishStartingTroops.LastResult ?? "(none)";
+                Note($"Real skirmish running at tick {tick}: game type {players.GetCurrentGameTypeMode()}, skirmish game mode {players.GetCurrentSkirmishGameMode()}, " +
+                     $"start option {players.GetCurrentSkirmishMode()}; players: " + string.Join(", ", Enumerable.Range(1, 2)
+                         .Select(p => $"{p} {(SkirmishStartingTroops.IsHuman(p) ? "human" : players.IsAIPlayer(p) ? "AI" : "-")}")));
+                if (_skirmishControl)
+                    Check("Control skirmish start: the mod left the queue alone", result.StartsWith("Not applied: suspended"), $"[Skirmish Starting Troops] {result}");
+                else
+                Check("Real skirmish start: the mod wrote the configured troops into player 1's queue (OnStartMap Post)",
+                    result.Contains("player 1 (human)") && System.Text.RegularExpressions.Regex.IsMatch(result, $@"player 1 \(human\): [^;]*Archer \d+ -> {SkirmishArchers}")
+                    && System.Text.RegularExpressions.Regex.IsMatch(result, $@"player 1 \(human\): [^;]*Knight \d+ -> {SkirmishKnights}"),
+                    $"[Skirmish Starting Troops] {result}");
+                Note($"Player 1 at the start: {_skArchers0} Archers, {_skSpearmen0} Spearmen, {_skKnights0} Knights; queue Archer {*SkirmishStartingTroops.QueueSlot(1, 0)}, " +
+                     $"Spearman {*SkirmishStartingTroops.QueueSlot(1, 2)}, Knight {*SkirmishStartingTroops.QueueSlot(1, 6)}; player 2 (AI) {_aiTroops0} soldiers");
+                _stage++;
+                return;
+            }
+
+            CountPlayerTroops(1, out int archers, out int spearmen, out int knights, out _);
+            CountPlayerTroops(2, out _, out _, out _, out int aiTroops);
+            int ticks = tick - _skirmishTick0;
+            bool queueEmpty = Enumerable.Range(0, SkirmishStartingTroops.SlotCount).All(slot => slot == SkirmishStartingTroops.CanarySlot || *SkirmishStartingTroops.QueueSlot(1, slot) == 0);
+            if (now - _skirmishNoteTime >= 10f)
+            {
+                _skirmishNoteTime = now;
+                Note($"skirmish progress: tick {tick} (+{ticks}), player 1 Archers {archers}, Spearmen {spearmen}, Knights {knights}; queue empty {queueEmpty}; player 2 (AI) soldiers {aiTroops}");
+            }
+            // Control: the game's own Normal start for a European lord at fairness 3 (100 %): 5 Archers + 7 Spearmen (table row 90).
+            int wantArchers = _skirmishControl ? 5 : SkirmishArchers, wantSpearmen = _skirmishControl ? 7 : SkirmishSpearmen, wantKnights = _skirmishControl ? 0 : SkirmishKnights;
+            bool arrived = archers - _skArchers0 >= wantArchers && spearmen - _skSpearmen0 >= wantSpearmen && knights - _skKnights0 >= wantKnights && queueEmpty;
+            if (!arrived && ticks < SkirmishDeliveryTicks) return;
+            Check(_skirmishControl
+                    ? "Control skirmish (mod suspended): player 1 receives the game's 5 Archers + 7 Spearmen"
+                    : $"Real skirmish: player 1 receives exactly {SkirmishArchers} Archers, {SkirmishSpearmen} Spearmen and {SkirmishKnights} Knights (game: 5 Archers + 7 Spearmen)",
+                archers - _skArchers0 == wantArchers && spearmen - _skSpearmen0 == wantSpearmen && knights - _skKnights0 == wantKnights && queueEmpty,
+                $"after {ticks} ticks: +{archers - _skArchers0} Archers, +{spearmen - _skSpearmen0} Spearmen, +{knights - _skKnights0} Knights; queue empty {queueEmpty}");
+            Note($"Player 2 (AI, ApplyToAI = false, its AI file's troops): {_aiTroops0} -> {aiTroops} soldiers in the same {ticks} ticks");
+            if (!_skirmishControl)
+            {
+                // Same skirmish again with the mod's write suspended: the game's own troops must arrive (the in-game restart path).
+                _skirmishControl = true;
+                SkirmishStartingTroops.SuspendedForSelfTest = true;
+                _stage = SkirmishStage;
+                _deadline = now + 240;
+                return;
+            }
+            SkirmishStartingTroops.SuspendedForSelfTest = false;
+            Finish();
+        }
+
+        /// <summary>Alive Archers / Spearmen / Knights and all military units (types Archer..Knight and the Arabian / Bedouin troops) of a player.</summary>
+        private static void CountPlayerTroops(int player, out int archers, out int spearmen, out int knights, out int soldiers)
+        {
+            archers = spearmen = knights = soldiers = 0;
+            var units = GameUnitManagerAPI.Instance;
+            foreach (int id in units.GetAllAliveUnits())
+            {
+                if (units.GetOwner(id) != player) continue;
+                eChimps t = units.GetType(id);
+                if (t == eChimps.CHIMP_TYPE_ARCHER) archers++;
+                else if (t == eChimps.CHIMP_TYPE_SPEARMAN) spearmen++;
+                else if (t == eChimps.CHIMP_TYPE_KNIGHT) knights++;
+                if (SkirmishStartingTroops.Slots.Any(s => s.Unit == t)) soldiers++;
+            }
+        }
+
+        private int _resumeCount;
+
+        /// <summary>
+        /// The hidden game can still open its in-game menu, which pauses the simulation (seen twice on 2026-10-08: the
+        /// simulation stopped right after the menu's mod list sprites were loaded, once in the knight stage, once in the
+        /// woodcutter window). Close it and resume, so a stage is not lost to it; each event is noted.
+        /// </summary>
+        private void KeepSimRunning()
+        {
+            var vm = global::CrusaderDE.MainViewModel.Instance;
+            var director = global::Director.instance;
+            if (vm == null || director == null) return;
+            bool menu = vm.Show_HUD_IngameMenu, paused = director.Paused;
+            if (!menu && !paused) return;
+            if (menu) vm.Show_HUD_IngameMenu = false;
+            if (paused) director.SetPausedState(state: false);
+            if (_resumeCount++ < 10)
+                Note($"The game had stopped its simulation (in-game menu open {menu}, paused {paused}) at tick {director.getSimTickCount()}, stage {_stage}; closed the menu and resumed");
         }
 
         private static unsafe int[,] SnapshotQueue()

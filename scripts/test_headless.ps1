@@ -40,7 +40,7 @@ $teamColors = [ordered]@{ 'Red' = '[0, 255, 0]'; 'Blue' = '"#FF00FF"' }
 $xbowRanges = [ordered]@{ 'AttackRange' = 80; 'EngageRange' = 80 }   # Archer, tiles; the game's AttackRange is 54, engage distance 50
 $stockpileCost = [ordered]@{ 'GoldCost' = 20; 'WoodCost' = 5 }       # [STRUCT_GOODS_YARD]; the game's Stockpile is free
 $goodYield = [ordered]@{ 'CHIMP_TYPE_WOODCUTTER' = '2.0'; 'CHIMP_TYPE_HUNTER' = '1.25' }   # GoodYieldMultiplier
-$startTroops = [ordered]@{ 'Archer' = 3; 'Knight' = 2 }               # ["Skirmish Starting Troops".Normal]
+$startTroops = [ordered]@{ 'Archer' = 3; 'Spearman' = 0; 'Knight' = 2 }   # ["Skirmish Starting Troops".Normal]; the real skirmish stage expects exactly these
 
 if (Get-Process -Name $processName -ErrorAction SilentlyContinue) { throw 'The game is running. Close it first: this script never touches a running game.' }
 if (-not (Get-Process -Name steam -ErrorAction SilentlyContinue)) { throw 'Steam must already be running. This script will not open it.' }
@@ -131,7 +131,7 @@ try {
     $structures = Add-TomlSection ([IO.File]::ReadAllText($structuresPath)) '[STRUCT_GOODS_YARD]'
     foreach ($k in $stockpileCost.Keys) { $structures = Set-TomlKey $structures '[STRUCT_GOODS_YARD]' $k ([string]$stockpileCost[$k]) }
     [IO.File]::WriteAllText($structuresPath, $structures, $utf8)
-    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange); Stockpile GoldCost=$($stockpileCost.GoldCost) WoodCost=$($stockpileCost.WoodCost); GoodYieldMultiplier $($goodYield.Keys | ForEach-Object { "$_=$($goodYield[$_])" }); Skirmish Starting Troops Normal Archer=$($startTroops.Archer) Knight=$($startTroops.Knight)"
+    Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange); Stockpile GoldCost=$($stockpileCost.GoldCost) WoodCost=$($stockpileCost.WoodCost); GoodYieldMultiplier $($goodYield.Keys | ForEach-Object { "$_=$($goodYield[$_])" }); Skirmish Starting Troops Normal Archer=$($startTroops.Archer) Spearman=$($startTroops.Spearman) Knight=$($startTroops.Knight)"
 
     $env:SteamAppId = '3024040'; $env:SteamGameId = '3024040'
     $arguments = '-batchmode -nosound -silent-crashes -cdt-selftest "' + $result + '" -logFile "' + (Join-Path $run 'unity.log') + '"'

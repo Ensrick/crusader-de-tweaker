@@ -30,7 +30,9 @@
 //      was 48 tiles in every Archer phase (idle units woke at 400 world units, SE #195).
 //      A watchdog logs the tick every 60 s and fails the run if the simulation stops for 60 s.
 //   6. Economy (Tests/HeadlessSelfTest.Economy.cs): Stockpile build cost, worker GoodYieldMultiplier, skirmish
-//      starting troops. "-cdt-selftest-only economy" (test_headless.ps1 -Only economy) runs steps 1, 2 and 6 only.
+//      starting troops, then a REAL custom skirmish (and a control) started through the game's skirmish restart path,
+//      last in the run. "-cdt-selftest-only economy" (test_headless.ps1 -Only economy) runs steps 1, 2 and 6 only.
+//      From step 2 on, an in-game menu / pause the hidden game opens by itself is closed and resumed (noted).
 //   7. Writes PASS / FAIL + details to the result file and quits.
 //
 // IMPORTANT FOR AI AGENTS:
@@ -203,8 +205,11 @@ namespace CrusaderDETweaker.Tests
                     return;
                 }
 
+                if (_stage == SkirmishStage) { StartRealSkirmish(); return; }   // outside the lock: the game swaps simulation threads
+
                 lock (_engineLock)
                 {
+                    if (_stage >= 2) KeepSimRunning();
                     if (_stage == 1)
                     {
                         if (!vm.IsMapEditorMode || !global::Director.instance.SimRunning) return;
@@ -244,6 +249,7 @@ namespace CrusaderDETweaker.Tests
                     }
                     if (_stage == 3) { if (SimStalled(now)) return; RangeTick(); if (_stage == EconomyStage) StartEconomy(now); }
                     else if (_stage == 4) GuardTick(now);
+                    else if (_stage > SkirmishStage) SkirmishTick(now);
                     else if (_stage >= EconomyStage) EconomyTick(now);
                 }
             }

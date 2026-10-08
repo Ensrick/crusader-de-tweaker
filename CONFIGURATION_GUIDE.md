@@ -262,7 +262,7 @@ Knight = 4
 [*]Not changed: trails and their missions, campaign missions, and loading a saved game.
 [*]Multiplayer: everyone needs the same values; host config sync sends this file to the players.
 [*]The log shows every skirmish start: [b][Skirmish Starting Troops] Normal start: player 1 (human): Archer 5 -> 20; player 2 (AI) unchanged (ApplyToAI = false)[/b], or why nothing was changed. If a game update moves the troop table the setting switches itself off and the log says so.
-[*]How it works: at every skirmish start the game fills a troop queue for each player from its table (humans) or the AI file (AI lords); the mod replaces the numbers you set in that queue right after the game filled it. Traced in the game code; the windowless self-test checks the addresses, the game's table and the queue write, but cannot start a skirmish, so the delivery itself is not measured.
+[*]How it works: at every skirmish start the game fills a troop queue for each player from its table (humans) or the AI file (AI lords); the mod replaces the numbers you set in that queue right after the game filled it. Measured in a real skirmish: with Archer = 3, Spearman = 0, Knight = 2 the human player received exactly 3 Archers, no Spearmen and 2 Knights (the game: 5 Archers + 7 Spearmen), while the AI lord kept its own troops.
 [/list]
 
 [b]Trade Prices[/b]

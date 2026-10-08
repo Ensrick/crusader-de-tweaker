@@ -35,8 +35,9 @@
 //   Nothing to restore: the game rebuilds the queue at every skirmish start. Loaded saves are never touched.
 // - Every multiplayer peer writes the same values in its own OnStartMap Post, so everyone needs the same file
 //   (host config sync sends GameplaySettings).
-// - Not measured in game: the editor map never runs 0x94350 and its delivery returns at once (0x11906C: game type 1),
-//   so the self-test checks the addresses, the table signature and a queue write / read-back only.
+// - Measured (self-test, real custom skirmish on A Bridge Apart started through FRONT_Multiplayer.RestartSkirmishGame):
+//   Archer 3 / Spearman 0 / Knight 2 delivered exactly within 413 ticks; with the write suspended the game's 5 + 7 arrived.
+//   The editor map itself never runs 0x94350 and its delivery returns at once (0x11906C: game type 1).
 //
 using System;
 using System.Collections.Generic;
@@ -283,9 +284,13 @@ namespace CrusaderDETweaker.Config.Core
             catch (Exception ex) { _pending = null; Plugin.Logger.LogError($"[{Section}] {where}: {ex}"); }
         }
 
+        /// <summary>Self-test only: the next starts keep the game's troops (a control skirmish). Never set in play.</summary>
+        internal static bool SuspendedForSelfTest;
+
         internal static unsafe void OnStartPre()
         {
             _pending = null;
+            if (SuspendedForSelfTest) { LastResult = "Not applied: suspended by the self-test (control)."; return; }
             var settings = LoadFromFile();
             if (settings == null || !settings.Any) return;
             if (!TryResolve(out string problem))
@@ -316,11 +321,16 @@ namespace CrusaderDETweaker.Config.Core
             int level = (int)players.GetCurrentSkirmishMode();
             if (!ShouldApply(rebuilt, mode, level, out string reason))
             {
-                Plugin.Logger.LogInfo($"[{Section}] Not applied: {reason}.");
+                LastResult = $"Not applied: {reason}.";
+                Plugin.Logger.LogInfo($"[{Section}] {LastResult}");
                 return;
             }
-            Plugin.Logger.LogInfo($"[{Section}] {Levels[level - 1]} start: " + Apply(settings, level, players.IsAIPlayer));
+            LastResult = $"{Levels[level - 1]} start: " + Apply(settings, level, players.IsAIPlayer);
+            Plugin.Logger.LogInfo($"[{Section}] {LastResult}");
         }
+
+        /// <summary>The last OnStartMap Post outcome, as logged (null until a start with configured counts; self-test).</summary>
+        internal static string LastResult { get; private set; }
 
         /// <summary>
         /// Writes the configured counts of a start level (1-3) into the queue of every human player, and every AI lord
