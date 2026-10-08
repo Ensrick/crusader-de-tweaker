@@ -6,9 +6,13 @@
 //   - The boxes are driven the way the TextBox binding drives them (row.Text = "..."); the cap tables the
 //     handlers read must follow, and the caps must act on real units / placements:
 //     Knight "2": three Knights spawned one after the other for the local player (the spawn path,
-//       UnitCapHandler; a new unit is still initialising during its creation event, so each spawn waits for
-//       the previous one to be alive), then a recruit request with the cap reached must be refused by the
-//       recruit gate (MakeTroopRecruitHook) without reaching the game;
+//       UnitCapHandler): the third must be removed. A new unit is still NeedsInit during its own creation
+//       event; before the fix the cap counted IsAlive units only, so the third Knight stayed (MaxCount + 1,
+//       measured in selftest-20261008-105719). Each spawn logs the old rule's count next to the new one.
+//       Then a recruit request with the cap reached must be refused by the recruit gate (MakeTroopRecruitHook)
+//       without reaching the game;
+//     Pikeman "1": three Pikemen spawned in the SAME tick: one must stay (before the fix none counted the
+//       others, all initialising);
 //     Maceman "-1" while the Units file says MaxCount = 1 (runner): two Macemen stay alive (lobby wins);
 //     Maceman "" again: the file's 1 applies to the next one;
 //     "abc" / "-5" are rejected and the box shows the value in effect;
@@ -59,12 +63,17 @@ namespace CrusaderDETweaker.Tests
         private static unsafe string State(int unitId) =>
             unitId > 0 && GameUnitManagerAPI.Instance.TryGetUnitById(unitId, out GameUnit* u) ? u->r_AliveState.ToString() : "?";
 
-        /// <summary>Spawns one unit for the local player and notes its state right after creation.</summary>
+        /// <summary>
+        /// Spawns one unit for the local player and notes its state right after creation and both counts: the old
+        /// rule (IsAlive units only, what UnitCapHandler counted before the fix) and the fixed one (alive or still
+        /// initialising), both read after the cap handler ran.
+        /// </summary>
         private void CapSpawn(eChimps type, int x, int y)
         {
             int id = Spawn(type, x, y, owner: _capLocal);
             _capUnits.Add(id);
-            _capSpawnLog.Add($"{type} {id}: {State(id)} at creation");
+            _capSpawnLog.Add($"{type} {id}: {State(id)} after its creation event, old rule counts {CountAlive(_capLocal, type)}, " +
+                             $"fixed rule {Config.BepInEx.Systems.Handlers.UnitCapHandler.CountPlayerUnitsOfType(_capLocal, type)}");
         }
 
         private string CapSpawned(eChimps type) =>
@@ -131,9 +140,10 @@ namespace CrusaderDETweaker.Tests
                 case 2:
                 {
                     int knights = CountAlive(_capLocal, eChimps.CHIMP_TYPE_KNIGHT);
-                    // Spawn path (UnitCapHandler, OnUnitCreate): measured, not judged here; see the recruit check.
-                    Note($"Lobby Knight cap 2, spawn path: 3 Knights spawned one after the other, {knights} alive ({CapSpawned(eChimps.CHIMP_TYPE_KNIGHT)}); " +
-                         $"states at creation: {string.Join("; ", _capSpawnLog)}");
+                    // Spawn path (UnitCapHandler, OnUnitCreate). Before the fix: 3 of 3 stayed (MaxCount + 1).
+                    Check("Lobby Knight cap 2, spawn path: the third Knight spawned is removed (was MaxCount + 1)", knights == 2,
+                        $"3 Knights spawned one after the other, {knights} alive ({CapSpawned(eChimps.CHIMP_TYPE_KNIGHT)}); {string.Join("; ", _capSpawnLog)}");
+                    _capSpawnLog.Clear();
                     // Recruit path: with the cap reached the gate must refuse before the game sees the request.
                     Row(eChimps.CHIMP_TYPE_KNIGHT).Text = knights.ToString();
                     int pendingBefore = PendingRecruits(eChimps.CHIMP_TYPE_KNIGHT);
@@ -146,13 +156,21 @@ namespace CrusaderDETweaker.Tests
                         Check($"Recruiting a Knight is refused when the lobby cap ({knights}) is reached", result == 0 && pendingAfter == pendingBefore,
                             $"lobby Knight cap {Cap(LobbyMaxCounts.EffectiveCap(eChimps.CHIMP_TYPE_KNIGHT))}, {knights} alive; MakeTroop returned {result}, reserved recruits {pendingBefore} -> {pendingAfter}");
                     }
+                    // Same tick: three Pikemen with a cap of 1 (no Pikeman of the local player is on the map).
+                    Row(eChimps.CHIMP_TYPE_PIKEMAN).Text = "1";
+                    for (int i = 0; i < 3; i++) CapSpawn(eChimps.CHIMP_TYPE_PIKEMAN, CapX + 3 * i, CapY + 8);
                     Row(eChimps.CHIMP_TYPE_MACEMAN).Text = "-1";
                     CapSpawn(eChimps.CHIMP_TYPE_MACEMAN, CapX, CapY + 4);
                     break;
                 }
                 case 3:
+                {
+                    int pikemen = CountAlive(_capLocal, eChimps.CHIMP_TYPE_PIKEMAN);
+                    Check("Lobby Pikeman cap 1: of three Pikemen spawned in the same tick one stays", pikemen == 1,
+                        $"{pikemen} alive ({CapSpawned(eChimps.CHIMP_TYPE_PIKEMAN)}); {string.Join("; ", _capSpawnLog.Where(l => l.StartsWith("CHIMP_TYPE_PIKEMAN")))}");
                     CapSpawn(eChimps.CHIMP_TYPE_MACEMAN, CapX + 3, CapY + 4);
                     break;
+                }
                 case 4:
                 {
                     int macemen = CountAlive(_capLocal, eChimps.CHIMP_TYPE_MACEMAN);
