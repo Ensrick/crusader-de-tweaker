@@ -75,6 +75,16 @@
       <HintPath>$(ShcdeseDir)\RedBird.X64.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- Config/Toml/Units/Properties/EngageDistancePatch.cs decodes the game's unit update code (Iced ships with the SE). -->
+    <Reference Include="Iced">
+      <HintPath>$(ShcdeseDir)\Iced.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <!-- ManagedAssemblyImmediate's constructor takes an optional ILogger. -->
+    <Reference Include="Microsoft.Extensions.Logging.Abstractions">
+      <HintPath>$(ShcdeseDir)\Microsoft.Extensions.Logging.Abstractions.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="RedBird.Core">
       <HintPath>$(ShcdeseDir)\RedBird.Core.dll</HintPath>
       <Private>False</Private>
@@ -197,6 +207,7 @@
     <Compile Include="Config\Toml\Units\Properties\SpeedProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ShieldHealthProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\UnitRangeProperties.cs" />
+    <Compile Include="Config\Toml\Units\Properties\EngageDistancePatch.cs" />
     <Compile Include="Config\Toml\Units\Properties\KnightRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ArabHorsemanRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinCamelLancerRunSpeedBonusProperty.cs" />

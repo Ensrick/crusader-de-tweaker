@@ -131,20 +131,28 @@ to the game. A **negative value (`-1`) means "leave the game's value unchanged"*
 unparseable or missing cell falls back to, so corrupt input can never silently zero real damage. There is
 no comparison against captured original defaults; that subsystem was deleted.
 
-### Unit ranges: AttackRange / EngageRange (v2.8.0, SHCDE-SE 2.10.1+)
+### Unit ranges: AttackRange / EngageRange (v2.8.0; engage rewritten in 2.9.1)
 
-`Config/Toml/Units/Properties/UnitRangeProperties.cs`, ranged unit types only (fixed lists mirroring SE:
-`GetDefaultAttackRangeProjectileType` + arrow users for AttackRange, the `BulkUnitDetours` engage hooks for
-EngageRange). AttackRange = map tiles (`SetUnitAttackRange`); EngageRange = tiles in the TOML, x8 world units
-for SE (`SetEngageRange`). Both stored by SE as signed 16-bit (clamped with a warning: 32767 / 4095 tiles).
-- **They persist across map loads and are NOT cleared by SE's OnUnloadMap reset**, unlike every other stat.
-  Their TemplateBaseline restore is SE's `ResetUnitAttackRange` / `ResetUnitEngageRange`
-  (`PropertyHandler.CaptureBaselineRestore` override), so each re-apply starts from "no override".
-- EngageRange's game default is observed lazily by SE (0 until the unit type ran its update), so generation
-  writes `-1 # Default: game default (auto)` (`PropertyHandler.UnknownDefaultComment`).
+`Config/Toml/Units/Properties/UnitRangeProperties.cs` + `EngageDistancePatch.cs`.
+- AttackRange (ranged types, list mirrors SE's `GetDefaultAttackRangeProjectileType` + arrow users) = map tiles
+  through SE `SetUnitAttackRange` (acquisition 0x18E9A0 and fire check 0x19B630, both hooked by SE). Stored by
+  SE as signed 16-bit (clamped at 32767 with a warning). **It persists across map loads and is NOT cleared by
+  SE's OnUnloadMap reset**; its TemplateBaseline restore is SE's `ResetUnitAttackRange`.
+- EngageRange (tiles) = how far an IDLE unit notices an enemy. **Never use SE's `SetEngageRange`** (SE #195,
+  SE 2.10.0 - 2.14.0): its walker misses the idle-state compares (idle units kept waking at 400 world units =
+  50 tiles, measured 48 in every phase) and its stub clobbered r13-r15 (Crossbowman / Heavy Camel crash).
+  `EngageDistancePatch` decodes each unit update from CrusaderDE.dll on disk (Iced), finds every
+  `mov reg32, imm32` feeding `cmp word [unit+8FEh], reg16` (+0x8FE = nearest-enemy distance, world units, 8 per
+  tile), checks the bytes in memory are unchanged, and rewrites the immediates with RedBird's
+  `ManagedAssemblyImmediate<int>` (restore = `ClearOverrides`). All constants of a unit scale by E / D (D = the
+  state-0 constant: 400 for most, 432 Horse Archer / Heavy Camel, 680 ballistas). E = EngageRange x 8, else
+  D x AttackRange / game AttackRange when AttackRange is set, else D. The `# Default:` is D / 8 (exact).
+- Measured 2026-10-08 (selftest-20261008-101052, SE 2.14.0, 30/30 PASS): idle Archer first shot 48 tiles (game), 72 with
+  AttackRange 80 alone, 48 with EngageRange 80 alone (AttackRange 54 still limits acquisition), 72 with both;
+  Crossbowman 48 -> 72; every shot damaged the target. Crossbowman / Heavy Camel / Arabian Ballista with
+  EngageRange 80 run without crashing.
 - InteractRange is not exposed (UI-only; SE squares it in a signed 32-bit int).
-- Known SE limits (document, do not work around): special projectile modes can bypass AttackRange; a custom
-  EngageRange applies to both the engage and the slightly larger native disengage threshold.
+- Known limit (document, do not work around): special projectile modes can bypass AttackRange.
 
 ### Team colours (v2.9.0, GameplaySettings `["Team Colors"]`)
 

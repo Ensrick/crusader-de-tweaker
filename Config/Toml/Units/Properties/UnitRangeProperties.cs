@@ -1,27 +1,29 @@
 // Config/Toml/Units/Properties/UnitRangeProperties.cs
 //
-// PURPOSE: Per-unit-type range settings for RANGED units (v2.8.0), on top of the SHCDE-SE 2.10 range APIs
-//          (GameUnitManagerAPI; SE docs/guides/unit-api.md "Unit-Type Range Overrides"):
-//   - AttackRange  (map tiles)  -> Set/Get/ResetUnitAttackRange: native target selection and, for supported
-//                                  ballistic projectiles, projectile reach.
-//   - EngageRange  (map tiles in the TOML; SE takes WORLD units, 8 per tile) -> Set/Get/ResetEngageRange:
-//                                  distance at which the ranged-unit AI engages / disengages nearby enemies.
+// PURPOSE: Per-unit-type range settings for RANGED units (v2.8.0; engage rewritten in 2.9.1, GitLab #7 / GitHub #4):
+//   - AttackRange  (map tiles)  -> SE Set/Get/ResetUnitAttackRange (GameUnitManagerAPI): native target acquisition
+//                                  (RVA 0x18E9A0) and fire check (0x19B630), both hooked by SE, and projectile reach
+//                                  for supported ballistic projectiles. With EngageRange -1 it also moves the idle
+//                                  engage distance in proportion (EngageDistancePatch), so a longer AttackRange makes
+//                                  idle units start shooting farther away.
+//   - EngageRange  (map tiles)  -> EngageDistancePatch: the distance at which idle ranged units notice an enemy,
+//                                  written into the game's own constants. NOT SE's SetEngageRange: that hook misses
+//                                  the idle state (units kept waking at 50 tiles) and crashes the Crossbowman and
+//                                  Bedouin Heavy Camel (SE #195, SE 2.10.0 - 2.14.0). See EngageDistancePatch.cs.
 //   InteractRange is deliberately NOT exposed: it only changes the player UI path, and its value is squared
 //   in a signed 32-bit int inside SE (overflow above 46340 world units).
 //
-// SE FACTS THIS RELIES ON (SE 2.10.4 source, API/GameUnitManagerAPI.cs + Detours/BulkUnitDetours.cs):
-//   - Both overrides are stored as signed 16-bit values: > 32767 wraps. Values are clamped here, with a warning.
-//   - Both overrides PERSIST across map loads and are NOT cleared by SE's OnUnloadMap ClearOverrides. The
-//     TemplateBaseline restore for these cells is therefore SE's Reset* call (no override = game default),
-//     so launch / host-sync apply / host-sync revert all end in the exact file state.
-//   - GetDefaultEngageRange is observed lazily (0 until the unit's native update ran once) and approximate,
-//     so at generation the "# Default:" comment usually reads "game default (auto)".
+// SE FACTS THIS RELIES ON (SE 2.10.4 - 2.14.0 source, API/GameUnitManagerAPI.cs + Detours/BulkUnitDetours.cs):
+//   - The AttackRange override is stored as a signed 16-bit value: > 32767 wraps. Values are clamped here, with a warning.
+//   - It PERSISTS across map loads and is NOT cleared by SE's OnUnloadMap ClearOverrides. The TemplateBaseline
+//     restore is therefore SE's Reset call (no override = game default), so launch / host-sync apply / host-sync
+//     revert all end in the exact file state. The engage constants are restored the same way (ClearOverrides).
 //   - GetUnitAttackRange maps ranged types to their projectile table; other types fall back to the archer
-//     arrow table, which is meaningless for melee units. Hence the fixed unit lists below.
+//     arrow table, which is meaningless for melee units. Hence the fixed unit list below.
 //
 // IMPORTANT FOR AI AGENTS:
-// - Keep the unit lists in step with SE: AttackRangeUnits = GetDefaultAttackRangeProjectileType's explicit
-//   cases + the arrow users; EngageRangeUnits = the update functions BulkUnitDetours hooks for engage range.
+// - Keep AttackRangeUnits in step with SE: GetDefaultAttackRangeProjectileType's explicit cases + the arrow users.
+//   EngageRange applies to the subset whose update function has engage constants (EngageDistancePatch.Supports).
 // - Writes go through PropertyHandler.TryLoad -> TemplateBaseline (restore = Reset*), i.e. only through
 //   ConfigLoader.ReapplyTemplateConfigs.
 //
@@ -53,45 +55,38 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
             eChimps.CHIMP_TYPE_BALLISTA, eChimps.CHIMP_TYPE_ARAB_BALLISTA
         };
 
-        /// <summary>
-        /// Unit types for which SE actually installs an engage-range hook (BulkUnitDetours walks each update
-        /// function for "cmp [base+index+8FEh], reg"). SE also walks the Catapult, Trebuchet and Mangonel update
-        /// functions but finds no such compare, so no hook exists and an EngageRange there could never act
-        /// (SE log: "Hooking unit update function ... CATAPULT" with no "Installing dynamic inline hook" after it).
-        /// </summary>
-        internal static readonly HashSet<eChimps> EngageRangeUnits = new HashSet<eChimps>
-        {
-            eChimps.CHIMP_TYPE_ARCHER, eChimps.CHIMP_TYPE_ARAB_BOW, eChimps.CHIMP_TYPE_ARAB_HORSEMAN,
-            eChimps.CHIMP_TYPE_XBOWMAN, eChimps.CHIMP_TYPE_ARAB_SLINGER, eChimps.CHIMP_TYPE_ARAB_GRENADIER,
-            eChimps.CHIMP_TYPE_BEDOUIN_SKIRMISHER, eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL,
-            eChimps.CHIMP_TYPE_BALLISTA, eChimps.CHIMP_TYPE_ARAB_BALLISTA
-        };
+        /// <summary>Largest EngageRange in tiles (the game caps the nearest-enemy distance at 32000 world units).</summary>
+        internal const int MaxEngageTiles = EngageDistancePatch.MaxWorld / WorldUnitsPerTile;   // 4000
+
+        /// <summary>The game's AttackRange of a ranged unit type, in tiles (its projectile table entry).</summary>
+        internal static int GameAttackTiles(eChimps unit) =>
+            SHCDESE.API.GameProjectileManagerAPI.Instance.GetAttackRangeTiles(SHCDESE.API.GameUnitManagerAPI.GetDefaultAttackRangeProjectileType(unit));
 
         /// <summary>
-        /// Unit types whose EngageRange crashes the game (SE 2.10.0 - 2.13.1, the newest checked). SE's engage hook
-        /// stub ("UnitUpdateEngageRange_*") loads the unit id into r13 and its own pointers into r14 / r15, then
-        /// re-executes the native compare with those registers still overwritten. These units' native compares
-        /// address the unit array through r13 / r14 (decoded from CrusaderDE.dll, game 2.8.2):
-        ///   Crossbowman          cmp [rcx+r13+8FEh], ax   and   cmp [rdi+r13+8FEh], ax
-        ///   Bedouin Heavy Camel  cmp [rcx+r13+8FEh], ax   and   cmp [rbx+r13+8FEh], ax
-        ///   Arabian Ballista     cmp [rbx+r14+8FEh], ax
-        /// Reproduced by the self-test: Crossbowman EngageRange set -> EXCEPTION_ACCESS_VIOLATION reading 0x1220
-        /// (= unit 2 * 0x490 + unit id 2 + 0x8FE) on the new Crossbowman's first update. The other units' compares
-        /// use none of r13-r15. Applying is refused with a warning until a Script Extender with a fix is verified.
+        /// AttackRange through SE (target acquisition and fire checks, both hooked by SE) plus the idle engage
+        /// distance when EngageRange is -1 (EngageDistancePatch). Logs the SE read-back.
         /// </summary>
-        internal static readonly HashSet<eChimps> EngageRangeCrashUnits = new HashSet<eChimps>
+        internal static void ApplyAttackRange(string property, eChimps unit, int value)
         {
-            eChimps.CHIMP_TYPE_XBOWMAN, eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL, eChimps.CHIMP_TYPE_ARAB_BALLISTA
-        };
+            int tiles = ClampWithWarning(property, unit, value, MaxStoredValue);
+            Plugin.UnitApi.SetUnitAttackRange(unit, tiles);
+            int now = Plugin.UnitApi.GetUnitAttackRange(unit);
+            int native = GameAttackTiles(unit);
+            LogApplied(property, unit, $"{tiles} tiles (game default {native})", now == tiles, $"Script Extender reports {now}");
+            EngageDistancePatch.SetAttackTiles(unit, tiles, native);
+        }
 
-        /// <summary>Largest EngageRange in tiles whose world value still fits in SE's signed 16-bit store.</summary>
-        internal const int MaxEngageTiles = MaxStoredValue / WorldUnitsPerTile;   // 4095
+        internal static void ResetAttackRange(eChimps unit)
+        {
+            Plugin.UnitApi.ResetUnitAttackRange(unit);
+            EngageDistancePatch.ClearAttack(unit);
+        }
 
         /// <summary>Clamp a value to <paramref name="max"/>, warning with the property and unit.</summary>
         internal static int ClampWithWarning(string property, eChimps unit, int value, int max)
         {
             if (value <= max) return value;
-            Plugin.Logger.LogWarning($"[{property}] {unit}: {value} is above the maximum {max} (the Script Extender stores it as a signed 16-bit value); using {max}.");
+            Plugin.Logger.LogWarning($"[{property}] {unit}: {value} is above the maximum {max}; using {max}.");
             return max;
         }
 
@@ -124,80 +119,44 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
 
         protected override void SetToAPI(eChimps unit, int value)
         {
-            int tiles = UnitRanges.ClampWithWarning(Name, unit, value, UnitRanges.MaxStoredValue);
-            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(), () =>
-            {
-                Plugin.UnitApi.SetUnitAttackRange(unit, tiles);
-                // Read back through SE so the log proves what the game's range hooks will see.
-                int now = Plugin.UnitApi.GetUnitAttackRange(unit);
-                int native = SHCDESE.API.GameProjectileManagerAPI.Instance.GetAttackRangeTiles(
-                    SHCDESE.API.GameUnitManagerAPI.GetDefaultAttackRangeProjectileType(unit));
-                UnitRanges.LogApplied(Name, unit, $"{tiles} tiles (game default {native})", now == tiles, $"Script Extender reports {now}");
-            });
+            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(), () => UnitRanges.ApplyAttackRange(Name, unit, value));
         }
 
         /// <summary>The game state before this mod wrote the cell is "no override": restore = Reset.</summary>
         protected override Action CaptureBaselineRestore(eChimps unit) =>
-            () => Plugin.UnitApi.ResetUnitAttackRange(unit);
+            () => UnitRanges.ResetAttackRange(unit);
     }
 
     /// <summary>
-    /// EngageRange for ranged unit types, in map tiles in the TOML (x8 = SE world units). -1 = game default.
+    /// EngageRange for ranged unit types, in map tiles: how far away an idle unit notices an enemy. -1 = game
+    /// default (or, when AttackRange is set, the game value scaled with it). Applied by EngageDistancePatch.
     /// </summary>
     internal class EngageRangeProperty : PropertyHandler<eChimps, int>
     {
         public EngageRangeProperty() : base("EngageRange") { }
 
-        internal override bool CanApplyTo(eChimps unit) => UnitRanges.EngageRangeUnits.Contains(unit);
+        internal override bool CanApplyTo(eChimps unit) => EngageDistancePatch.Supports(unit);
 
         internal override bool ValidateValue(int value) => value > 0;
 
-        /// <summary>SE observes the native default lazily; before a unit update ran it is unknown.</summary>
-        protected override string UnknownDefaultComment => "game default (auto)";
-
         protected override bool TryGetFromAPI(eChimps unit, out int value)
         {
-            bool ok = ErrorHandlingHelper.TryGetValueWithResult(
-                $"Get {Name}", unit.ToString(),
-                () => Plugin.UnitApi.GetEngageRange(unit),
-                out int world, defaultValue: 0);
-            value = ok && world > 0 ? (int)Math.Round(world / (double)UnitRanges.WorldUnitsPerTile) : 0;
+            value = EngageDistancePatch.TryGetCurrentWorld(unit, out int world) ? (int)Math.Round(world / (double)UnitRanges.WorldUnitsPerTile) : 0;
             return value > 0;
         }
 
-        /// <summary>The lazily observed native default (0 = not observed yet -> "game default (auto)").</summary>
-        protected override bool TryGetOriginalValue(eChimps unit, out int defaultValue)
-        {
-            bool ok = ErrorHandlingHelper.TryGetValueWithResult(
-                $"Get default {Name}", unit.ToString(),
-                () => Plugin.UnitApi.GetDefaultEngageRange(unit),
-                out int world, defaultValue: 0);
-            defaultValue = ok && world > 0 ? (int)Math.Round(world / (double)UnitRanges.WorldUnitsPerTile) : 0;
-            return defaultValue > 0;
-        }
+        /// <summary>The game's own engage distance, read from its code (e.g. Archer 50 tiles).</summary>
+        protected override bool TryGetOriginalValue(eChimps unit, out int defaultValue) =>
+            EngageDistancePatch.TryGetGameTiles(unit, out defaultValue);
 
         protected override void SetToAPI(eChimps unit, int value)
         {
-            if (UnitRanges.EngageRangeCrashUnits.Contains(unit))
-            {
-                Plugin.Logger.LogWarning($"[{Name}] {unit}: {value} not applied. The Script Extender (2.13.1 and older) crashes the game " +
-                                         "when an EngageRange is set for this unit, so the game's own engage distance is kept. AttackRange still applies.");
-                return;
-            }
             int tiles = UnitRanges.ClampWithWarning(Name, unit, value, UnitRanges.MaxEngageTiles);
-            int world = tiles * UnitRanges.WorldUnitsPerTile;
-            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(), () =>
-            {
-                Plugin.UnitApi.SetEngageRange(unit, world);
-                int now = Plugin.UnitApi.GetEngageRange(unit);
-                int observed = Plugin.UnitApi.GetDefaultEngageRange(unit);
-                string native = observed > 0 ? $"game default {observed / (double)UnitRanges.WorldUnitsPerTile:0.#}" : "game default not observed yet";
-                UnitRanges.LogApplied(Name, unit, $"{tiles} tiles = {world} world units ({native})", now == world, $"Script Extender reports {now} world units");
-            });
+            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(), () => EngageDistancePatch.SetEngageTiles(unit, tiles));
         }
 
-        /// <summary>The game state before this mod wrote the cell is "no override": restore = Reset.</summary>
+        /// <summary>The game state before this mod wrote the cell is "no EngageRange".</summary>
         protected override Action CaptureBaselineRestore(eChimps unit) =>
-            () => Plugin.UnitApi.ResetUnitEngageRange(unit);
+            () => EngageDistancePatch.ClearEngage(unit);
     }
 }

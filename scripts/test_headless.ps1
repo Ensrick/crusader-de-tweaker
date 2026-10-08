@@ -6,7 +6,7 @@
     Launches the game in -batchmode (no window, no sound) with -cdt-selftest. The plugin creates a
     disposable editor map, checks team colours on the real palettes / UI tables and Speed values above
     the Script Extender's 6 on spawned units, measures how far an Archer engages with the game's
-    ranges, with AttackRange only and with AttackRange + EngageRange, writes PASS / FAIL and quits.
+    ranges, with AttackRange only, EngageRange only and both (and a Crossbowman), writes PASS / FAIL and quits.
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
     first, the test values below are written, and afterwards every file is put back byte for byte;
@@ -24,7 +24,7 @@
 [CmdletBinding()]
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
-    [int]$TimeoutSeconds = 1200
+    [int]$TimeoutSeconds = 2400
 )
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -34,7 +34,7 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 # Keep in sync with Tests/HeadlessSelfTest.cs.
 $unitSpeeds = [ordered]@{ 'CHIMP_TYPE_CATAPULT' = 8; 'CHIMP_TYPE_SIEGE_TOWER' = 1; 'CHIMP_TYPE_ARCHER' = 8 }
 $teamColors = [ordered]@{ 'Red' = '[0, 255, 0]'; 'Blue' = '"#FF00FF"' }
-$xbowRanges = [ordered]@{ 'AttackRange' = 80; 'EngageRange' = 80 }   # Archer, tiles; the game's AttackRange is 54 (not the Crossbowman: SE <= 2.13.1 crashes with its EngageRange)
+$xbowRanges = [ordered]@{ 'AttackRange' = 80; 'EngageRange' = 80 }   # Archer, tiles; the game's AttackRange is 54, engage distance 50
 
 if (Get-Process -Name $processName -ErrorAction SilentlyContinue) { throw 'The game is running. Close it first: this script never touches a running game.' }
 if (-not (Get-Process -Name steam -ErrorAction SilentlyContinue)) { throw 'Steam must already be running. This script will not open it.' }
@@ -106,7 +106,7 @@ try {
     $units = [IO.File]::ReadAllText($unitsPath)
     foreach ($k in $unitSpeeds.Keys) { $units = Set-TomlKey $units "[$k]" 'Speed' ([string]$unitSpeeds[$k]) }
     foreach ($k in $xbowRanges.Keys) { $units = Set-TomlKey $units '[CHIMP_TYPE_ARCHER]' $k ([string]$xbowRanges[$k]) }
-    $units = Set-TomlKey $units '[CHIMP_TYPE_XBOWMAN]' 'EngageRange' '80'   # must be refused by the 2.9.1 crash guard (HeadlessSelfTest.GuardEngageRange)
+    $units = Set-TomlKey $units '[CHIMP_TYPE_XBOWMAN]' 'EngageRange' '80'   # applied through the game constants; crashed with the Script Extender's hook (HeadlessSelfTest.GuardEngageRange)
     [IO.File]::WriteAllText($unitsPath, $units, $utf8)
     $globals = [IO.File]::ReadAllText($globalsPath)
     if ($globals -notmatch '(?m)^\["Team Colors"\]') { $globals = $globals.TrimEnd() + "`r`n`r`n[`"Team Colors`"]`r`n" }

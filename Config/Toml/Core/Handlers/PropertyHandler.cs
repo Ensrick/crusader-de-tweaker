@@ -112,7 +112,7 @@ namespace CrusaderDETweaker.Config.Toml.Core
                     // No default available → property is not applicable to this entity (e.g. a
                     // 0-health structure) → skip it, matching prior behaviour.
                     // No default available -> property is not applicable, unless the handler knows the
-                    // game value exists but cannot be read yet (UnknownDefaultComment, e.g. EngageRange).
+                    // game value exists but cannot be read yet (UnknownDefaultComment; EngageRange used it until 2.9.1).
                     if (!hasDefault && UnknownDefaultComment == null)
                         return false;
                     WriteSentinelLine(sb, gameDefault, hasDefault);
@@ -171,7 +171,7 @@ namespace CrusaderDETweaker.Config.Toml.Core
         /// <summary>
         /// TemplateBaseline capture for this cell: read the current value and return the action that restores
         /// it. Override when "restore" means something else, e.g. removing an SE override that persists
-        /// across map loads (AttackRange / EngageRange use SE's Reset* calls).
+        /// across map loads (AttackRange uses SE's Reset call, EngageRange clears its code-constant overrides).
         /// </summary>
         protected virtual Action CaptureBaselineRestore(TEntity entity) =>
             TryGetFromAPI(entity, out TValue original) ? (Action)(() => SetToAPI(entity, original)) : null;

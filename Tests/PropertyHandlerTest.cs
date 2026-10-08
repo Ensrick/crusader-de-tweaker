@@ -284,7 +284,7 @@ namespace CrusaderDETweaker.Tests
 
         private static void Test_TryGenerate_UnknownDefaultWritesSentinel()
         {
-            // EngageRange-style: the game value exists but cannot be read at generation (SE observes it
+            // A game value that exists but cannot be read at generation (EngageRange before 2.9.1: SE observed it
             // lazily). The property must still be written, as -1 with the handler's comment.
             var handler = new MockUnknownDefaultHandler("EngageRange");
             var sb = new StringBuilder();
@@ -472,7 +472,7 @@ namespace CrusaderDETweaker.Tests
             public new bool CanApplyTo(TestEntity entity) => base.CanApplyTo(entity);
         }
 
-        /// <summary>Handler whose game default is unknown at generation (mirrors EngageRangeProperty).</summary>
+        /// <summary>Handler whose game default is unknown at generation (EngageRangeProperty used this until 2.9.1).</summary>
         private class MockUnknownDefaultHandler : PropertyHandler<TestEntity, int>
         {
             public MockUnknownDefaultHandler(string name) : base(name) { }

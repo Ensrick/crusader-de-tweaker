@@ -19,14 +19,15 @@
 //      and the knight's speed-bonus field is sampled every frame. Measured 2026-10-08: 311 / 315 / 312 ticks,
 //      field 0 throughout. (Higher = faster while the bonus applies: the step function moves bonus + 1
 //      sub-steps per step, RVA 0x1857B3.)
-//   4b. Crash guard (2.9.1): the Crossbowman EngageRange the runner writes must be refused, and a Crossbowman
-//      must run 300 ticks next to an enemy (without the guard SE <= 2.13.1 crashes on its first update).
-//   5. Ranges: checks the Archer AttackRange / EngageRange from the Units file reached the Script
-//      Extender, then measures behaviour in four phases (game ranges, AttackRange only, EngageRange only,
-//      both): an idle Archer (player 1) and an enemy Pikeman (player 2) are placed 96, 84, ... 16 tiles
-//      apart, closer each 400 ticks, until the Archer fires (a live projectile from it) or the Pikeman loses health. The first
-//      damaging distance is the effective engage distance. Idle soldiers wake within 400 world units
-//      whatever the overrides (SE #195), so that result is a KNOWN LIMITATION note, and a NOTICE if it changes.
+//   4b. Former crash units (2.9.1): the Crossbowman EngageRange the runner writes must be in effect through
+//      EngageDistancePatch (not SE's engage hook, which crashed it), and a Crossbowman, a Bedouin Heavy Camel and
+//      an Arabian Ballista, each with EngageRange 80, must run 300 ticks next to an enemy.
+//   5. Ranges: checks the Archer AttackRange / EngageRange from the Units file are in effect, then measures six
+//      phases (Archer: game ranges, AttackRange 80 only, EngageRange 80 only, both; Crossbowman: game, both): an
+//      idle shooter (player 1) and an enemy Pikeman (player 2) are placed 96, 84, ... 16 tiles apart, closer
+//      each 400 ticks, until the shooter fires (a live projectile from it) or the Pikeman loses health; then up
+//      to 300 more ticks for damage. The first shot distance is the effective engage distance. Before 2.9.1 it
+//      was 48 tiles in every Archer phase (idle units woke at 400 world units, SE #195).
 //      A watchdog logs the tick every 60 s and fails the run if the simulation stops for 60 s.
 //   6. Writes PASS / FAIL + details to the result file and quits.
 //
@@ -41,6 +42,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using CrusaderDETweaker.Config.Core;
+using CrusaderDETweaker.Config.Toml.Units.Properties;
 using SHCDESE.API;
 using SHCDESE.Interop;
 using UnityEngine;
@@ -57,36 +59,40 @@ namespace CrusaderDETweaker.Tests
         private static readonly Color BlueOverride = new Color(1f, 0f, 1f);   // Blue = "#FF00FF"
         private const int WalkTiles = 10;
 
-        // Archer ranges written by scripts/test_headless.ps1 (tiles; the game's AttackRange is 54).
-        // Not the Crossbowman: SE <= 2.13.1 crashes the game with a Crossbowman EngageRange (its engage hook
-        // clobbers r13, which the Crossbowman's native compare uses; see UnitRanges.EngageRangeCrashUnits).
+        // Archer ranges written by scripts/test_headless.ps1 (tiles; the game's AttackRange is 54, engage 50).
         internal const int XbowAttackRange = 80, XbowEngageRange = 80;
         private static readonly int[] RangeLadder = { 96, 84, 72, 64, 56, 48, 42, 36, 32, 28, 24, 20, 16 };
-        private const int TicksPerRung = 400, RangeShooterX = 340, RangeY = 400;
+        private const int TicksPerRung = 400, DamageWaitTicks = 300, RangeShooterX = 340, RangeY = 400;
         private readonly System.Collections.Generic.List<int> _projectiles = new System.Collections.Generic.List<int>();
-        private const eChimps RangeShooter = eChimps.CHIMP_TYPE_ARCHER, RangeTarget = eChimps.CHIMP_TYPE_PIKEMAN;
+        private const eChimps RangeTarget = eChimps.CHIMP_TYPE_PIKEMAN;
 
         private sealed class RangePhase
         {
             internal string Name;
+            internal eChimps Shooter = eChimps.CHIMP_TYPE_ARCHER;
             internal bool Attack, Engage;
-            internal int HitAt = -1;
+            internal int HitAt = -1, ShotTick;
+            internal bool Damaged;
             internal string Detail = "not run";
         }
 
         private readonly RangePhase[] _rangePhases =
         {
-            new RangePhase { Name = "game ranges (control)" },
-            new RangePhase { Name = $"AttackRange {XbowAttackRange} only", Attack = true },
-            new RangePhase { Name = $"EngageRange {XbowEngageRange} only", Engage = true },
-            new RangePhase { Name = $"AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange}", Attack = true, Engage = true },
+            new RangePhase { Name = "Archer, game ranges (control)" },
+            new RangePhase { Name = $"Archer, AttackRange {XbowAttackRange} only", Attack = true },
+            new RangePhase { Name = $"Archer, EngageRange {XbowEngageRange} only", Engage = true },
+            new RangePhase { Name = $"Archer, AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange}", Attack = true, Engage = true },
+            new RangePhase { Name = "Crossbowman, game ranges (control)", Shooter = eChimps.CHIMP_TYPE_XBOWMAN },
+            new RangePhase { Name = $"Crossbowman, AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange}", Shooter = eChimps.CHIMP_TYPE_XBOWMAN, Attack = true, Engage = true },
         };
         private int _phase = -1, _rung, _shooter, _target, _targetHp, _rungTick;
         private int _catapult, _tower;
-        // Crash guard (2.9.1): the runner writes this EngageRange for the Crossbowman; CDT must refuse it.
+        // Former crash units (2.9.1): the runner writes this Crossbowman EngageRange; the other two are set here.
         internal const int GuardEngageRange = 80;
         private const int GuardTicks = 300;
-        private int _guardUnit, _guardEnemy, _guardTick;
+        private static readonly eChimps[] GuardUnits = { eChimps.CHIMP_TYPE_XBOWMAN, eChimps.CHIMP_TYPE_BEDOUIN_HEAVY_CAMEL, eChimps.CHIMP_TYPE_ARAB_BALLISTA };
+        private readonly System.Collections.Generic.List<int> _guardSpawned = new System.Collections.Generic.List<int>();
+        private int _guardTick;
 
         // KnightRunSpeedBonus is an immediate in the knight's update (CrusaderDE.dll RVA 0x1496B5, game 2.8.2) that
         // the update writes into the unit's speed-bonus field (+0x916). The movement step (RVA 0x184203) waits
@@ -218,7 +224,7 @@ namespace CrusaderDETweaker.Tests
                         if (KnightTick())
                         {
                             StartCrossbowGuard();
-                            _deadline = now + 120;
+                            _deadline = now + 180;
                         }
                         return;
                     }
@@ -462,17 +468,19 @@ namespace CrusaderDETweaker.Tests
             foreach (int id in new[] { _catapult, _tower, _slowArcher, _fastArcher })
                 if (id > 0) units.KillUnit(id);
 
-            int attack = units.GetUnitAttackRange(RangeShooter);
-            int engage = units.GetEngageRange(RangeShooter);
-            int native = GameProjectileManagerAPI.Instance.GetAttackRangeTiles(GameUnitManagerAPI.GetDefaultAttackRangeProjectileType(RangeShooter));
-            Check("Archer ranges reached the Script Extender",
+            const eChimps archer = eChimps.CHIMP_TYPE_ARCHER;
+            int attack = units.GetUnitAttackRange(archer);
+            EngageDistancePatch.TryGetCurrentWorld(archer, out int engage);
+            EngageDistancePatch.TryGetGameTiles(archer, out int gameEngage);
+            Check("Archer ranges from the Units file in effect",
                 attack == XbowAttackRange && engage == XbowEngageRange * UnitRangesWorld,
-                $"AttackRange {attack} tiles (file {XbowAttackRange}, game {native}); EngageRange {engage} world units (file {XbowEngageRange} tiles = {XbowEngageRange * UnitRangesWorld})");
+                $"AttackRange {attack} tiles (file {XbowAttackRange}, game {UnitRanges.GameAttackTiles(archer)}); engage distance {engage} world units " +
+                $"(file {XbowEngageRange} tiles = {XbowEngageRange * UnitRangesWorld}, game {gameEngage} tiles); constants {EngageDistancePatch.Describe(archer)}");
             Note($"Players 1 and 2 allied: {GamePlayerManagerAPI.Instance.IsPlayerAlliedTo(1, 2)}; teams {GamePlayerManagerAPI.Instance.GetPlayerTeam(1)} / {GamePlayerManagerAPI.Instance.GetPlayerTeam(2)}");
             NextRangePhase();
         }
 
-        private const int UnitRangesWorld = 8;   // world units per tile (Config.Toml.Units.Properties.UnitRanges.WorldUnitsPerTile)
+        private const int UnitRangesWorld = UnitRanges.WorldUnitsPerTile;
 
         private void NextRangePhase()
         {
@@ -485,16 +493,23 @@ namespace CrusaderDETweaker.Tests
             _phase++;
             if (_phase >= _rangePhases.Length)
             {
+                foreach (eChimps t in new[] { eChimps.CHIMP_TYPE_ARCHER, eChimps.CHIMP_TYPE_XBOWMAN }) { UnitRanges.ResetAttackRange(t); EngageDistancePatch.ClearEngage(t); }
                 ReportRanges();
                 Finish();
                 return;
             }
             var p = _rangePhases[_phase];
-            if (p.Attack) units.SetUnitAttackRange(RangeShooter, XbowAttackRange); else units.ResetUnitAttackRange(RangeShooter);
-            if (p.Engage) units.SetEngageRange(RangeShooter, XbowEngageRange * UnitRangesWorld); else units.ResetUnitEngageRange(RangeShooter);
-            Note($"Range phase '{p.Name}': AttackRange now {units.GetUnitAttackRange(RangeShooter)} tiles, EngageRange {units.GetEngageRange(RangeShooter)} world units (observed game default {units.GetDefaultEngageRange(RangeShooter)})");
+            // The same paths the Units file uses (AttackRange through SE, engage distance through EngageDistancePatch).
+            foreach (eChimps t in new[] { eChimps.CHIMP_TYPE_ARCHER, eChimps.CHIMP_TYPE_XBOWMAN })
+            {
+                bool on = t == p.Shooter;
+                if (on && p.Attack) UnitRanges.ApplyAttackRange("AttackRange", t, XbowAttackRange); else UnitRanges.ResetAttackRange(t);
+                if (on && p.Engage) EngageDistancePatch.SetEngageTiles(t, XbowEngageRange); else EngageDistancePatch.ClearEngage(t);
+            }
+            EngageDistancePatch.TryGetCurrentWorld(p.Shooter, out int engage);
+            Note($"Range phase '{p.Name}': AttackRange now {units.GetUnitAttackRange(p.Shooter)} tiles, engage distance {engage} world units; constants {EngageDistancePatch.Describe(p.Shooter)}");
             _rung = 0;
-            _shooter = Spawn(RangeShooter, RangeShooterX, RangeY);
+            _shooter = Spawn(p.Shooter, RangeShooterX, RangeY);
             SpawnRungTarget();
         }
 
@@ -530,19 +545,32 @@ namespace CrusaderDETweaker.Tests
             var units = GameUnitManagerAPI.Instance;
             var p = _rangePhases[_phase];
             int tick = global::Director.instance.getSimTickCount();
+            bool damaged = units.GetCurrentHealth(_target) < _targetHp;
+            if (p.HitAt > 0)
+            {
+                // After the first shot: does it reach? Wait for damage on the same rung.
+                if (damaged || tick - p.ShotTick > DamageWaitTicks)
+                {
+                    p.Damaged = damaged;
+                    p.Detail += damaged ? $"; target damaged {tick - p.ShotTick} ticks after the first shot (target at {Pos(_target)})"
+                                        : $"; no damage within {DamageWaitTicks} ticks of the first shot (target at {Pos(_target)})";
+                    NextRangePhase();
+                }
+                return;
+            }
             // Engagement signal: a live projectile fired by the shooter (direct), or the target losing health.
             _projectiles.Clear();
             GameProjectileManagerAPI.Instance.GetAllProjectiles(_projectiles, SHCDESE.Interop.Enums.AliveState.IsAlive);
             bool fired = _projectiles.Any(id => GameProjectileManagerAPI.Instance.GetSourceUnit(id) == _shooter);
-            bool damaged = units.GetCurrentHealth(_target) < _targetHp;
             if (fired || damaged)
             {
                 var s = units.GetCurrentLocalTilePosition(_shooter);
                 var t = units.GetCurrentLocalTilePosition(_target);
                 double now = Math.Sqrt((double)(t.X - s.X) * (t.X - s.X) + (double)(t.Y - s.Y) * (t.Y - s.Y));
                 p.HitAt = RangeLadder[_rung];
+                p.ShotTick = tick;
                 p.Detail = $"first {(fired ? "shot" : "damage")} with the target placed {RangeLadder[_rung]} tiles away, after {tick - _rungTick} ticks (shooter at {s.X},{s.Y}, target at {t.X},{t.Y}, {now:0.#} tiles apart at that moment)";
-                NextRangePhase();
+                if (damaged) { p.Damaged = true; NextRangePhase(); }
                 return;
             }
             if (tick - _rungTick < TicksPerRung) return;
@@ -551,7 +579,7 @@ namespace CrusaderDETweaker.Tests
             _target = 0;
             if (++_rung >= RangeLadder.Length)
             {
-                p.Detail = $"no damage at any distance down to {RangeLadder[RangeLadder.Length - 1]} tiles (shooter at {Pos(_shooter)})";
+                p.Detail = $"no shot at any distance down to {RangeLadder[RangeLadder.Length - 1]} tiles (shooter at {Pos(_shooter)})";
                 NextRangePhase();
                 return;
             }
@@ -561,32 +589,42 @@ namespace CrusaderDETweaker.Tests
         private void ReportRanges()
         {
             RangePhase game = _rangePhases[0], attackOnly = _rangePhases[1], engageOnly = _rangePhases[2], both = _rangePhases[3];
+            RangePhase xGame = _rangePhases[4], xBoth = _rangePhases[5];
             Check("Range baseline (game ranges)", game.HitAt > 0,
                 game.HitAt > 0 ? $"engaged at {game.HitAt} tiles" : "no engagement at any distance, so the range phases cannot be judged (players not hostile, or the target is unreachable)");
-            Note($"Archer, AttackRange {XbowAttackRange} only: {Rung(attackOnly)} (game: {Rung(game)})");
             Note($"Archer, EngageRange {XbowEngageRange} only: {Rung(engageOnly)} (game: {Rung(game)})");
-            // Known limitation (SE #195): idle soldiers wake only within 400 world units (50 tiles), a check SE's
-            // engage hook does not reach, so the larger ranges cannot make the idle Archer start sooner.
-            if (both.HitAt > game.HitAt)
-                Note($"NOTICE: AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange} now engage farther ({Rung(both)} vs game {Rung(game)}): " +
-                     "the Script Extender's idle-wake limitation looks fixed; update the guide's range notes and the CHANGELOG.");
-            else
-                Note($"KNOWN LIMITATION (Script Extender #195): AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange}: {Rung(both)}, game {Rung(game)}; " +
-                     "idle soldiers wake within 50 tiles regardless.");
-            Check("Range phases measured", game.HitAt > 0 && attackOnly.HitAt > 0 && engageOnly.HitAt > 0 && both.HitAt > 0,
-                $"every phase engaged at some distance (game {game.HitAt}, attack {attackOnly.HitAt}, engage {engageOnly.HitAt}, both {both.HitAt})");
+            // Before 2.9.1 every Archer phase engaged at 48 tiles (idle units woke at 400 world units, SE #195).
+            Check($"Archer AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange} engages farther than the game",
+                game.HitAt > 0 && both.HitAt > game.HitAt && both.Damaged, $"{Rung(both)} vs game {Rung(game)}");
+            Check($"Archer AttackRange {XbowAttackRange} alone engages farther than the game (engage distance follows it)",
+                game.HitAt > 0 && attackOnly.HitAt > game.HitAt && attackOnly.Damaged, $"{Rung(attackOnly)} vs game {Rung(game)}");
+            Check($"Crossbowman AttackRange {XbowAttackRange} + EngageRange {XbowEngageRange} engages farther than the game",
+                xGame.HitAt > 0 && xBoth.HitAt > xGame.HitAt && xBoth.Damaged, $"{Rung(xBoth)} vs game {Rung(xGame)}");
         }
 
         private void StartCrossbowGuard()
         {
             var units = GameUnitManagerAPI.Instance;
-            int engage = units.GetEngageRange(eChimps.CHIMP_TYPE_XBOWMAN);
-            Check("Crossbowman EngageRange refused", engage != GuardEngageRange * UnitRangesWorld,
-                $"Script Extender engage range {engage} world units (file {GuardEngageRange} tiles = {GuardEngageRange * UnitRangesWorld} must not reach it)");
-            _guardUnit = Spawn(eChimps.CHIMP_TYPE_XBOWMAN, RangeShooterX, RangeY + 20);
-            _guardEnemy = Spawn(RangeTarget, RangeShooterX + 16, RangeY + 20, owner: 2);
+            EngageDistancePatch.TryGetCurrentWorld(eChimps.CHIMP_TYPE_XBOWMAN, out int engage);
+            Check("Crossbowman EngageRange from the Units file in effect (game constants, not the Script Extender's hook)",
+                engage == GuardEngageRange * UnitRangesWorld && units.GetEngageRange(eChimps.CHIMP_TYPE_XBOWMAN) != GuardEngageRange * UnitRangesWorld,
+                $"engage distance {engage} world units (file {GuardEngageRange} tiles = {GuardEngageRange * UnitRangesWorld}); Script Extender override {units.GetEngageRange(eChimps.CHIMP_TYPE_XBOWMAN)}; constants {EngageDistancePatch.Describe(eChimps.CHIMP_TYPE_XBOWMAN)}");
+            Note("EngageRange units (game constants found): " + string.Join(", ", EngageDistancePatch.SupportedUnits.Select(u =>
+                EngageDistancePatch.TryGetGameTiles(u, out int tiles) ? $"{u} {tiles} tiles" : u.ToString())));
+            int y = RangeY + 20;
+            foreach (eChimps t in GuardUnits)
+            {
+                if (t != eChimps.CHIMP_TYPE_XBOWMAN) EngageDistancePatch.SetEngageTiles(t, GuardEngageRange);
+                EngageDistancePatch.TryGetCurrentWorld(t, out int now);
+                Check($"{t} EngageRange {GuardEngageRange} in effect", now == GuardEngageRange * UnitRangesWorld,
+                    $"engage distance {now} world units; constants {EngageDistancePatch.Describe(t)}");
+                _guardSpawned.Add(Spawn(t, RangeShooterX, y));
+                _guardSpawned.Add(Spawn(RangeTarget, RangeShooterX + 16, y, owner: 2));
+                y += 12;
+            }
             _guardTick = global::Director.instance.getSimTickCount();
-            Note($"Crossbowman {_guardUnit} spawned with an enemy Pikeman {_guardEnemy} 16 tiles away; running {GuardTicks} ticks (before the guard this crashed on the first update)");
+            Note($"Crossbowman, Bedouin Heavy Camel and Arabian Ballista spawned with EngageRange {GuardEngageRange}, each 16 tiles from an enemy Pikeman; running {GuardTicks} ticks " +
+                 "(with the Script Extender's engage hook the first two crashed on their first update)");
             _stage = 4;
         }
 
@@ -595,16 +633,18 @@ namespace CrusaderDETweaker.Tests
             var units = GameUnitManagerAPI.Instance;
             int ticks = global::Director.instance.getSimTickCount() - _guardTick;
             if (ticks < GuardTicks) return;
-            Check("Crossbowman runs without crashing", true,
-                $"{ticks} ticks; crossbowman at {Pos(_guardUnit)}, enemy health {units.GetCurrentHealth(_guardEnemy)}");
-            units.KillUnit(_guardUnit);
-            units.KillUnit(_guardEnemy);
+            var detail = new StringBuilder($"{ticks} ticks");
+            for (int i = 0; i + 1 < _guardSpawned.Count; i += 2)
+                detail.Append($"; {GuardUnits[i / 2]} at {Pos(_guardSpawned[i])}, its enemy's health {units.GetCurrentHealth(_guardSpawned[i + 1])}");
+            Check("Former crash units run with an EngageRange", true, detail.ToString());
+            foreach (int id in _guardSpawned) units.KillUnit(id);
+            foreach (eChimps t in GuardUnits) EngageDistancePatch.ClearEngage(t);
             StartRangeTest();
-            _stage = 3; _deadline = now + 900;
+            _stage = 3; _deadline = now + 1500;
             _watchTick = global::Director.instance.getSimTickCount(); _watchTime = now; _lastProgressNote = now;
         }
 
-        private static string Rung(RangePhase p) => p.HitAt > 0 ? $"engaged at {p.HitAt} tiles" : "no engagement";
+        private static string Rung(RangePhase p) => p.HitAt > 0 ? $"engaged at {p.HitAt} tiles{(p.Damaged ? " (target damaged)" : " (no damage)")}" : "no engagement";
 
         private static bool At(int unitId, int x, int y)
         {
