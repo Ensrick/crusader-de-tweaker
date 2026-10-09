@@ -494,6 +494,14 @@ Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/Pr
 .\scripts\ship.ps1 -Version 2.6.6 -Publish  # tag + GitHub/GitLab releases + Workshop + Nexus + deploy
 ```
 See `scripts/README.md` for the stage list; the payload whitelist is in `scripts/_release_common.ps1`.
+- The Nexus mod 38 DESCRIPTION page is `CONFIGURATION_GUIDE.md` verbatim (checked 2026-10-09). ship.ps1 does not
+  update it; after a ship run `py -3 ..\nexus-author-tools\nexus_author.py description set --game
+  strongholdcrusaderdefinitiveedition --mod 38 --file CONFIGURATION_GUIDE.md --dry-run`, then `--yes`.
+- Shipping from a git worktree: copy the ignored `scripts/nexus/nexus.local.json` (Nexus API key) from the main
+  checkout first, or the nexus stage fails with "No API key found" (2.10.0; rerun `-Stage nexus` after).
+- Skip the `deploy` stage (`-Stage preflight,build,package,tag,github,gitlab,workshop,nexus`) when CDT is not
+  installed in the shared game folder or the game is running; game-folder writes go through the Byzantine
+  install lock (`shcde-byzantine-mod/tools/game_install/install_lock.py`).
 Every package ships a generated `README.txt` (`scripts/make_readme.ps1`: CONFIGURATION_GUIDE.md + the version's
 CHANGELOG entry + install/uninstall header). Never hand-edit it; edit the guide or the CHANGELOG instead.
 
