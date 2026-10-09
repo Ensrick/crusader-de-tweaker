@@ -11,6 +11,7 @@ Updated for SHC DE v2.8.2 and Script Extender 2.10.1 or newer!
 [*][b]New: GoodYieldMultiplier[/b] (Units file) for the 17 worker types: how many goods a worker carries back per trip. Measured: a woodcutter at 2 delivered 24 wood instead of 12.
 [*][b]New: skirmish starting troops[/b] (GameplaySettings, ["Skirmish Starting Troops"]): the soldiers each player gets at the start of a custom skirmish, per start option. Measured in a real skirmish: exactly the configured 3 archers + 2 knights instead of the game's 5 archers + 7 spearmen.
 [*][b]New: army size[/b] (GameplaySettings, ["Army Size"] UnitLimit, 1000-10000, game 3000): how many units the whole map can hold, which also raises each player's troop limit in skirmish (2 players: 1910 instead of 1410 with 4000).
+[*][b]Fix: decimal values are always written with a dot[/b] in the config files, also on Windows set to a language with a decimal comma (contributed by Serpens66, thank you).
 [*][b]Fix: gameplay options now apply in regular trails and the campaign[/b]: the game switches its advanced options off at every new map; the mod switches them back on (measured with ImprovedSpearman).
 [/list]
 
