@@ -155,7 +155,7 @@ no comparison against captured original defaults; that subsystem was deleted.
 - InteractRange is not exposed (UI-only; SE squares it in a signed 32-bit int).
 - Known limit (document, do not work around): special projectile modes can bypass AttackRange.
 
-### Economy settings (unreleased, branch feature/economy)
+### Economy settings (v2.10.0)
 
 - **Stockpile cost** (GitLab #8): `STRUCT_GOODS_YARD` stays in `StructureCategories.NonModable` (matrices, multipliers)
   but is "cost only" (`IsCostOnly`, `TomlNonModable`): its Structures section has just the five costs (`-1 # Default: 0`),
@@ -184,7 +184,7 @@ the game's default-palette colour for that slot) and the UI tables `OnScreenText
 `TemplateBaseline`. Applied from `ApplyAllGlobalConfigs` (session start) and quietly after every `OnUnloadMap`
 Post (menus). Minimap (native `DLL_SetMPRadarColours`) and lobby shield images are out of reach.
 
-### Apothecary healing (unreleased, GameplaySettings `["Apothecary Healing"]`, GitLab #4)
+### Apothecary healing (v2.10.0, GameplaySettings `["Apothecary Healing"]`, GitLab #4)
 
 `Config/Core/ApothecaryHealing.cs`. Session state, not a template table (no TemplateBaseline): settings come from
 `ApplyAllGlobalConfigs` (off when the file is missing or has a syntax error). A heal pass runs on SE
@@ -195,7 +195,7 @@ heal (RVA 0x17491A). Combat stamps: `OnUnitTakeMeleeDamage` (Pre) and `OnUnitTak
 attacking unit. MULTIPLAYER: deterministic by construction; `Configure` must never reset stamps or the schedule (it
 runs on one client only when the local market spawns). `BedouinHealMultiplier = 0` is allowed (heal 0). Measured
 2026-10-08 (selftest-20261008-103828, 47/47 PASS); staffed-apothecary detection is [unverified].
-### Unit limit and advanced-options master switches (GameplaySettings, unreleased)
+### Unit limit and advanced-options master switches (GameplaySettings, v2.10.0)
 
 - `["Army Size"] UnitLimit` (`Config/Core/UnitLimit.cs`, GitHub #3): writes the int at SE's
   `LocalPlayerUnitLimitVA` (RVA 0x3668E34, game default 3000, 10000 = Extreme troops and the unit table size).

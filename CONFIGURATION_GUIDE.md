@@ -233,7 +233,7 @@ PeasantRespawnTickResetValue = 2000   # Tick counter reset value after a spawn.
 CampPeasantsCap = 24                  # Max peasants waiting at the campfire. 0 = no cap.
 [/code]
 
-[b]Army Size[/b] (unreleased)
+[b]Army Size[/b] (v2.10.0+)
 
 How many units the whole map can hold: one shared pool for every player's troops, workers and animals. [b]-1 = the game's value: 3000[/b], or 10000 when Extreme troops is on. Allowed values: 1000 to 10000 (10000 is the size of the game's unit table; a higher value is lowered to 10000 with a warning).
 [code]
@@ -270,7 +270,7 @@ Yellow = -1         # default: [255, 210, 35] on units, [198, 195, 0] in the int
 [*]In multiplayer with host config sync, the host's colours are used by everyone in the lobby.
 [/list]
 
-[b]Apothecary Healing[/b] (UCP-style healing; unreleased)
+[b]Apothecary Healing[/b] (UCP-style healing; v2.10.0+)
 
 Every apothecary heals its owner's wounded soldiers and Lord standing near it, out of combat, like the Unofficial Crusader Patch's "Healer heals casualties". [b]Off by default:[/b] while HealPercent and HealHitPoints are both -1 the apothecary does what it does in the game (it only cures plague). Example with healing on:
 [code]
@@ -293,7 +293,7 @@ NeedsWorker = true      # true = only an apothecary that has its worker heals
 [*]In multiplayer with host config sync, the host's values are used by everyone; every player's game heals the same units on the same ticks.
 [/list]
 
-[b]Skirmish Starting Troops[/b] (new)
+[b]Skirmish Starting Troops[/b] (v2.10.0+)
 
 The soldiers each player receives at the start of a custom skirmish, single player or multiplayer. The game delivers them in groups of up to 9 every 200 game ticks. One table per start option of the lobby: [b]Normal[/b], [b]Crusader[/b], [b]Deathmatch[/b]. [b]-1 = the game's number[/b] of that unit; 0 or more = exactly that many for every human player, whatever the lord (0 removes the unit). Maximum 1000.
 [code]
@@ -405,7 +405,7 @@ MaxCount = -1                      # -1 = unlimited (default)
 [*][b]KnightRunSpeedBonus / ArabHorsemanRunSpeedBonus / BedouinCamelLancerRunSpeedBonus / BedouinHeavyCamelRunSpeedBonus[/b] (only in that unit's section) — how much faster the mounted unit is while it runs. [b]Higher = faster[/b], the opposite of Speed; the game's value is 2 for all four. 0 = walking pace. Gains get smaller as the value rises (traced in the game code). Values of 32768 and above count as negative and stop the unit while it runs, so stay well below that. It does not change a normal move order: a Knight walked 20 tiles in the same time at 0, 2 and 8 (311-315 ticks, measured in game); the game applies the bonus only in one AI state of the unit.
 [*][b]ShieldHealth[/b] — Bedouin Demolisher only: shield durability (game default 40000). The game stores it in 16 bits, so [b]65535 is the maximum[/b]; a larger value is clamped to 65535 and a warning is logged.
 [*][b]RequiresHorse[/b] — When true, hiring needs a free stable horse and the unit occupies that stable slot until it dies. Add [b]RequiresHorse = true[/b] to any recruitable unit's section: Barracks units are checked by the game itself, Mercenary Post units (Horse Archer, Camel Lancer, Heavy Camel, ...) by the mod at hire time (the hire is refused when no horse is free; a batch request is trimmed to the free horses). The Mercenary Post hover shows no horse icon - that UI is hard-wired to the Barracks.
-[*][b]GoodYieldMultiplier[/b] (workers only, new) - how many goods a worker carries back per work cycle, as a multiple of the game's amount: [b]2[/b] = twice as much, [b]0.5[/b] = half, [b]-1[/b] or [b]1[/b] = the game's amount. Greater than 0, at most 100. Fractions add up over the trips: 1.25 on a trip of 3 gives 3, 4, 4, 4. The game's productivity bonus is added on top of the multiplied amount, and one trip is at most 32767. Workers: Woodcutter, Fletcher, Hunter, Quarry Grunt (stone), Pitchman, Wheat / Hops / Apple / Dairy farmer, Miller, Baker, Brewer, Poleturner, Blacksmith, Armourer, Tanner, Miner (iron; [b]CHIMP_TYPE_MINER2[/b]). The Quarry Mason, the quarry Ox and [b]CHIMP_TYPE_MINER1[/b] never deliver goods themselves, so they do not get the setting. Measured in game: a Woodcutter with GoodYieldMultiplier = 2 carried 24 planks instead of 12, and the Stockpile gained exactly 24 wood.
+[*][b]GoodYieldMultiplier[/b] (workers only, new in 2.10.0) - how many goods a worker carries back per work cycle, as a multiple of the game's amount: [b]2[/b] = twice as much, [b]0.5[/b] = half, [b]-1[/b] or [b]1[/b] = the game's amount. Greater than 0, at most 100. Fractions add up over the trips: 1.25 on a trip of 3 gives 3, 4, 4, 4. The game's productivity bonus is added on top of the multiplied amount, and one trip is at most 32767. Workers: Woodcutter, Fletcher, Hunter, Quarry Grunt (stone), Pitchman, Wheat / Hops / Apple / Dairy farmer, Miller, Baker, Brewer, Poleturner, Blacksmith, Armourer, Tanner, Miner (iron; [b]CHIMP_TYPE_MINER2[/b]). The Quarry Mason, the quarry Ox and [b]CHIMP_TYPE_MINER1[/b] never deliver goods themselves, so they do not get the setting. Measured in game: a Woodcutter with GoodYieldMultiplier = 2 carried 24 planks instead of 12, and the Stockpile gained exactly 24 wood.
 [*][b]MaxCount[/b] — Limit on units of this type alive at once for the local player. [b]-1[/b] = unlimited (default), [b]0[/b] = disabled (cannot be recruited at all), [b]>0[/b] = max alive at once. Recruiting at/over the cap is refused up front (no gold spent); a request for more than the remaining room is trimmed to fit. A value typed into the lobby tab replaces this one (see "Limits in the lobby (MaxCount)").
 [*][b]AttackRange[/b] (ranged units only, new in 2.8.0) - how far the unit picks targets and, for normal arrows, bolts, stones and siege shots, how far the projectile flies, in [b]map tiles[/b]. The [b]# Default:[/b] comment shows the game's current range. Maximum 32767 (larger values are clamped with a warning). Units: Archer, Arabian Bow (Arab archer), Horse Archer, Crossbowman, Slinger, Fire Thrower (grenadier), Bedouin Ambusher, Bedouin Skirmisher, Catapult, Trebuchet, Mangonel, Ballista, Arabian Ballista. While [b]EngageRange[/b] is -1, the distance at which idle units react is scaled with AttackRange (game value x your AttackRange / game AttackRange), so a higher AttackRange really makes idle soldiers start shooting from farther away (2.9.1).
 [*][b]EngageRange[/b] (ranged units only, new in 2.8.0, reworked in 2.9.1) - in [b]map tiles[/b]: how far away an enemy can be when an idle unit notices it and starts to engage. The [b]# Default:[/b] comment shows the game's value: 50 tiles for archers, crossbowmen, Arabian bows, slingers, fire throwers and skirmishers, 54 for horse archers and Bedouin heavy camels, 85 for ballistas. [b]-1[/b] = the game's value, scaled with AttackRange when you set one. EngageRange does not change how far the unit can shoot: an enemy noticed beyond AttackRange is only shot once it comes within AttackRange (measured: EngageRange 80 with the game's AttackRange 54 still first shot at 48 tiles). Maximum 4000 tiles. Units: Archer, Arabian Bow, Horse Archer, Crossbowman, Slinger, Fire Thrower, Bedouin Skirmisher, Bedouin Heavy Camel, Ballista, Arabian Ballista. The Catapult, Trebuchet and Mangonel have no engage check in the game, so they do not get the setting.
@@ -507,7 +507,7 @@ Single player and skirmish are not affected.
 
 
 [size=5][b]Limits in the lobby (MaxCount)[/b][/size]
-[b]Unreleased.[/b] The [b]Crusader DE Tweaker[/b] tab of the [b]Mod Options[/b] window (the Script Extender's Mod Options button on the skirmish and multiplayer lobby screens) lists every recruitable unit and siege engine and every building, each with a box:
+[b]New in 2.10.0.[/b] The [b]Crusader DE Tweaker[/b] tab of the [b]Mod Options[/b] window (the Script Extender's Mod Options button on the skirmish and multiplayer lobby screens) lists every recruitable unit and siege engine and every building, each with a box:
 [list]
 [*][b]empty[/b] = use the MaxCount of the Units / Structures file
 [*][b]-1[/b] = no limit in this lobby, even if the file has one
