@@ -205,7 +205,26 @@ runs on one client only when the local market spawns). `BedouinHealMultiplier = 
 - Advanced gameplay options (GitLab #1) count only while the mode's master switch is on
   (mode 0x63 skirmish/trails -> AdvancedSkirmishOptions, else AdvancedOptions); the map start resets both.
   `LoadPlayerOptions` raises both whenever a sub-option is true and logs it at Info when it had to.
-- `OnPostLoad` (after `EditorDirector.postLoading`) re-applies only these two (`ConfigLoader.ApplyAfterLoad`).
+- `OnPostLoad` (after `EditorDirector.postLoading`) re-applies only these two (`ConfigLoader.ApplyAfterLoad`), plus BuildingLimit.
+
+### Building limit and pools (unreleased, GitLab #9 / #10)
+
+- `["Building Limit"] BuildingLimit` (`Config/Core/BuildingLimit.cs`): the 4000 in the human player's placement check
+  (RVA 0x90CD0 from DLL_MapAction; "mov eax, 4000" at 0x91BAF, found by pattern, rewritten with RedBird's
+  `ManagedAssemblyImmediate`, restore = clear the override). Refusal (message 333 BHELP_TEXT_MAX_LIMIT, 0x91BF4) when
+  free records (building manager +0x54 = 4000 - live, recounted every tick at 0xC60F0) < 20, or, only when the game
+  mode != 0, 4000 / players - own buildings (manager +4 + 4 * player) < 2. The table itself (4000 records at manager
+  +0x5C, allocator 0xB47E0 with 3999 in its code, SE `NUM_PREALLOC_BUILDINGS`) cannot grow: never patch the allocator.
+  Session state like UnitLimit (Post hooks + OnPostLoad, restored on unload / -1).
+- `0x3668E38` (next to the unit pool) caps the projectile / effect pool (allocator 0x9B2B0, 0xE8-byte records at RVA
+  0x2F7A680, slots 1-24 kept for economy indicators; 3000, Extreme troops 6000 = SE `NUM_PREALLOC_PROJECTILES`).
+  `Config/Core/SpritePool.cs` hooks `ObjectPool.GetObjectForType` (MonoMod) so an empty Unity sprite pool (30000) grows
+  instead of returning null: with the game's code a new unit then throws in `GameMap.processTestMap`, and 6 such
+  exceptions leak all 6 render buffers (`MemoryBuffers`), which stops the game (measured). GitLab #10 itself is not
+  reproduced; see the CHANGELOG entry for what was ruled out.
+- Self-test: `Tests/HeadlessSelfTest.Pools.cs` (`test_headless.ps1 -Only pools`). Durations there are counted on SE
+  `GameTimeManagerAPI.OnTick`: SE's `CurrentGameTick` is `Director.getSimTickCount`, which keeps counting while the game
+  skips ticks under load (no free render buffer).
 
 ### `-1` = "use game default" sentinel (Units/Structures TOML, v2.3.0+)
 
@@ -406,6 +425,9 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | Native code / data lookup by pattern (CrusaderDE.dll on disk) | `Config/Core/GameCode.cs` |
 | `["Army Size"]` UnitLimit (native unit pool, written only in session Post hooks) | `Config/Core/UnitLimit.cs` |
 | In-game self-test limits stages (editor map first, a real custom skirmish last): unit limit + gameplay-options master switches | `Tests/HeadlessSelfTestLimits.cs` |
+| `["Building Limit"]` BuildingLimit (human player's share of the building table, code constant) | `Config/Core/BuildingLimit.cs` |
+| Unity sprite pool growth (empty pool no longer stops the game) | `Config/Core/SpritePool.cs` |
+| In-game self-test pools stage: building limit clicks, units / sprites / animations up to 8500 units, projectile pool in a battle | `Tests/HeadlessSelfTest.Pools.cs` |
 
 ---
 

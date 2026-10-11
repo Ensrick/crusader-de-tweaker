@@ -402,6 +402,10 @@ namespace CrusaderDETweaker.Tests
             Check("Real skirmish start: game mode 0x63 and both master switches on after the start (the mod's hook)",
                 (_modeVA == 0 || mode == SkirmishMode) && players.IsAdvancedOptionsEnabled() && players.IsAdvancedSkirmishOptionsEnabled() && players.IsImprovedSpearman(),
                 $"mode {mode}, AdvancedOptions {players.IsAdvancedOptionsEnabled()}, AdvancedSkirmishOptions {players.IsAdvancedSkirmishOptionsEnabled()}, ImprovedSpearman {players.IsImprovedSpearman()}");
+            // GitLab #9: the pools stage put the game's code back; the real session-start hook must apply the file again.
+            int buildingLimit = BuildingLimit.Current();
+            Check("Real skirmish start: the mod's session-start hook set the building limit from the GameplaySettings file",
+                buildingLimit == BuildingLimitConfigured, $"code constant {buildingLimit} (file {BuildingLimitConfigured}, game {BuildingLimit.GameValue})");
         }
 
         private void ReportSkirmishCaps()

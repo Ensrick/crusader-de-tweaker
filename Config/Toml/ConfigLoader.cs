@@ -200,10 +200,15 @@ namespace CrusaderDETweaker.Config.Toml
                 .Subscribe(_ => ApplyAfterLoad());
 
             // The unit pool is session state the game resets at the next map start; put the game's value back now
-            // so nothing (a menu, the next save) sees this mod's value outside a session.
+            // so nothing (a menu, the next save) sees this mod's value outside a session. The building share is a code
+            // constant (BuildingLimit.cs): put back the same way, so -1 in the next session is the game's code.
             MapLoaderR3EventHooks.OnUnloadMap.Observable
                 .Where(args => args.Phase == EventHookPhase.Post)
-                .Subscribe(_ => global::CrusaderDETweaker.Config.Core.UnitLimit.RestoreGameValue("map unload"));
+                .Subscribe(_ =>
+                {
+                    global::CrusaderDETweaker.Config.Core.UnitLimit.RestoreGameValue("map unload");
+                    global::CrusaderDETweaker.Config.Core.BuildingLimit.RestoreGameValue("map unload");
+                });
 
             // SetAutoTrade requires the marketplace to be active. Subscribe to building spawns so
             // auto-trade is applied the moment the local player's market is built (or re-spawned
@@ -250,8 +255,8 @@ namespace CrusaderDETweaker.Config.Toml
         }
 
         /// <summary>
-        /// OnPostLoad: re-applies only the gameplay options (with their master switches) and the unit limit.
-        /// The simulation thread is already running here; both are single 32-bit writes.
+        /// OnPostLoad: re-applies only the gameplay options (with their master switches), the unit limit and the
+        /// building limit. The simulation thread is already running here; each is a single 32-bit write.
         /// </summary>
         private static void ApplyAfterLoad()
         {
@@ -261,6 +266,7 @@ namespace CrusaderDETweaker.Config.Toml
                 var tomlModel = Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(ConfigPaths.Globals));
                 LoadPlayerOptions(tomlModel, "after load");
                 global::CrusaderDETweaker.Config.Core.UnitLimit.ApplyFromConfig(tomlModel, "after load");
+                global::CrusaderDETweaker.Config.Core.BuildingLimit.ApplyFromConfig(tomlModel, "after load");
             }
             catch (Exception ex)
             {
@@ -306,6 +312,8 @@ namespace CrusaderDETweaker.Config.Toml
                 LoadPlayerOptions(tomlModel, "session start", dbg);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: UnitLimit...");
                 global::CrusaderDETweaker.Config.Core.UnitLimit.ApplyFromConfig(tomlModel, "session start");
+                if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: BuildingLimit...");
+                global::CrusaderDETweaker.Config.Core.BuildingLimit.ApplyFromConfig(tomlModel, "session start");
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadTradePrices...");
                 LoadTradePrices(tomlModel);
                 if (dbg) Plugin.Logger.LogInfo("[GlobalConfig] Applying: LoadAutoTrade...");

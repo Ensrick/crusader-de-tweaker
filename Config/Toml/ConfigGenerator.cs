@@ -299,7 +299,22 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine("# 8 players and 1410 with 2 players at 3000, 1197 and 4910 at 10000. Campaign, free build and invasion: UnitLimit itself.");
                 sb.AppendLine("# Above 3000 the game also runs some of its Extreme troops rules (outposts, probably the Extreme power bar).");
                 sb.AppendLine("# Applied at every session start; a game saved with a raised limit keeps it. Multiplayer: every player needs the same value.");
+                sb.AppendLine("# Reported with about 8000 units (not reproduced): tower siege engines fired without their animation. Measured with 8500");
+                sb.AppendLine("# units: the game runs much slower, but sprites, projectiles and animations stayed within the game's limits.");
                 sb.AppendLine($"{unitLimitKey} = {unitLimit}  # default: {(global::CrusaderDETweaker.Config.Core.UnitLimit.GameValue)}");
+                sb.AppendLine();
+
+                // Building Limit (GitLab #9): see Config/Core/BuildingLimit.cs for the game facts behind these comments.
+                string buildingSection = global::CrusaderDETweaker.Config.Core.BuildingLimit.Section, buildingLimitKey = global::CrusaderDETweaker.Config.Core.BuildingLimit.Key;
+                var buildingLimit = ExistingOrDefault(existingToml, buildingSection, buildingLimitKey, -1L);
+                sb.AppendLine($"[\"{buildingSection}\"]");
+                sb.AppendLine("# BuildingLimit: the building total the game shares out among the players in skirmish, trails and multiplayer.");
+                sb.AppendLine("# Your own limit there is BuildingLimit / players - 1: 1999 buildings with 2 players and 499 with 8 at the game's 4000.");
+                sb.AppendLine("# -1 = game value (4000). Allowed: 1000 to 32000 (32000 lets each of up to 8 players use the whole map's table).");
+                sb.AppendLine("# The map-wide limit cannot be raised: all players together stop at about 3980 buildings (the game's table has 4000");
+                sb.AppendLine("# places and keeps the last 20 free). Campaign and free build have only that map-wide limit, so this has no effect there.");
+                sb.AppendLine("# Only your own placements are checked; the AI is not changed. Applied at every session start, put back on unload.");
+                sb.AppendLine($"{buildingLimitKey} = {buildingLimit}  # default: {(global::CrusaderDETweaker.Config.Core.BuildingLimit.GameValue)}");
                 sb.AppendLine();
 
                 sb.AppendLine("# ========================================");

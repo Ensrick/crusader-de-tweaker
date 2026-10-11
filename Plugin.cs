@@ -165,6 +165,9 @@ namespace CrusaderDETweaker
                 // Must be up before config systems subscribe their TransitionSettled consumers.
                 CrusaderDETweaker.Config.Core.UnitTransitionDispatcher.Initialize();
 
+                // Sprite pool growth (safeguard found with GitLab #10): patches a managed method's entry only; the body runs in-game.
+                CrusaderDETweaker.Config.Core.SpritePool.Install();
+
                 // Initialize all config systems (TOML and CSV) using unified interface
                 ConfigManager.Initialize(runValidation: true);
 

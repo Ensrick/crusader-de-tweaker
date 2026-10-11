@@ -250,6 +250,24 @@ UnitLimit = 10000  # default: 3000
 [*]Not possible yet: a per-player troop limit beyond the formula above (it would need a hook on the game's per-tick limit function).
 [*]The log line [b][UnitLimit] Unit limit 10000 (game 3000) (session start); read back 10000.[/b] confirms it.
 [*]Measured in game (a custom skirmish with 2 players, started by the windowless self-test): UnitLimit = 4000 gave each player a troop limit of 1910 (1410 with the game's 3000), and the game did not switch to Extreme troops. In the map editor, with the unit limit set so that only 3 unit slots were free, 3 of 6 new units were created and the other 3 were refused.
+[*][b]Very large armies (reported, not reproduced yet):[/b] a player with about 8000 units saw siege engines on towers fire without their firing / reloading animation; lowering UnitLimit made it go away. Measured in the windowless self-test with 8500 units (8290 of them on screen): the game ran 5 to 13 times slower, but about 9 in 10 animation steps of a unit still reached the screen, the same as with few units; at most about 10300 of the game's 30000 sprites were in use; and in a battle of 2124 archers and Arabian bows against 1000 Pikemen at most 112 of the game's 3000 projectile places were used. So none of these game limits is full at that size; the cause is not found yet.
+[*][b]Safeguard (unreleased):[/b] if the game's 30000 sprites for map objects ever run out, the mod now adds 2000 more instead. With the game's own code a new unit then fails in the drawing code, and after 6 such frames the game stops (measured). Log: [b][SpritePool] Sprite pool 0 was empty: added 2000 objects[/b].
+[/list]
+
+[b]Building Limit[/b] (unreleased)
+
+How many buildings the human player may have in skirmish, trails and multiplayer. The game shares a building total out among the players: your own limit is that total / number of players - 1, so [b]1999 buildings with 2 players, 999 with 4 and 499 with 8[/b] at the game's total of 4000. Placing one more shows the "limit reached" message. [b]-1 = the game's value: 4000.[/b] Allowed values: 1000 to 32000.
+[code]
+["Building Limit"]
+BuildingLimit = 32000  # default: 4000
+[/code]
+[list]
+[*][b]The map-wide limit cannot be raised.[/b] All buildings of all players live in one game table with room for 4000; the game refuses new buildings when fewer than 20 places are left (siege tents can still be placed while 11 or more are free, a tunnel while 3 or more are free). So all players together stop at about 3980 buildings, whatever this setting says. A raised BuildingLimit only lets you use more of that shared table: 32000 lets each player of up to 8 use all of it. The table is a fixed block in the game's memory and the game's code has its size built in, so no mod setting can make it bigger.
+[*]Campaign and free build have no per-player share, only the map-wide limit, so this setting changes nothing there. If "limit reached" appears in the campaign, the map (all players together) is full.
+[*]Only your own placements are checked against your share; the AI is not changed.
+[*]Applied at every session start (new game, trail map, loaded save) and put back to the game's value when the map is unloaded. The check runs in the placing player's own game; in multiplayer, host config sync gives every player the host's value.
+[*]The log line [b][BuildingLimit] Building limit 32000 shared among the players (game 4000) (session start); read back 32000.[/b] confirms it.
+[*]Measured in game (windowless self-test, map editor, a Well clicked through the game's own placement path with the building counts set for the click): with the skirmish / trail rule and 2 players, 1998 own buildings were accepted and 1999 refused (the game's limit is 1999); with BuildingLimit = 32000 the same 1999 were accepted; with 1000, 498 were accepted and 499 refused; back at -1, 1999 were refused again. With fewer than 20 free places the click was refused in every case, also with 32000. With the campaign rule, 2000 own buildings were accepted.
 [/list]
 
 [b]Team Colors[/b] (v2.9.0+)

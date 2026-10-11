@@ -10,6 +10,8 @@
 //   0. Limits stage, first on the editor map (Tests/HeadlessSelfTestLimits.cs): the unit limit (GitHub #3) and the
 //      advanced gameplay options' master switches (GitLab #1); its real-skirmish part runs last (after step 5).
 //      With -cdt-selftest-quick only those two run.
+//   0b. Pools stage on the editor map (Tests/HeadlessSelfTest.Pools.cs): the building limit (GitLab #9) and the sprite
+//      pool with thousands of units on screen (GitLab #10). "-cdt-selftest-only pools" runs only this one.
 //   1. Waits for the main menu, notes whether the menu-time team-colour apply already ran.
 //   2. Creates a disposable editor map (nothing is saved), checks the speed table and the colours:
 //      sprite palettes (default / lord / jester recoloured, knight-horse untouched), the game's own
@@ -219,11 +221,20 @@ namespace CrusaderDETweaker.Tests
 
                 lock (_engineLock)
                 {
+                    if (_stage >= PoolsStage)
+                    {
+                        KeepSimRunning();
+                        if (!PoolsTick(now) || _done) return;
+                        if (_only == "pools") Finish();
+                        else ContinueAfterPools(now);
+                        return;
+                    }
                     if (_stage > LimitsSkirmishStart) { LimitsSkirmishTick(now); return; }
                     if (_stage >= 2) KeepSimRunning();
                     if (_stage == 1)
                     {
                         if (!vm.IsMapEditorMode || !global::Director.instance.SimRunning) return;
+                        if (_only == "pools") { StartPools(now); return; }   // building limit + sprite pool only (HeadlessSelfTest.Pools.cs)
                         _stage = LimitsStage; _deadline = now + 900;   // unit limit + gameplay options first (HeadlessSelfTestLimits.cs)
                         return;
                     }
@@ -231,15 +242,8 @@ namespace CrusaderDETweaker.Tests
                     {
                         if (!LimitsTick(now) || _done) return;
                         if (_quick) { Note("Quick run (-cdt-selftest-quick): only the limits stages run"); BeginLimitsSkirmish(); return; }
-                        CheckTeamColors();
-                        CheckSpeedTableAndSpawn();
-                        _stage = 2; _deadline = now + 180;
-                        if (_only == "economy")
-                        {
-                            foreach (int id in new[] { _catapult, _tower, _slowArcher, _fastArcher }) GameUnitManagerAPI.Instance.KillUnit(id);
-                            _catapult = _tower = _slowArcher = _fastArcher = 0;
-                            StartEconomy(now);
-                        }
+                        if (_only == "economy") ContinueAfterPools(now);
+                        else StartPools(now);   // building limit + sprite pool next (HeadlessSelfTest.Pools.cs)
                         return;
                     }
                     if (_stage == 2)
@@ -308,7 +312,8 @@ namespace CrusaderDETweaker.Tests
                 _failures++;
                 Note("FAIL exception: " + ex);
                 if (_stage >= EconomyStage && _stage < LimitsStage) Note("progress: economy stage " + _stage + "; " + EconomyProgress());
-                if (_stage == LimitsStage || _stage > LimitsSkirmishStart) Note($"progress: limits step {_lStep}, skirmish step {_skStep}, spearman phase {_spear}");
+                if (_stage >= PoolsStage) Note("progress: " + PoolsProgress());
+                else if (_stage == LimitsStage || _stage > LimitsSkirmishStart) Note($"progress: limits step {_lStep}, skirmish step {_skStep}, spearman phase {_spear}");
                 if (_stage == 2) Note($"progress: slow archer {Pos(_slowArcher)} ticks={_slowTicks}, fast archer {Pos(_fastArcher)} ticks={_fastTicks}");
                 if (_stage == 6) Note($"progress: apothecary step {_apoStep}, building {_apoId}, A {Pos(_hA)} health {SafeHealth(_hA)}, D {Pos(_hD)} health {SafeHealth(_hD)}, heals recorded {HealRecords().Count}");
                 if (_stage == 8) Note($"progress: lobby MaxCount step {_capStep}, units {CapSpawned(eChimps.CHIMP_TYPE_KNIGHT)} / {CapSpawned(eChimps.CHIMP_TYPE_MACEMAN)}");
@@ -317,6 +322,20 @@ namespace CrusaderDETweaker.Tests
                 if (_stage == 3) Note($"progress: range phase {_phase}, rung {_rung}, shooter {Pos(_shooter)}, target {Pos(_target)}; " +
                                       string.Join("; ", _rangePhases.Select(p => p.Name + ": " + p.Detail)));
                 Finish();
+            }
+        }
+
+        /// <summary>The editor stages after the limits and pools stages: team colours, speeds, then the chain of stages from 2 on.</summary>
+        private void ContinueAfterPools(float now)
+        {
+            CheckTeamColors();
+            CheckSpeedTableAndSpawn();
+            _stage = 2; _deadline = now + 180;
+            if (_only == "economy")
+            {
+                foreach (int id in new[] { _catapult, _tower, _slowArcher, _fastArcher }) GameUnitManagerAPI.Instance.KillUnit(id);
+                _catapult = _tower = _slowArcher = _fastArcher = 0;
+                StartEconomy(now);
             }
         }
 
