@@ -22,7 +22,7 @@ param(
     [string]$ChangeNoteVersion = "",
     [string]$WorkshopId  = "3726034964",
     [string]$SteamAppId  = "3024040",
-    [string]$UploaderExe = "C:\Users\danjo\source\repos\_shcdese_v1.31.0\uploader\pdengine.steamugc.tool.exe",
+    [string]$UploaderExe = "C:\Users\danjo\source\repos\shcde-workshop-uploader\bin\Release\publish\shcde-workshop-uploader.exe",
     [string]$Description = "",
     [string]$Title       = "",
     [string]$GitLabRepo  = "ensrick7/crusader-de-tweaker"

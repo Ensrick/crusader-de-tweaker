@@ -505,6 +505,8 @@ See `scripts/README.md` for the stage list; the payload whitelist is in `scripts
 - Steam Workshop title = `[SE] Unit Stat Editor`: every Script Extender mod on the SHCDE Workshop is titled
   `[SE] <name>` (checked 2026-10-12, 13 of 13, five authors). `$script:DefaultWorkshopTitle` in
   `_release_common.ps1`; ship.ps1 and workshop_description.ps1 send it, refuse a title without `[SE] ` and verify it.
+  Uploader = `repos\shcde-workshop-uploader` (pdengine.steamugc.tool hangs on any `[SE]` title; never go back to it).
+  Live since 2026-10-12 (title-only update, verified through GetPublishedFileDetails).
 Every package ships a generated `README.txt` (`scripts/make_readme.ps1`: CONFIGURATION_GUIDE.md + the version's
 CHANGELOG entry + install/uninstall header). Never hand-edit it; edit the guide or the CHANGELOG instead.
 

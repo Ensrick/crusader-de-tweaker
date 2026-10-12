@@ -58,7 +58,7 @@ param(
     [string]$WorkshopId  = "3726034964",
     [string]$SteamAppId  = "3024040",
     [string]$PackagerExe = "C:\Users\danjo\source\repos\_shcdese_v1.31.0\packager\SHCDESE.WorkshopPackager.exe",
-    [string]$UploaderExe = "C:\Users\danjo\source\repos\_shcdese_v1.31.0\uploader\pdengine.steamugc.tool.exe",
+    [string]$UploaderExe = "C:\Users\danjo\source\repos\shcde-workshop-uploader\bin\Release\publish\shcde-workshop-uploader.exe",
     [string]$SteamDir    = "C:\Program Files (x86)\Steam",
     [string]$WorkshopDescription = "",
     [string]$WorkshopTitle = "",

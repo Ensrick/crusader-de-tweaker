@@ -26,7 +26,7 @@ each re-runnable alone with `-Stage`.
 | `tag` | public | annotated `v<ver>` at HEAD, pushed to `origin` (GitLab) and `github` | `git ls-remote` on both = HEAD |
 | `github` | public | `gh release create` with the zip | `gh release view` asset size |
 | `gitlab` | public | `glab release create` with the zip | `glab release view` |
-| `workshop` | public | stage (`workshop\steam-preview.png` + built plugin) -> `SHCDESE.WorkshopPackager.exe` (.map, local) -> `pdengine.steamugc.tool.exe -u` item 3726034964 with `-z workshop\workshop-description.txt` and `-k "[SE] Unit Stat Editor"` | `Steam\logs\workshop_log.txt` "Uploaded new content" + Web API `file_size` = .map size and `title` = the title sent |
+| `workshop` | public | stage (`workshop\steam-preview.png` + built plugin) -> `SHCDESE.WorkshopPackager.exe` (.map, local) -> `shcde-workshop-uploader.exe -u` item 3726034964 with `-z workshop\workshop-description.txt` and `-k "[SE] Unit Stat Editor"` | `Steam\logs\workshop_log.txt` "Uploaded new content" + Web API `file_size` = .map size and `title` = the title sent |
 | `nexus` | public | `nexus\Publish-NexusMod.ps1` (mod 38) | script completes; receipt |
 | `deploy` | local | `deploy.ps1` from the packaged tree, LAST | deploy.ps1 hash check |
 
@@ -43,6 +43,10 @@ each re-runnable alone with `-Stage`.
   (checked 2026-10-12: all 13 found, by five authors). The title lives in `$script:DefaultWorkshopTitle`
   (`_release_common.ps1`, `[SE] Unit Stat Editor`); the workshop stage and `workshop_description.ps1` send it
   with every upload, refuse one without the `[SE] ` prefix and verify the live title.
+- **Uploader: `shcde-workshop-uploader.exe`** (`repos\shcde-workshop-uploader`, same flags as
+  `pdengine.steamugc.tool.exe`). pdengine 1.0.2 prints the current and new title through console markup,
+  so any `[SE]` title makes it throw "Could not find color or style 'SE'" and hang, on every update of an
+  item already titled `[SE] ...` too. Do not go back to it.
 
 ### `workshop_description.ps1`
 Updates only the Steam Workshop description (`workshop\workshop-description.txt`, <= 8000 chars) and title
