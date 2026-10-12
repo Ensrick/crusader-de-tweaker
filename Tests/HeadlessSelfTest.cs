@@ -36,6 +36,9 @@
 //      to 300 more ticks for damage. The first shot distance is the effective engage distance. Before 2.9.1 it
 //      was 48 tiles in every Archer phase (idle units woke at 400 world units, SE #195).
 //      A watchdog logs the tick every 60 s and fails the run if the simulation stops for 60 s.
+//   5b. Siege engines (Tests/HeadlessSelfTest.Engines.cs, GitHub #5): first-shot distance of the five engines with the
+//      game range, a raised AttackRange (2.10.0 code and EngineRangePatch) and a lowered Catapult one; then a Crossbowman
+//      with EngageRange below AttackRange. "-cdt-selftest-only engines" (test_headless.ps1 -Only engines) runs only this.
 //   6. Economy (Tests/HeadlessSelfTest.Economy.cs): Stockpile build cost, worker GoodYieldMultiplier, skirmish
 //      starting troops, then a REAL custom skirmish (and a control) started through the game's skirmish restart path,
 //      last in the run. "-cdt-selftest-only economy" (test_headless.ps1 -Only economy) runs steps 1, 2 and 6 only.
@@ -171,8 +174,42 @@ namespace CrusaderDETweaker.Tests
                 Plugin.Logger.LogError($"[SelfTest] {Flag} needs -batchmode and a result path; not started.");
                 return;
             }
+            // The intro video ending late switched the game to the front end in the middle of the editor map (run
+            // selftest-20261011-202404: IntroSequence.EndVideo -> FatControler.NewScene -> EditorDirector.stopGameSim at sim tick
+            // 893). Skip it the game's own way (the flag Platform_Multiplayer sets); stage 0 also stops a video already playing.
+            global::CrusaderDE.IntroSequence.forceSkipIntro = true;
             var test = new HeadlessSelfTest(args[index + 1]);
+            test.WatchSimStops();
             SelfTestDriver.Run(test.Tick);
+        }
+
+        private delegate void DirectorAction(global::Director self);
+        private static MonoMod.RuntimeDetour.Hook _stopHook;
+        private static HeadlessSelfTest _watching;
+        private int _simStops;
+
+        /// <summary>
+        /// Notes who stops the game's simulation thread (Director.stopSimThread: game over, leaving the map, the editor's
+        /// stop): the watchdogs only see "sim running False" (runs 2026-10-11 stopped at sim tick 900, cause unknown).
+        /// </summary>
+        private void WatchSimStops()
+        {
+            try
+            {
+                var target = typeof(global::Director).GetMethod("stopSimThread", BindingFlags.Instance | BindingFlags.Public);
+                _watching = this;
+                if (target != null) _stopHook = new MonoMod.RuntimeDetour.Hook(target, (Action<DirectorAction, global::Director>)StopSimDetour);
+            }
+            catch (Exception ex) { Note("Simulation stop watch not installed: " + ex.Message); }
+        }
+
+        private static void StopSimDetour(DirectorAction orig, global::Director self)
+        {
+            var t = _watching;
+            if (t != null && !t._done && self != null && self.SimRunning && t._simStops++ < 3)
+                t.Note($"The game stopped its simulation thread at sim tick {self.getSimTickCount()}, stage {t._stage}; screens shown: {OpenScreens()}; called from: " +
+                     new System.Diagnostics.StackTrace(1, false).ToString().Replace(Environment.NewLine, " | "));
+            orig(self);
         }
 
         private void Note(string text)
@@ -205,6 +242,7 @@ namespace CrusaderDETweaker.Tests
                         global::spriteLoader.instance == null || !global::spriteLoader.instance.spritesLoaded) return;
                     if (global::Director.instance.SimRunning) throw new InvalidOperationException("a map is already running");
 
+                    if (vm.Intro_Sequence != null) { vm.Intro_Sequence.ForceStopVideo(); Note("Intro video stopped before the editor map (IntroSequence.ForceStopVideo)"); }
                     _menuApplied = Near(Palette("defaultColours")[1], RedOverride);
                     Note("Main menu reached; team colours applied by the menu path before any map: " + _menuApplied);
 
@@ -235,6 +273,7 @@ namespace CrusaderDETweaker.Tests
                     {
                         if (!vm.IsMapEditorMode || !global::Director.instance.SimRunning) return;
                         if (_only == "pools") { StartPools(now); return; }   // building limit + sprite pool only (HeadlessSelfTest.Pools.cs)
+                        if (_only == "engines") { StartEngines(now); return; }   // siege engine ranges only (HeadlessSelfTest.Engines.cs)
                         _stage = LimitsStage; _deadline = now + 900;   // unit limit + gameplay options first (HeadlessSelfTestLimits.cs)
                         return;
                     }
@@ -301,7 +340,15 @@ namespace CrusaderDETweaker.Tests
                         }
                         return;
                     }
-                    if (_stage == 3) { if (SimStalled(now)) return; RangeTick(); if (_stage == EconomyStage) StartEconomy(now); }
+                    if (_stage == EnginesStage)
+                    {
+                        if (SimStalled(now)) return;
+                        if (!EnginesTick(now)) return;
+                        if (_only == "engines") Finish();
+                        else StartEconomy(now);
+                        return;
+                    }
+                    if (_stage == 3) { if (SimStalled(now)) return; RangeTick(); if (_stage == EnginesStage) StartEngines(now); }
                     else if (_stage == 4) GuardTick(now);
                     else if (_stage > SkirmishStage && _stage < LimitsStage) SkirmishTick(now);
                     else if (_stage >= EconomyStage && _stage < SkirmishStage) EconomyTick(now);
@@ -319,6 +366,7 @@ namespace CrusaderDETweaker.Tests
                 if (_stage == 8) Note($"progress: lobby MaxCount step {_capStep}, units {CapSpawned(eChimps.CHIMP_TYPE_KNIGHT)} / {CapSpawned(eChimps.CHIMP_TYPE_MACEMAN)}");
                 if (_stage == 7) Note($"progress: Bedouin step {_bedStep}, heals seen {_bedEvents}, target health {SafeHealth(_bedTarget)}");
                 if (_stage == 5) Note($"progress: knight phase {_kPhase}, knight {Pos(_knight)}; " + string.Join("; ", _knightPhases.Select(KnightName).Zip(_knightPhases, (n, p) => n + ": " + p.Detail)));
+                if (_stage == EnginesStage) Note("progress: " + EnginesProgress());
                 if (_stage == 3) Note($"progress: range phase {_phase}, rung {_rung}, shooter {Pos(_shooter)}, target {Pos(_target)}; " +
                                       string.Join("; ", _rangePhases.Select(p => p.Name + ": " + p.Detail)));
                 Finish();
@@ -590,7 +638,7 @@ namespace CrusaderDETweaker.Tests
             {
                 foreach (eChimps t in new[] { eChimps.CHIMP_TYPE_ARCHER, eChimps.CHIMP_TYPE_XBOWMAN }) { UnitRanges.ResetAttackRange(t); EngageDistancePatch.ClearEngage(t); }
                 ReportRanges();
-                _stage = EconomyStage;   // Tick starts the economy stages next
+                _stage = EnginesStage;   // Tick starts the siege engine stage next (HeadlessSelfTest.Engines.cs), then the economy stages
                 return;
             }
             var p = _rangePhases[_phase];
@@ -630,9 +678,21 @@ namespace CrusaderDETweaker.Tests
                 Note($"range progress: tick {tick}, phase {_phase}, rung {_rung}, shooter {Pos(_shooter)}, target {Pos(_target)}, sim running {running}");
             }
             if (now - _watchTime < 60f) return false;
-            Check("Simulation keeps running", false, $"no simulation tick for 60 s at tick {tick} (phase {_phase}, rung {_rung}, sim running {running})");
+            Check("Simulation keeps running", false, $"no simulation tick for 60 s at tick {tick} (phase {_phase}, rung {_rung}, sim running {running}, paused {(global::Director.instance.Paused)}; screens shown: {OpenScreens()})");
             Finish();
             return true;
+        }
+
+        /// <summary>The MainViewModel "Show_*" flags that are true (which screen stopped the simulation).</summary>
+        private static string OpenScreens()
+        {
+            var vm = global::CrusaderDE.MainViewModel.Instance;
+            if (vm == null) return "no view model";
+            var shown = vm.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(pr => pr.PropertyType == typeof(bool) && pr.Name.StartsWith("Show_") && pr.GetIndexParameters().Length == 0)
+                .Where(pr => { try { return (bool)pr.GetValue(vm); } catch { return false; } })
+                .Select(pr => pr.Name).ToList();
+            return shown.Count > 0 ? string.Join(", ", shown) : "none";
         }
 
         private void RangeTick()

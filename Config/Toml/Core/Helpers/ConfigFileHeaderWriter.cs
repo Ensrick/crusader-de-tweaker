@@ -93,6 +93,12 @@ namespace CrusaderDETweaker.Config.Toml.Core
             sb.AppendLine("#                  per work cycle, as a multiple of the game's amount. 2 = twice as much, 0.5 = half; fractions");
             sb.AppendLine("#                  add up over the trips (1.25 on 3 goods gives 3, 4, 4, 4). Greater than 0, at most 100.");
             sb.AppendLine("#                  -1 or 1 = the game's amount. The game's productivity bonus is added on top.");
+            sb.AppendLine("# AttackRange:   Ranged units and siege engines: the farthest they pick a target and shoot, in map tiles.");
+            sb.AppendLine("#                  -1 = the game's range (the # Default: comment). Siege engines (Catapult, Trebuchet, Mangonel,");
+            sb.AppendLine("#                  Ballista, Arabian Ballista) take 1 to 127 tiles (more is lowered to 127). Catapults and");
+            sb.AppendLine("#                  Trebuchets owned by the computer pick targets in their own code, which AttackRange does not change.");
+            sb.AppendLine("# EngageRange:   How far away an idle ranged unit notices an enemy, in map tiles. -1 = the game's value, grown");
+            sb.AppendLine("#                  with AttackRange. A unit never walks toward an enemy because of it and never shoots beyond AttackRange.");
             sb.AppendLine("# MaxCount:      Limit on units of this type alive at once for the local player.");
             sb.AppendLine("#                  -1 = unlimited (default), 0 = disabled (every spawn removed), >0 = max alive. Excess removed on spawn.");
             sb.AppendLine("#");

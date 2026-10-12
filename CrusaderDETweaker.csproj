@@ -216,6 +216,7 @@
     <Compile Include="Config\Toml\Units\Properties\ShieldHealthProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\UnitRangeProperties.cs" />
     <Compile Include="Config\Toml\Units\Properties\EngageDistancePatch.cs" />
+    <Compile Include="Config\Toml\Units\Properties\EngineRangePatch.cs" />
     <Compile Include="Config\Toml\Units\Properties\KnightRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ArabHorsemanRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinCamelLancerRunSpeedBonusProperty.cs" />
@@ -239,6 +240,7 @@
     <Compile Include="Tests\HeadlessSelfTest.Economy.cs" />
     <Compile Include="Tests\HeadlessSelfTestLimits.cs" />
     <Compile Include="Tests\HeadlessSelfTest.Pools.cs" />
+    <Compile Include="Tests\HeadlessSelfTest.Engines.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
     <Compile Include="Data\StructureTypeHelpers.cs" />

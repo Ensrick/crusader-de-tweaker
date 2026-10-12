@@ -144,6 +144,7 @@ editor map and checks team colours on the real palettes / UI tables and Speed ab
 into the run folder). Evidence in `logs\selftest-<timestamp>\`. Stops only the process it started.
 It also checks the economy settings (Stockpile cost, worker `GoodYieldMultiplier`, skirmish starting troops);
 `-Only economy` runs the menu / colour / speed-table checks and the economy stages only (a few minutes).
+`-Only engines` runs the siege engine range stage only (GitHub #5: first-shot distance of the five engines with the game's range, the 2.10.0 code and the fix, plus the Crossbowman EngageRange < AttackRange rungs; about 25 minutes).
 
 ### `check_game_running.ps1`
 Checks whether Stronghold Crusader DE is currently running. Exit 0 = running, Exit 1 = not.

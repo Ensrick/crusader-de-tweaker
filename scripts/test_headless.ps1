@@ -12,6 +12,8 @@
     (Stockpile build cost, worker GoodYieldMultiplier, skirmish starting troops), writes PASS / FAIL and quits.
     -Only economy runs the menu, colour and speed-table checks and the economy stages only (a few minutes).
     -Only pools runs only the building limit and sprite pool stages (editor map, thousands of units).
+    -Only engines runs only the siege engine range stage (first-shot distance of the five engines, crewed by Engineers,
+    with the game range and a changed AttackRange) and the Crossbowman EngageRange < AttackRange rungs (GitHub #5).
     -Quick (development) runs only the unit limit / gameplay options stages (editor map, then a real custom skirmish).
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
@@ -31,7 +33,7 @@
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
     [int]$TimeoutSeconds = 5400,
-    [ValidateSet('', 'economy', 'pools')][string]$Only = '',
+    [ValidateSet('', 'economy', 'pools', 'engines')][string]$Only = '',
     [switch]$Quick
 )
 $ErrorActionPreference = 'Stop'

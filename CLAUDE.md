@@ -152,6 +152,17 @@ no comparison against captured original defaults; that subsystem was deleted.
   AttackRange 80 alone, 48 with EngageRange 80 alone (AttackRange 54 still limits acquisition), 72 with both;
   Crossbowman 48 -> 72; every shot damaged the target. Crossbowman / Heavy Camel / Arabian Ballista with
   EngageRange 80 run without crashing.
+- Siege engines (GitHub #5, `EngineRangePatch.cs`): SE's AttackRange alone never moved where an engine FIRES from. Each
+  engine's update checks "dx^2 + dy^2 <= (R + half building size)^2" in state 8 with R = disp8 of `lea eax, [reg + R]`
+  (Catapult 75 RVA 0x152C6E, Trebuchet 85 0x153EA7, Mangonel 70 0x155150, Ballista 85 0x1625AE, Arabian Ballista 54
+  0x1729EB); 0x18E9A0 range-checks unit targets only. EngineRangePatch rewrites R (RedBird `ManagedAssemblyDisplacement`,
+  1..127 tiles) and the Mangonel's 680 look-out (0x154908, register compare). Measured (selftest -Only engines): first shot
+  Catapult 75 -> 90 / 70, Trebuchet 85 -> 100, Mangonel 70 -> 85, Ballista 85 -> 100, Arabian Ballista 54 -> 77; the
+  2.10.0 code fired at the game range in every case. AI-owned Catapult / Trebuchet use 0x18FC00 (search 73 / 83 tiles,
+  straight to state 2): not changed, and an AI Catapult never fired in the editor map. Engines need crew: +0xA0C = 2 (3 for
+  the Trebuchet); the test gives Engineers +0x9F4 = 0x10, +0x9F6 = engine id and lets the engine's own scan take them.
+  A human Mangonel auto-targets only Engineers and siege engines (0x18F4D0). Self-test: remove units with
+  `DeleteUnitSafe`, not `KillUnit` (a killed unit's record is cleared later, wiping a unit spawned into its id).
 - InteractRange is not exposed (UI-only; SE squares it in a signed 32-bit int).
 - Known limit (document, do not work around): special projectile modes can bypass AttackRange.
 
@@ -428,6 +439,8 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | `["Building Limit"]` BuildingLimit (human player's share of the building table, code constant) | `Config/Core/BuildingLimit.cs` |
 | Unity sprite pool growth (empty pool no longer stops the game) | `Config/Core/SpritePool.cs` |
 | In-game self-test pools stage: building limit clicks, units / sprites / animations up to 8500 units, projectile pool in a battle | `Tests/HeadlessSelfTest.Pools.cs` |
+| AttackRange for siege engines (their own range check in the game code) | `Config/Toml/Units/Properties/EngineRangePatch.cs` |
+| In-game self-test engines stage: engine first-shot distance (game / 2.10.0 code / fix), Crossbowman EngageRange < AttackRange (`-Only engines`) | `Tests/HeadlessSelfTest.Engines.cs` |
 
 ---
 
@@ -535,7 +548,7 @@ CHANGELOG entry + install/uninstall header). Never hand-edit it; edit the guide 
 `test_headless.ps1` + `Tests/HeadlessSelfTest.cs` (opt-in: only `-batchmode -cdt-selftest <result>` starts it)
 reach what the mock suites cannot: real palettes / UI tables and real units on a disposable editor map
 (pattern from shcde-naval-mod `runtime/test-headless.ps1`). Batch mode raises no menu map unload before the
-editor map, so the menu-path colour apply is called directly there. Extend it for new in-game features. Economy stages: `Tests/HeadlessSelfTest.Economy.cs` (partial class); `test_headless.ps1 -Only economy` runs just those (minutes, for iterating).
+editor map, so the menu-path colour apply is called directly there. Extend it for new in-game features. Economy stages: `Tests/HeadlessSelfTest.Economy.cs` (partial class); `test_headless.ps1 -Only economy` runs just those (minutes, for iterating). The hidden game skips its intro video (`IntroSequence.forceSkipIntro` + `ForceStopVideo` before the editor map): a late intro end switches the game to the front end mid-run (2026-10-11, sim stopped at tick ~900); a `Director.stopSimThread` hook notes who stops the simulation. Engine stage: `-Only engines` (Tests/HeadlessSelfTest.Engines.cs).
 
 ### Checking Unit Categories
 ```csharp

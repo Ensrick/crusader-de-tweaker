@@ -6,6 +6,7 @@
 //                                  for supported ballistic projectiles. With EngageRange -1 it also moves the idle
 //                                  engage distance in proportion (EngageDistancePatch), so a longer AttackRange makes
 //                                  idle units start shooting farther away.
+//                                  Siege engines also need their own range check rewritten (EngineRangePatch, GitHub #5).
 //   - EngageRange  (map tiles)  -> EngageDistancePatch: the distance at which idle ranged units notice an enemy,
 //                                  written into the game's own constants. NOT SE's SetEngageRange: that hook misses
 //                                  the idle state (units kept waking at 50 tiles) and crashes the Crossbowman and
@@ -74,12 +75,14 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
             int native = GameAttackTiles(unit);
             LogApplied(property, unit, $"{tiles} tiles (game default {native})", now == tiles, $"Script Extender reports {now}");
             EngageDistancePatch.SetAttackTiles(unit, tiles, native);
+            EngineRangePatch.SetAttackTiles(unit, tiles);
         }
 
         internal static void ResetAttackRange(eChimps unit)
         {
             Plugin.UnitApi.ResetUnitAttackRange(unit);
             EngageDistancePatch.ClearAttack(unit);
+            EngineRangePatch.ClearAttack(unit);
         }
 
         /// <summary>Clamp a value to <paramref name="max"/>, warning with the property and unit.</summary>
