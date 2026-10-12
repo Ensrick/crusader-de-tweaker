@@ -1,4 +1,4 @@
-Version 2.10.0 - requires Script Extender 2.10.1 or newer
+Version 2.10.0 - requires Script Extender 2.14.0 or newer
 
 Edit unit and building stats, damage per matchup, siege and trade settings, and more, through plain config files. In multiplayer, everyone in the lobby plays with the host's settings.
 
@@ -18,9 +18,9 @@ For a bug report, have these ready: [b]BepInEx\LogOutput.log[/b] from a session 
 [h1]Getting Started[/h1]
 [h2]1. Install[/h2]
 [list]
-[*]Needs [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/36]BepInEx 5 Bootstrapper[/url] and [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] [b]2.10.1 or newer[/b].
+[*]Needs [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/36]BepInEx 5 Bootstrapper[/url] and [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] [b]2.14.0 or newer[/b].
 [*]Subscribe, then launch the game once and go to the main menu. This creates the config files in [b]<game folder>\BepInEx\config\CrusaderDETweaker\[/b].
-[*]Check it worked: BepInEx\LogOutput.log contains "Loading [Crusader DE Tweaker ...]" and "ALL 6 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
+[*]Check it worked: BepInEx\LogOutput.log contains "Loading [Crusader DE Tweaker ...]" and "ALL 10 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed; "000shcdese (v2.14.0 or newer)" means it is too old: update it.
 [/list]
 
 [h2]2. Your first change: make Knights cost 5000 gold[/h2]

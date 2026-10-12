@@ -23,11 +23,11 @@ The log records every value the mod writes and, for trade prices, reads back fro
 [b]1. Install[/b]
 [list=1]
 [*]Install [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/36]BepInEx 5 Bootstrapper[/url].
-[*]Install [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] [b]2.10.1 or newer[/b]: extract SHCDESE.zip into the game folder.
+[*]Install [url=https://www.nexusmods.com/strongholdcrusaderdefinitiveedition/mods/35]Script Extender[/url] [b]2.14.0 or newer[/b]: extract SHCDESE.zip into the game folder.
 [*]Extract this mod's zip into the game folder (it contains a BepInEx folder; merge it with the existing one).
 [*]Launch the game once and go to the main menu, then quit. This creates the config files in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\[/b].
 [/list]
-Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 10 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed.
+Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Tweaker ...]" and "ALL 10 TEST SUITES PASSED". "missing dependencies: 000shcdese" means the Script Extender is not installed; "missing dependencies: 000shcdese (v2.14.0 or newer)" means it is too old: update it. With an older Script Extender the mod used to load anyway and then failed (apothecary healing, MaxCount), so the mod now refuses to load instead.
 
 [b]2. Your first change: make Knights cost 5000 gold[/b]
 [list=1]

@@ -35,6 +35,11 @@
   (`https://gitlab.com/api/v4/projects/74440776/releases?per_page=1`). Say when it is behind; findings and test
   results from an older SE must be re-checked on the latest. `test_headless.ps1` prints this and saves
   `script-extender.txt` in the run folder. Installing a new SE into the shared game folder needs the owner's go.
+- Keep the SE floor true: `Plugin.cs` `BepInDependency("000shcdese", "2.14.0")` + `info.json` MinimumVersion (and the guide,
+  NEXUS_DESCRIPTION, workshop text, make_readme.ps1). Raise it when the code starts using a newer SE member: list the SE
+  types / fields / methods the built DLL references (Mono.Cecil from BepInEx\core) and diff them against the SE release
+  DLLs (GitLab package SHCDESE.zip per tag). 2.14.0 because of GameUnit.r_IsKilledByProjectile (new) and
+  r_ControllableForPlayerId (byte -> UInt16); SE 2.13.1 threw MissingFieldException in ApothecaryHealing (2026-10-12).
 - Use PropertyHandler system for properties
 - Follow Template Method pattern for handlers
 - Add AI dev comments at top of every .cs file
