@@ -502,6 +502,9 @@ See `scripts/README.md` for the stage list; the payload whitelist is in `scripts
 - Skip the `deploy` stage (`-Stage preflight,build,package,tag,github,gitlab,workshop,nexus`) when CDT is not
   installed in the shared game folder or the game is running; game-folder writes go through the Byzantine
   install lock (`shcde-byzantine-mod/tools/game_install/install_lock.py`).
+- Steam Workshop title = `[SE] Unit Stat Editor`: every Script Extender mod on the SHCDE Workshop is titled
+  `[SE] <name>` (checked 2026-10-12, 13 of 13, five authors). `$script:DefaultWorkshopTitle` in
+  `_release_common.ps1`; ship.ps1 and workshop_description.ps1 send it, refuse a title without `[SE] ` and verify it.
 Every package ships a generated `README.txt` (`scripts/make_readme.ps1`: CONFIGURATION_GUIDE.md + the version's
 CHANGELOG entry + install/uninstall header). Never hand-edit it; edit the guide or the CHANGELOG instead.
 

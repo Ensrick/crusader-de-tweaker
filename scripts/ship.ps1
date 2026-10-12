@@ -15,7 +15,7 @@
 #   github      PUBLIC  gh release v<ver> + zip (Ensrick/crusader-de-tweaker)       gh release view: asset size
 #   gitlab      PUBLIC  glab release v<ver> + zip (ensrick7/crusader-de-tweaker)    glab release view
 #   workshop    PUBLIC  stage + .map (packager, local) -> upload item 3726034964    workshop_log "Uploaded new content"
-#                       with -z description                                        + Web API file_size == .map size
+#                       with -z description and -k title "[SE] ..."                + Web API file_size == .map size
 #   nexus       PUBLIC  scripts\nexus\Publish-NexusMod.ps1 (mod 38)                 script completes; receipt written
 #   deploy      local   scripts\deploy.ps1 from the packaged tree (LAST)            deploy.ps1 hash check
 #
@@ -61,6 +61,7 @@ param(
     [string]$UploaderExe = "C:\Users\danjo\source\repos\_shcdese_v1.31.0\uploader\pdengine.steamugc.tool.exe",
     [string]$SteamDir    = "C:\Program Files (x86)\Steam",
     [string]$WorkshopDescription = "",
+    [string]$WorkshopTitle = "",
     [int]$WorkshopVerifyTimeoutSec = 300,
 
     [int]$NexusModId = 38
@@ -83,6 +84,7 @@ $zipPath     = Join-Path $stageRoot $script:ZipName
 $pluginTree  = Join-Path $zipTree "BepInEx\plugins\$script:PluginGuid"
 $receiptDir  = Join-Path $script:RepoRoot "dist\receipts\$Version"
 if (-not $WorkshopDescription) { $WorkshopDescription = Join-Path $script:RepoRoot 'workshop\workshop-description.txt' }
+if (-not $WorkshopTitle) { $WorkshopTitle = $script:DefaultWorkshopTitle }
 
 $results = New-Object System.Collections.Generic.List[object]
 function Add-Result([string]$StageName, [string]$Status, [string]$Detail) {
@@ -175,6 +177,7 @@ function Stage-Preflight {
     }
     if ($Stage -contains 'workshop') {
         foreach ($exe in $PackagerExe, $UploaderExe) { if (-not (Test-Path -LiteralPath $exe)) { $problems += "missing tool: $exe" } }
+        try { Assert-WorkshopTitle $WorkshopTitle } catch { $problems += $_.Exception.Message }
         if (-not (Test-Path -LiteralPath $WorkshopDescription)) { $problems += "missing Workshop description: $WorkshopDescription" }
         else {
             $desc = [IO.File]::ReadAllText($WorkshopDescription)
@@ -333,7 +336,8 @@ function Stage-Workshop {
     $descLen = [IO.File]::ReadAllText($descCopy).Length
     if ($descLen -gt 8000) { throw "Workshop description $descLen chars > 8000" }
 
-    $upArgs = @('-v', '-a', $SteamAppId, '-i', $WorkshopId, '-u', '-s', $wsUpload, '-z', $descCopy, '-c', (Get-SteamChangeNote))
+    Assert-WorkshopTitle $WorkshopTitle
+    $upArgs = @('-v', '-a', $SteamAppId, '-i', $WorkshopId, '-u', '-k', $WorkshopTitle, '-s', $wsUpload, '-z', $descCopy, '-c', (Get-SteamChangeNote))
     if (-not $Publish) {
         $shown = ($upArgs | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }) -join ' '
         Write-Would ('"' + $UploaderExe + '" ' + $shown)
@@ -349,7 +353,7 @@ function Stage-Workshop {
     if ($up.Code -ne 0) { throw "uploader exit $($up.Code)" }
 
     $log = Join-Path $SteamDir 'logs\workshop_log.txt'
-    $logOk = $false; $apiSize = $null
+    $logOk = $false; $apiSize = $null; $apiTitle = $null
     $deadline = (Get-Date).AddSeconds($WorkshopVerifyTimeoutSec)
     do {
         if (-not $logOk -and (Test-Path -LiteralPath $log)) {
@@ -363,12 +367,14 @@ function Stage-Workshop {
             $r = Invoke-RestMethod -Method Post -Uri 'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/' `
                 -Body @{ itemcount = 1; 'publishedfileids[0]' = $WorkshopId }
             $apiSize = [int64]$r.response.publishedfiledetails[0].file_size
+            $apiTitle = $r.response.publishedfiledetails[0].title
         } catch { $apiSize = $null }
-        if ($logOk -and $apiSize -eq $mapLen) { break }
+        if ($logOk -and $apiSize -eq $mapLen -and $apiTitle -eq $WorkshopTitle) { break }
         Start-Sleep -Seconds 15
     } while ((Get-Date) -lt $deadline)
     if (-not $logOk)          { throw "verification: no 'Uploaded new content' for item $WorkshopId in $log since $start" }
     if ($apiSize -ne $mapLen) { throw "verification: Web API file_size $apiSize != .map size $mapLen" }
+    if ($apiTitle -ne $WorkshopTitle) { throw "verification: Web API title '$apiTitle' != '$WorkshopTitle'" }
     Write-Receipt 'workshop' @{ Item = $WorkshopId; MapBytes = $mapLen; ApiFileSize = $apiSize }
     Add-Result 'workshop' 'OK' "item $WorkshopId updated: workshop_log 'Uploaded new content' + API file_size $apiSize == .map"
 }

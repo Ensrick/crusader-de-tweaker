@@ -1,8 +1,10 @@
 # scripts/workshop_description.ps1
 #
-# PURPOSE: Update ONLY the Steam Workshop description (and optionally post a Change Note) of item
-#          3726034964, without re-uploading mod content. Use it when the page text changes between
-#          releases; a release itself goes through ship.ps1 (its workshop stage sends both).
+# PURPOSE: Update ONLY the Steam Workshop description and title (and optionally post a Change Note) of
+#          item 3726034964, without re-uploading mod content. The title is always sent:
+#          $script:DefaultWorkshopTitle in _release_common.ps1 ("[SE] <name>", the SHCDE Workshop
+#          convention). Use it when the page text changes between releases; a release itself goes
+#          through ship.ps1 (its workshop stage sends all three).
 #
 # DRY-RUN IS THE DEFAULT: without -Publish it prints what it would send.
 #
@@ -11,7 +13,8 @@
 #   .\scripts\workshop_description.ps1 -Publish                          # description only
 #   .\scripts\workshop_description.ps1 -Publish -ChangeNoteVersion 2.7.0 # + that CHANGELOG entry as Change Note
 #
-# VERIFIED BY: Steam Web API GetPublishedFileDetails description == the file (after Steam's own trimming).
+# VERIFIED BY: Steam Web API GetPublishedFileDetails description == the file (after Steam's own trimming)
+#              and title == the title sent.
 
 [CmdletBinding()]
 param(
@@ -21,17 +24,20 @@ param(
     [string]$SteamAppId  = "3024040",
     [string]$UploaderExe = "C:\Users\danjo\source\repos\_shcdese_v1.31.0\uploader\pdengine.steamugc.tool.exe",
     [string]$Description = "",
+    [string]$Title       = "",
     [string]$GitLabRepo  = "ensrick7/crusader-de-tweaker"
 )
 
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '_release_common.ps1')
 if (-not $Description) { $Description = Join-Path $script:RepoRoot 'workshop\workshop-description.txt' }
+if (-not $Title) { $Title = $script:DefaultWorkshopTitle }
+Assert-WorkshopTitle $Title
 
 $desc = [IO.File]::ReadAllText($Description)
 if ($desc.Length -gt 8000) { throw "Workshop description is $($desc.Length) chars; Steam's cap is 8000 (-z fails with k_EResultInvalidParam)." }
 
-$args2 = @('-v', '-a', $SteamAppId, '-i', $WorkshopId, '-u', '-z', $Description)
+$args2 = @('-v', '-a', $SteamAppId, '-i', $WorkshopId, '-u', '-k', $Title, '-z', $Description)
 $note = $null
 if ($ChangeNoteVersion) {
     $entry = Get-ChangelogEntry $ChangeNoteVersion
@@ -40,7 +46,7 @@ if ($ChangeNoteVersion) {
     $args2 += @('-c', $note)
 }
 
-Write-Host "=== Workshop description update: item $WorkshopId ($($desc.Length) chars) ===" -ForegroundColor Cyan
+Write-Host "=== Workshop description update: item $WorkshopId, title '$Title' ($($desc.Length) chars) ===" -ForegroundColor Cyan
 if ($note) { Write-Host "Change Note ($($note.Length) chars):`n$note" -ForegroundColor Gray }
 if (-not $Publish) { Write-Host "DRY RUN: nothing sent. Re-run with -Publish." -ForegroundColor Yellow; exit 0 }
 
@@ -54,7 +60,8 @@ for ($i = 0; $i -lt 6; $i++) {
     $resp = Invoke-RestMethod -Method Post -Uri 'https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/' `
         -Body @{ itemcount = 1; 'publishedfileids[0]' = $WorkshopId }
     $live = $resp.response.publishedfiledetails[0].description
-    if ((& $norm $live) -eq (& $norm $desc)) { Write-Host "[OK] live description matches ($($live.Length) chars)" -ForegroundColor Green; exit 0 }
+    $liveTitle = $resp.response.publishedfiledetails[0].title
+    if ((& $norm $live) -eq (& $norm $desc) -and $liveTitle -eq $Title) { Write-Host "[OK] live title '$liveTitle' and description match ($($live.Length) chars)" -ForegroundColor Green; exit 0 }
 }
-Write-Host "[FAIL] live description does not match the file after ~75 s (Steam may still be caching; re-check before re-running)." -ForegroundColor Red
+Write-Host "[FAIL] live title '$liveTitle' or description does not match after ~75 s (Steam may still be caching; re-check before re-running)." -ForegroundColor Red
 exit 4
