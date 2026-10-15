@@ -150,7 +150,11 @@ Starts the game with `-batchmode -cdt-selftest <result>`; `Tests/HeadlessSelfTes
 editor map and checks team colours on the real palettes / UI tables and Speed above 6 on spawned units
 (Catapult 8, Siege Tower 1, two Archers walking 10 tiles at Speed 8 and 1). It writes test values into
 `BepInEx\config\CrusaderDETweaker\` and puts every file back byte for byte afterwards (created files are moved
-into the run folder). Evidence in `logs\selftest-<timestamp>\`. Stops only the process it started.
+into the run folder). Evidence in `logs\selftest-<timestamp>\` (`overall.txt` = runner checks + the plugin's result).
+The game runs on a private desktop inside a kill-on-close job (`HiddenDesktopProcess.cs`, from CrusaderDEHandicap):
+no window can reach the user's screen, also from a detached shell; a visible window of the job's processes on the
+user's desktop, or a game MainWindowHandle, stops the run at once (runner check). One minute after the final result
+the runner ends the game if it has not quit. Stops only the process tree it started.
 It also checks the economy settings (Stockpile cost, worker `GoodYieldMultiplier`, skirmish starting troops);
 `-Only economy` runs the menu / colour / speed-table checks and the economy stages only (a few minutes).
 `-Only engines` runs the siege engine range stage only (GitHub #5: first-shot distance of the five engines with the game's range, the 2.10.0 code and the fix, plus the Crossbowman EngageRange < AttackRange rungs; about 25 minutes).

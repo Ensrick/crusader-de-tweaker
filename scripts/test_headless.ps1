@@ -22,9 +22,16 @@
     kept as LogOutput.before.log in the run folder.
 
     Refuses when the game is running or Steam is not; stops only the process it started.
-    Evidence: logs\selftest-<timestamp>\ (result.txt, unity.log, LogOutput.log, config-before\).
+    The game runs on a private desktop inside a kill-on-close job (scripts\HiddenDesktopProcess.cs, from the Handicap's
+    runner): no window can reach the user's screen, also when this script runs from a detached shell, and the whole
+    process tree ends with the script. Every 250 ms a visible window of the job's processes on the user's desktop, or a
+    MainWindowHandle of the game, stops the run at once (runner check in overall.txt). One minute after the plugin's
+    final result the runner ends the game if it has not quit by itself.
+    Evidence: logs\selftest-<timestamp>\ (overall.txt = runner checks + result.txt, unity.log, LogOutput.log,
+    config-before\, windows.txt when a window appeared).
 
-    Pattern: shcde-naval-mod\runtime\test-headless.ps1 (SteamAppId environment, hidden window check).
+    Pattern: shcde-naval-mod\runtime\test-headless.ps1 (SteamAppId environment); CrusaderDEHandicap\scripts\test_headless.ps1
+    (private desktop, job, window checks).
 
 .EXAMPLE
     .\scripts\build.ps1 -Deploy; .\scripts\test_headless.ps1
@@ -119,7 +126,8 @@ $before = Get-ConfigHashes $configDir
 if (Test-Path -LiteralPath $configDir) { Copy-Item -LiteralPath $configDir -Destination $snapshot -Recurse }
 if (Test-Path -LiteralPath $bepLog) { Copy-Item -LiteralPath $bepLog -Destination (Join-Path $run 'LogOutput.before.log') }
 
-$owned = $null
+$owned = $null; $windowHits = 0; $privateWindows = @{}; $finalAt = $null; $endedAt = $null; $same = $false
+$startedAt = Get-Date
 $oldApp = $env:SteamAppId; $oldGame = $env:SteamGameId
 try {
     # Test values. A missing Units file is generated at launch with -1 everywhere, which this test cannot use.
@@ -158,29 +166,61 @@ try {
     [IO.File]::WriteAllText($structuresPath, $structures, $utf8)
     Write-Host "Test values written: $($unitSpeeds.Keys | ForEach-Object { "$_ Speed=$($unitSpeeds[$_])" }); Team Colors Red=$($teamColors.Red) Blue=$($teamColors.Blue); Archer AttackRange=$($xbowRanges.AttackRange) EngageRange=$($xbowRanges.EngageRange); Apothecary Healing $(($apothecaryHealing.Keys | ForEach-Object { "$_=$($apothecaryHealing[$_])" }) -join ' '); BedouinHealMultiplier=$bedouinHealMultiplier; Maceman MaxCount=$macemanMaxCount; Stockpile GoldCost=$($stockpileCost.GoldCost) WoodCost=$($stockpileCost.WoodCost); GoodYieldMultiplier $($goodYield.Keys | ForEach-Object { "$_=$($goodYield[$_])" }); Skirmish Starting Troops Normal Archer=$($startTroops.Archer) Spearman=$($startTroops.Spearman) Knight=$($startTroops.Knight); UnitLimit=$unitLimit; BuildingLimit=$buildingLimit; $($gameplayOptions.Keys | ForEach-Object { "$_=$($gameplayOptions[$_])" })"
 
-    $env:SteamAppId = '3024040'; $env:SteamGameId = '3024040'
+    # Private desktop + kill-on-close job (scripts/HiddenDesktopProcess.cs, from the Handicap's runner): no window of the
+    # game or of a child it starts can reach the user's screen, and the whole tree ends with this script. Start-Process
+    # -WindowStyle Hidden was not enough: a run started from a detached shell showed the window for about 25 s (2026-10-11).
+    if (-not ('HiddenDesktopProcess' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'HiddenDesktopProcess.cs') }
     $arguments = '-batchmode -nosound -silent-crashes -cdt-selftest "' + $result + '" -logFile "' + (Join-Path $run 'unity.log') + '"'
     if ($Only) { $arguments += " -cdt-selftest-only $Only" }
     if ($Quick) { $arguments += ' -cdt-selftest-quick' }
-    $owned = Start-Process -FilePath $exe -WorkingDirectory $GamePath -ArgumentList $arguments -WindowStyle Hidden -PassThru
+    $env:SteamAppId = '3024040'; $env:SteamGameId = '3024040'
+    $launchAt = Get-Date
+    $owned = [HiddenDesktopProcess]::Start($exe, $arguments, $GamePath)
     $env:SteamAppId = $oldApp; $env:SteamGameId = $oldGame
-    try { $owned.PriorityClass = 'BelowNormal' } catch { }
-    Write-Host "Self-test PID $($owned.Id); evidence $run"
+    Write-Host "Self-test PID $($owned.Pid) on private desktop $($owned.DesktopName); evidence $run"
 
-    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-    while (-not $owned.HasExited) {
-        if ((Get-Date) -gt $deadline) { throw "Self-test timed out after $TimeoutSeconds s; see $run" }
-        $owned.Refresh()
-        if ($owned.MainWindowHandle -ne 0) { throw 'A game window appeared; stopping the test process.' }
-        Start-Sleep -Milliseconds 1000
+    $deadline = $launchAt.AddSeconds($TimeoutSeconds)
+    $lastNote = Get-Date
+    while (-not $owned.WaitForExit(250)) {
+        # Every 250 ms: a visible window of any process in the job on the user's desktop stops the run at once.
+        $visible = $owned.WindowsOnUserDesktop()
+        if ($visible.Count -gt 0) {
+            $windowHits++
+            Set-Content -LiteralPath (Join-Path $run 'windows.txt') -Value ("WINDOW ON THE USER'S DESKTOP at $(Get-Date -Format o):`n" + ($visible -join "`n")) -Encoding utf8
+            $owned.Kill()
+            throw "A window of the game appeared on the user's desktop; the game was stopped at once: $($visible -join '; ')"
+        }
+        # The old check as well (MainWindowHandle looks at the caller's desktop, the user's when run in the foreground).
+        $main = Get-Process -Id $owned.Pid -ErrorAction SilentlyContinue
+        if ($main -and $main.MainWindowHandle -ne [IntPtr]::Zero) {
+            $windowHits++
+            Set-Content -LiteralPath (Join-Path $run 'windows.txt') -Value ("MAIN WINDOW ON THE USER'S DESKTOP at $(Get-Date -Format o): handle $($main.MainWindowHandle) '$($main.MainWindowTitle)'") -Encoding utf8
+            $owned.Kill()
+            throw "The game's main window appeared on the user's desktop; the game was stopped at once."
+        }
+        foreach ($w in $owned.WindowsOnPrivateDesktop()) { $privateWindows[$w] = $true }
+        if ((Get-Date) -gt $deadline) { $owned.Kill(); throw "Self-test timed out after $TimeoutSeconds s; see $run" }
+        # The plugin writes its final result (with its END line; the skirmish stages write a provisional FAIL first), then
+        # asks the game to quit; a batch-mode quit can take minutes (Handicap, 2026-10-12: 9 min). One minute after the
+        # final result the runner ends the job.
+        if (-not $finalAt -and (Test-Path -LiteralPath $result) -and (Select-String -LiteralPath $result -Pattern '^END (PASS|FAIL) ' -Quiet)) { $finalAt = Get-Date }
+        if ($finalAt -and ((Get-Date) - $finalAt).TotalSeconds -ge 60) { Write-Host 'Result written 60 s ago and the game has not quit; ending its process tree.'; $owned.Kill(); break }
+        if (((Get-Date) - $lastNote).TotalSeconds -ge 60) {
+            $lastNote = Get-Date
+            Write-Host ("[{0:HH:mm:ss}] running {1:N0} s" -f (Get-Date), ((Get-Date) - $launchAt).TotalSeconds)
+        }
     }
+    $endedAt = Get-Date
+    Write-Host "Game exited with code $($owned.ExitCode) after $([int]($endedAt - $launchAt).TotalSeconds) s"
     if (-not (Test-Path -LiteralPath $result)) { throw "The game exited (code $($owned.ExitCode)) without a result; see $run" }
     Get-Content -LiteralPath $result
 }
 finally {
     $env:SteamAppId = $oldApp; $env:SteamGameId = $oldGame
-    # Stop only the process this script started.
-    if ($owned -and -not $owned.HasExited) { Stop-Process -InputObject $owned -Force; $owned.WaitForExit(15000) | Out-Null }
+    # Closing the job ends the process this script started and anything it started (KILL_ON_JOB_CLOSE).
+    if ($owned) { $owned.Dispose() }
+    if (-not $endedAt) { $endedAt = Get-Date }
+    Start-Sleep -Milliseconds 500
     if (Test-Path -LiteralPath $bepLog) { Copy-Item -LiteralPath $bepLog -Destination (Join-Path $run 'LogOutput.log') }
 
     # Put every config file back exactly; move files the run created into the run folder.
@@ -205,5 +245,16 @@ finally {
     $check = Get-ConfigHashes $configDir
     $same = ($check.Count -eq $before.Count) -and -not ($before.Keys | Where-Object { $check[$_] -ne $before[$_] })
     Write-Host "Configs: $restored file(s) restored, $moved created file(s) moved to the run folder; identical to before: $same"
+
+    # Runner checks + the plugin's result in overall.txt (also when the run threw: the window check is the point).
+    $runnerLines = @(
+        "$(if ($windowHits -eq 0) { 'PASS' } else { 'FAIL' }) [runner] No game window on the user's desktop: window checks every 250 ms over the job's processes (EnumWindows) and the game's MainWindowHandle: $windowHits hits; windows the game created on its private desktop: $(if ($privateWindows.Count) { ($privateWindows.Keys | Sort-Object) -join '; ' } else { 'none' })",
+        "$(if ($same) { 'PASS' } else { 'FAIL' }) [runner] CrusaderDETweaker configs back byte for byte: $($before.Count) files, SHA256 compared ($restored restored, $moved created files moved to the run folder)",
+        "NOTE [runner] run $($startedAt.ToString('yyyy-MM-dd HH:mm:ss')) to $($endedAt.ToString('yyyy-MM-dd HH:mm:ss')); $seLine")
+    $driver = if (Test-Path -LiteralPath $result) { @(Get-Content -LiteralPath $result) } else { @('FAIL', 'FAIL the plugin wrote no result file') }
+    $overallOk = ($driver[0] -eq 'PASS') -and -not ($runnerLines | Where-Object { $_.StartsWith('FAIL') })
+    Set-Content -LiteralPath (Join-Path $run 'overall.txt') -Encoding utf8 -Value (@("OVERALL $(if ($overallOk) { 'PASS' } else { 'FAIL' })") + $runnerLines + @('', '--- plugin (result.txt) ---') + $driver)
+    $runnerLines | ForEach-Object { Write-Host $_ }
 }
-if ((Get-Content -LiteralPath $result -First 1) -ne 'PASS') { throw "Self-test FAILED; see $run" }
+if (-not $overallOk) { throw "Self-test FAILED; see $run\overall.txt" }
+Write-Host "OVERALL PASS; evidence $run"

@@ -557,7 +557,7 @@ CHANGELOG entry + install/uninstall header). Never hand-edit it; edit the guide 
 ```
 `test_headless.ps1` + `Tests/HeadlessSelfTest.cs` (opt-in: only `-batchmode -cdt-selftest <result>` starts it)
 reach what the mock suites cannot: real palettes / UI tables and real units on a disposable editor map
-(pattern from shcde-naval-mod `runtime/test-headless.ps1`). Batch mode raises no menu map unload before the
+(pattern from shcde-naval-mod `runtime/test-headless.ps1`). Since 2.11.0 it starts the game on a private desktop inside a kill-on-close job (`scripts/HiddenDesktopProcess.cs`, ported from CrusaderDEHandicap): no window can reach the user's screen, so detached runs are safe; `overall.txt` in the run folder holds the runner checks (0 window hits, configs back byte for byte) above the plugin's result. Batch mode raises no menu map unload before the
 editor map, so the menu-path colour apply is called directly there. Extend it for new in-game features. Economy stages: `Tests/HeadlessSelfTest.Economy.cs` (partial class); `test_headless.ps1 -Only economy` runs just those (minutes, for iterating). The hidden game skips its intro video (`IntroSequence.forceSkipIntro` + `ForceStopVideo` before the editor map): a late intro end switches the game to the front end mid-run (2026-10-11, sim stopped at tick ~900); a `Director.stopSimThread` hook notes who stops the simulation. Engine stage: `-Only engines` (Tests/HeadlessSelfTest.Engines.cs).
 
 ### Checking Unit Categories
