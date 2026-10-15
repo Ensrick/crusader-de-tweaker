@@ -15,6 +15,16 @@ $script:PluginGuid = 'CrusaderDETweaker'
 $script:ZipName    = 'Crusader DE Tweaker.zip'
 $script:DefaultGamePath = 'C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition'
 
+# Steam Workshop title, sent with every upload (ship.ps1 workshop stage, workshop_description.ps1).
+# Every Script Extender mod on the SHCDE Workshop is titled "[SE] <name>" (checked 2026-10-12: all 13
+# found, by five authors); the name after it is the public one, as on Nexus mod 38.
+$script:DefaultWorkshopTitle = '[SE] Unit Stat Editor'
+function Assert-WorkshopTitle([string]$Title) {
+    if (-not $Title.StartsWith('[SE] ')) {
+        throw "Workshop title '$Title' must start with '[SE] ' (the SHCDE Workshop convention for Script Extender mods)."
+    }
+}
+
 $script:PayloadWhitelist = @(
     'CrusaderDETweaker.dll',
     'Tomlyn.dll',

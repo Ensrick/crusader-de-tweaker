@@ -20,13 +20,13 @@ each re-runnable alone with `-Stage`.
 
 | Stage | Kind | Does | Verified by |
 |-------|------|------|-------------|
-| `preflight` | local | clean tree; the shipped README.txt generates and names the version; `-Version` = `PluginInfo.cs` = `info.json`; CHANGELOG entry exists; tag `v<ver>` not on origin/github (or already at HEAD); tools present; Workshop description <= 8000 chars and names the version | the checks |
+| `preflight` | local | clean tree; the shipped README.txt generates and names the version; `-Version` = `PluginInfo.cs` = `info.json`; CHANGELOG entry exists; tag `v<ver>` not on origin/github (or already at HEAD); tools present; Workshop description <= 8000 chars and names the version; Workshop title starts with `[SE] ` | the checks |
 | `build` | local | Release rebuild into `dist\stage\<ver>\build\` | payload whitelist + DLL AssemblyVersion/FileVersion + info.json = version |
 | `package` | local | `dist\stage\<ver>\Crusader DE Tweaker.zip`; with `-Publish` also copied (+ BBCode txt) to `D:\Game Mods\Stronghold\Crusader DE Tweaker` | zip entry list = whitelist |
 | `tag` | public | annotated `v<ver>` at HEAD, pushed to `origin` (GitLab) and `github` | `git ls-remote` on both = HEAD |
 | `github` | public | `gh release create` with the zip | `gh release view` asset size |
 | `gitlab` | public | `glab release create` with the zip | `glab release view` |
-| `workshop` | public | stage (`workshop\steam-preview.png` + built plugin) -> `SHCDESE.WorkshopPackager.exe` (.map, local) -> `pdengine.steamugc.tool.exe -u` item 3726034964 with `-z workshop\workshop-description.txt` | `Steam\logs\workshop_log.txt` "Uploaded new content" + Web API `file_size` = .map size |
+| `workshop` | public | stage (`workshop\steam-preview.png` + built plugin) -> `SHCDESE.WorkshopPackager.exe` (.map, local) -> `shcde-workshop-uploader.exe -u` item 3726034964 with `-z workshop\workshop-description.txt` and `-k "[SE] Unit Stat Editor"` | `Steam\logs\workshop_log.txt` "Uploaded new content" + Web API `file_size` = .map size and `title` = the title sent |
 | `nexus` | public | `nexus\Publish-NexusMod.ps1` (mod 38) | script completes; receipt |
 | `deploy` | local | `deploy.ps1` from the packaged tree, LAST | deploy.ps1 hash check |
 
@@ -39,11 +39,20 @@ each re-runnable alone with `-Stage`.
 - Before shipping: bump `PluginInfo.cs` + `info.json`, add the CHANGELOG entry, and update the first
   line (and version block) of `workshop\workshop-description.txt`. Nexus's mod description is not
   API-editable; refresh it by hand. After a Workshop upload, restart Steam fully before testing.
+- **Workshop title: `[SE] <name>`.** Every Script Extender mod on the SHCDE Workshop is titled that way
+  (checked 2026-10-12: all 13 found, by five authors). The title lives in `$script:DefaultWorkshopTitle`
+  (`_release_common.ps1`, `[SE] Unit Stat Editor`); the workshop stage and `workshop_description.ps1` send it
+  with every upload, refuse one without the `[SE] ` prefix and verify the live title.
+- **Uploader: `shcde-workshop-uploader.exe`** (`repos\shcde-workshop-uploader`, same flags as
+  `pdengine.steamugc.tool.exe`). pdengine 1.0.2 prints the current and new title through console markup,
+  so any `[SE]` title makes it throw "Could not find color or style 'SE'" and hang, on every update of an
+  item already titled `[SE] ...` too. Do not go back to it.
 
 ### `workshop_description.ps1`
-Updates only the Steam Workshop description (`workshop\workshop-description.txt`, <= 8000 chars) and, with
+Updates only the Steam Workshop description (`workshop\workshop-description.txt`, <= 8000 chars) and title
+(`[SE] Unit Stat Editor`) and, with
 `-ChangeNoteVersion x.y.z`, posts that CHANGELOG entry as a Steam **Change Note**. Dry run by default; `-Publish`
-sends and then verifies the live description through the Steam Web API. The Workshop description carries no
+sends and then verifies the live description and title through the Steam Web API. The Workshop description carries no
 changelog: Steam users read changes in the Change Notes tab, which `ship.ps1`'s workshop stage also fills on
 every release (`ConvertTo-SteamChangeNote` in `_release_common.ps1`: Markdown -> Steam BBCode).
 ### `release.ps1`
