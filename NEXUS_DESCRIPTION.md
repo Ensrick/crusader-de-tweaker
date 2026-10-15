@@ -1,6 +1,14 @@
-Version 2.10.0
+Version 2.11.0
 
 Updated for SHC DE v2.8.2 and Script Extender 2.14.0 or newer!
+
+[b]2.11.0: Siege engines fire from AttackRange; building limit; Script Extender 2.14.0 required[/b]
+[list]
+[*][b]Fix: siege engines now fire from their AttackRange[/b] (Catapult, Trebuchet, Mangonel, Ballista, Arabian Ballista; GitHub #5). Before, the game's own range still decided when they fired. Measured: a Catapult with AttackRange 90 first fired at a building 90 tiles away (75 before the fix). For engines AttackRange is 1 to 127 tiles.
+[*][b]New: building limit[/b] (GameplaySettings, ["Building Limit"] BuildingLimit, 1000-32000, game 4000): the total the game shares out among the players, so your own limit in skirmish, trails and multiplayer goes up (2 players: 15999 instead of 1999 with 32000). The map-wide table of 4000 buildings cannot grow.
+[*][b]Safeguard: an empty sprite pool no longer stops the game[/b] with very many units on the map: the mod adds 2000 more sprites instead.
+[*][b]Script Extender 2.14.0 or newer is now required[/b]: on 2.13.1 the apothecary healing failed in every heal pass. On an older Script Extender the mod now refuses to load and says so in the log.
+[/list]
 
 [b]2.10.0: Apothecary healing, lobby limits, Stockpile cost, worker yield, starting troops, army size[/b]
 [list]

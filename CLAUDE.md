@@ -223,7 +223,7 @@ runs on one client only when the local market spawns). `BedouinHealMultiplier = 
   `LoadPlayerOptions` raises both whenever a sub-option is true and logs it at Info when it had to.
 - `OnPostLoad` (after `EditorDirector.postLoading`) re-applies only these two (`ConfigLoader.ApplyAfterLoad`), plus BuildingLimit.
 
-### Building limit and pools (unreleased, GitLab #9 / #10)
+### Building limit and pools (v2.11.0, GitLab #9 / #10)
 
 - `["Building Limit"] BuildingLimit` (`Config/Core/BuildingLimit.cs`): the 4000 in the human player's placement check
   (RVA 0x90CD0 from DLL_MapAction; "mov eax, 4000" at 0x91BAF, found by pattern, rewritten with RedBird's
@@ -399,7 +399,7 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
   no longer a client. GameplaySettings is session state and follows the session hooks through
   `ConfigPaths.Globals`; never write it from the sync code.
 - Log prefix `[ConfigSync]`; on-load suites `ConfigSync` (codec) and `TemplateBaseline` (journal, apply N times == once).
-- Lobby MaxCount (GitLab #5, unreleased): `Config/Sync/LobbyMaxCounts.cs`. One `[SyncHostOnly]` string property
+- Lobby MaxCount (GitLab #5, v2.10.0): `Config/Sync/LobbyMaxCounts.cs`. One `[SyncHostOnly]` string property
   `MaxCounts` ("KEY=V;KEY=V", -1 = unlimited, empty = file value) on the ViewModel; UI-only rows
   (`UnitMaxCounts` / `BuildingMaxCounts`) rebuild it. Overlaid on the file caps inside the SAME dictionaries
   `UnitCapHandler` / `MakeTroopRecruitHook` / `BuildingCapHandler` read (`LoadUnitCaps` / `LoadBuildingCaps` hand
