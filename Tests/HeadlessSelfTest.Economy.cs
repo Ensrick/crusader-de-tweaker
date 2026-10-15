@@ -15,6 +15,8 @@
 //      four times -> 3, 4, 4, 4, Fletcher (not set) with 12 -> 12. Then a real delivery is attempted: trees, three
 //      peasants and the paid Woodcutter's hut; if a woodcutter works within the window, its trip must carry 24 and
 //      the Stockpile must gain 24 wood, else a SKIP note. The killed test Hunter must lose its remainder.
+//      In the same window: real Quarry and Mill trips at the game value, the 2.11.0 code and the fix
+//      (Tests/HeadlessSelfTest.Production.cs).
 //   3. Starting troops: the troop queue, the game's table and the human-player array are found by pattern, rows 90,
 //      91 and 93 must hold the game's defaults, the OnStartMap Pre/Post canary is checked both ways (no rebuild:
 //      everything restored; rebuild: the editor is no custom skirmish, so nothing applied) and a direct write / read-back
@@ -102,13 +104,13 @@ namespace CrusaderDETweaker.Tests
                     return;
                 case EconomyStage + 2:
                     _econStep = "real delivery: waiting for a woodcutter";
+                    ProductionTick(now);   // the quarry and mill trips run in the same window (HeadlessSelfTest.Production.cs)
                     if (_realTick < 0 && tick - _econTick < RealDeliveryTicks) return;
                     if (_realTick < 0)
                     {
                         Note($"SKIP Real woodcutter delivery: no woodcutter of player 1 finished a work cycle within {RealDeliveryTicks} ticks " +
                              $"(hut {_woodcutterHut}; {UnitCensus()}). The direct calls above go through the same hooked function.");
-                        RestoreGameType();
-                        _stage += 2; _econTick = tick;
+                        StartProductionStage(now);
                         return;
                     }
                     CheckRealYield();
@@ -116,12 +118,18 @@ namespace CrusaderDETweaker.Tests
                     return;
                 case EconomyStage + 3:
                     _econStep = "real delivery: waiting for the drop-off";
+                    ProductionTick(now);
                     int wood = GamePlayerManagerAPI.Instance.GetGoodAmount(1, eGoods.STORED_WOOD_PLANKS);
                     if (wood - _yieldWoodBefore < _realReturn && tick - _econTick < DropOffTicks) return;
                     Check("Real delivery: the Stockpile receives the scaled trip", wood - _yieldWoodBefore == _realReturn,
                         $"player 1 wood {_yieldWoodBefore} -> {wood} (+{wood - _yieldWoodBefore}) within {tick - _econTick} ticks of the trip; the trip carried {_realReturn}");
+                    StartProductionStage(now);
+                    return;
+                case ProductionStage:
+                    _econStep = "real delivery: quarry and mill trips";
+                    if (!ProductionTick(now)) return;
                     RestoreGameType();
-                    _econTick = tick; _stage++;
+                    _econTick = tick; _stage = EconomyStage + 4;
                     return;
                 case EconomyStage + 4:
                     _econStep = "yield remainder after delete";
@@ -282,8 +290,10 @@ namespace CrusaderDETweaker.Tests
 
         private void RealDeliverySetup()
         {
+            // Woodcutters only: the quarry's ox and the millers work in the same window (HeadlessSelfTest.Production.cs).
             _yieldWatch = UnitR3EventHooks.OnCalculateBonusYield.Observable
-                .Where(a => a.Phase == EventHookPhase.Post && !_directYieldUnits.Contains(a.UnitId))
+                .Where(a => a.Phase == EventHookPhase.Post && !_directYieldUnits.Contains(a.UnitId)
+                            && GameUnitManagerAPI.Instance.GetType(a.UnitId) == eChimps.CHIMP_TYPE_WOODCUTTER)
                 .Subscribe(a =>
                 {
                     if (_realTick >= 0) return;
@@ -291,7 +301,13 @@ namespace CrusaderDETweaker.Tests
                     _realTick = global::Director.instance.getSimTickCount();
                     _yieldWoodBefore = GamePlayerManagerAPI.Instance.GetGoodAmount(1, eGoods.STORED_WOOD_PLANKS);
                 });
-            if (_woodcutterHut <= 0) { Note("Real delivery: no Woodcutter's hut (placement failed above)"); return; }
+            if (_woodcutterHut <= 0)
+            {
+                Note("Real delivery: no Woodcutter's hut (placement failed above)");
+                SwitchGameType(eGameTypeModes.GAMETYPE_MAP);
+                ProductionSetup();
+                return;
+            }
 
             // Trees east and south of the hut, three idle peasants next to the keep.
             int oak = (int)eMappers.MAPPER_OAK, placed = 0;
@@ -308,6 +324,14 @@ namespace CrusaderDETweaker.Tests
             SwitchGameType(eGameTypeModes.GAMETYPE_MAP);
             Note($"Real delivery: {placed} oaks at {StockpileX + 7},{StockpileY + 12} and east, 3 peasants south of the keep, Woodcutter's hut {_woodcutterHut}; " +
                  $"game type {GamePlayerManagerAPI.Instance.GetCurrentGameTypeMode()} for the window; waiting up to {RealDeliveryTicks} ticks for a work cycle");
+            ProductionSetup();   // Quarry and Mill (HeadlessSelfTest.Production.cs)
+        }
+
+        /// <summary>The woodcutter window is over: the quarry and mill trips go on in the same game type 2 window.</summary>
+        private void StartProductionStage(float now)
+        {
+            _stage = ProductionStage;
+            _deadline = now + 900;
         }
 
         private eGameTypeModes? _savedGameType;

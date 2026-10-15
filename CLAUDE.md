@@ -184,6 +184,12 @@ no comparison against captured original defaults; that subsystem was deleted.
 - **GoodYieldMultiplier** (GitHub #1, `Config/Core/GoodYield.cs`): 17 worker types call the yield function RVA
   0x18D940 at the end of a work cycle; SE's `OnCalculateBonusYield` Pre scales `GoodAmount` (per-unit remainder in
   thousandths), Post clamps the 16-bit carried count. Never use `SkipOriginalFunction` there (returns 0).
+  Two exceptions (2.11.1): the Quarry Grunt's call (0x131C8F) is for the quarry's OX (workplace +0x2C8), so ox yields use
+  the Grunt's multiplier (`YieldOwner`), at least 8 (the ox leaves only with >= 8, 0x132A09); the Miller's count is
+  overwritten with 1 at the flour pickup (0x138162) and its drop-off adds 1 and zeroes it (0x138290):
+  `Config/Core/MillerFlourPatch.cs` NOPs / turns them into `dec` while its multiplier is not 1. Every other worker
+  decrements its count per delivered good. Self-test: `Tests/HeadlessSelfTest.Production.cs` (the editor map staffs no
+  Quarry / Ox Tether, so the test makes the Grunt's load call itself and measures the real ox trip).
 - **Skirmish starting troops** (GitHub #2, `Config/Core/SkirmishStartingTroops.cs`): the per-player queue at RVA
   0x382D354 + p * 0x70 (28 slots) that the skirmish start handler RVA 0x94350 rebuilds; written on `OnStartMap` Post
   for custom skirmishes only (canary in unread slot 7 proves the rebuild). Measured in a real headless skirmish (self-test,

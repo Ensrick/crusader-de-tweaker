@@ -11,6 +11,15 @@
 //   bonus flag in some modes). The caller stores the result as the worker's carried count (16 bit, unit +0x9E0, e.g.
 //   0x12C90C), which the drop-off then deposits one per tick (Woodcutter: goods yard add 0xB6100 with 1,
 //   0x12CA0C-0x12CA32).
+//   Two workers differ (traced 2026-10-14, Nexus report: Quarry Grunt and Miller at 50 still delivered 12 stone and
+//   1 flour per trip):
+//   - Quarry Grunt (update 0x1319A0): when 8 stones are ready it loads the quarry's ox: 0x131C8F calls the yield
+//     function for the OX (unit id from its workplace record +0x2C8, which RVA 0xAD3E1 fills with the Quarry Ox it
+//     creates), base 8, bonus flag 1, and stores the result as the ox's carried count. The ox leaves only with 8 or
+//     more (0x132A09, 0x132C17) and delivers them one per tick (0x132E4B / 0x132E6E). The type of the yield call's
+//     unit is therefore CHIMP_TYPE_QUARRY_OX, which has no multiplier of its own.
+//   - Miller (update 0x1377C0): the count from its yield is overwritten with 1 at the flour pickup and the drop-off
+//     adds 1 and clears it: see Config/Core/MillerFlourPatch.cs.
 //
 // WHAT THIS DOES:
 //   The Script Extender hooks that function as UnitR3EventHooks.OnCalculateBonusYield (SE 2.14.0
@@ -19,13 +28,17 @@
 //   gives 3, 4, 4, 4 (15 = 12 x 1.25); at most 32767. The game then adds its productivity bonus on the scaled amount.
 //   Post: the returned count is clamped to 32767 (the 16-bit carried field). Multiplier 1 (or -1 in the file) leaves
 //   the call untouched. Remainders are dropped when the unit is deleted or changes type, and on every map unload.
+//   Quarry: a yield call for a Quarry Ox uses the Quarry Grunt's multiplier, and the load is at least 8 (OxDepartLoad;
+//   a smaller one would keep the ox at the quarry for good). Miller: a multiplier other than 1 switches
+//   MillerFlourPatch on, so the Miller delivers its scaled count; 1 puts the game's code back.
 //
 // IMPORTANT FOR AI AGENTS:
 // - Never set SkipOriginalFunction on this event: the hook then returns 0 (BulkUnitDetours.cs:1428).
 // - The multiplier table is a template value: GoodYieldMultiplierProperty writes it through TemplateBaseline, and the
 //   restore puts 1 back. Every multiplayer peer runs the same hook in the same order, so the remainders stay in sync
 //   when everyone uses the same Units file (host config sync sends it).
-// - Not covered (the game never calls the yield function for them): Quarry Mason, Quarry Ox, Miner1.
+// - Not covered (the game never calls the yield function for them): Quarry Mason, Miner1. The Quarry Ox's calls come
+//   from the Quarry Grunt's update and use its multiplier (YieldOwner).
 //
 using System;
 using System.Collections.Generic;
@@ -56,6 +69,19 @@ namespace CrusaderDETweaker.Config.Core
 
         /// <summary>Largest carried count: the game stores it in 16 bits (unit +0x9E0).</summary>
         internal const int MaxAmount = 32767;
+
+        /// <summary>The quarry's ox leaves only with this many stones or more (RVA 0x132A09 / 0x132C17: cmp word [ox + 0x9E0], 8).</summary>
+        internal const int OxDepartLoad = 8;
+
+        /// <summary>
+        /// The worker type whose multiplier applies to a yield call for a unit of <paramref name="type"/>: the Quarry Grunt
+        /// loads the quarry's ox by calling the yield function for the ox (RVA 0x131C8F).
+        /// </summary>
+        internal static eChimps YieldOwner(eChimps type) =>
+            type == eChimps.CHIMP_TYPE_QUARRY_OX && !OldQuarryLookupForSelfTest ? eChimps.CHIMP_TYPE_QUARRY_GRUNT : type;
+
+        /// <summary>Self-test only: true = the 2.11.0 lookup (by the ox's own type), to measure the old behaviour.</summary>
+        internal static bool OldQuarryLookupForSelfTest;
 
         private static readonly object _lock = new object();
         private static readonly int[] _milli = CreateTable();
@@ -92,13 +118,17 @@ namespace CrusaderDETweaker.Config.Core
             {
                 if (_milli[(int)unit] == milli) return;
                 _milli[(int)unit] = milli;
-                // A changed multiplier starts from a clean remainder for that type.
+                // A changed multiplier starts from a clean remainder for that type (the quarry's oxen for the Quarry Grunt).
                 var stale = new List<int>();
-                foreach (var kv in _remainders) if (kv.Value.Type == unit) stale.Add(kv.Key);
+                foreach (var kv in _remainders) if (YieldOwner(kv.Value.Type) == unit) stale.Add(kv.Key);
                 foreach (int id in stale) _remainders.Remove(id);
             }
             if (milli != GameMilli)
-                Plugin.Logger.LogInfo($"[GoodYield] {unit}: workers carry {multiplier:0.###}x the game's amount per work cycle.");
+                Plugin.Logger.LogInfo($"[GoodYield] {unit}: workers carry {multiplier:0.###}x the game's amount per work cycle." +
+                    (unit == eChimps.CHIMP_TYPE_QUARRY_GRUNT
+                        ? $" The quarry's ox carries the stone: {OxDepartLoad} x {multiplier:0.###} per ox trip plus the productivity bonus, at least {OxDepartLoad} (the ox leaves only with {OxDepartLoad} or more)."
+                        : ""));
+            if (unit == eChimps.CHIMP_TYPE_MILLER) MillerFlourPatch.Apply(milli != GameMilli);
         }
 
         /// <summary>Number of units holding a remainder (self-test).</summary>
@@ -147,7 +177,7 @@ namespace CrusaderDETweaker.Config.Core
                 if (!TryGetType(args.UnitId, out eChimps type)) return;
                 lock (_lock)
                 {
-                    int milli = _milli[(int)type];
+                    int milli = _milli[(int)YieldOwner(type)];
                     if (milli == GameMilli) return;
                     _remainders.TryGetValue(args.UnitId, out Remainder r);
                     if (r.Type != type) r = new Remainder { Type = type };
@@ -163,10 +193,19 @@ namespace CrusaderDETweaker.Config.Core
 
         private static void OnYieldPost(UnitCalculateBonusYieldEventArgs args)
         {
-            if (args.ReturnValue <= MaxAmount) return;
+            long value = args.ReturnValue;
+            if (value <= MaxAmount && value >= OxDepartLoad) return;
             if (!TryGetType(args.UnitId, out eChimps type)) return;
-            lock (_lock) if (_milli[(int)type] == GameMilli) return;
-            args.ReturnValue = MaxAmount;
+            lock (_lock) if (_milli[(int)YieldOwner(type)] == GameMilli) return;
+            args.ReturnValue = ClampReturn(type, value);
+        }
+
+        /// <summary>The carried count the game may store for a scaled yield: at most 32767, and for the quarry's ox at least 8.</summary>
+        internal static long ClampReturn(eChimps type, long value)
+        {
+            if (value > MaxAmount) return MaxAmount;
+            if (type == eChimps.CHIMP_TYPE_QUARRY_OX && value < OxDepartLoad) return OxDepartLoad;
+            return value;
         }
 
         private static unsafe bool TryGetType(int unitId, out eChimps type)

@@ -1,6 +1,11 @@
-Version 2.11.0
+Version 2.11.1
 
 Updated for SHC DE v2.8.2 and Script Extender 2.14.0 or newer!
+
+[b]2.11.1: GoodYieldMultiplier for the Quarry Grunt and the Miller[/b]
+[list]
+[*][b]Fix: GoodYieldMultiplier on the Quarry Grunt and the Miller now reaches the Stockpile[/b] (it did nothing before). The quarry's ox now carries 8 x the multiplier per trip (3 = 24 stones; at least 8, the ox only leaves with 8 or more), and the Miller delivers 1 x the multiplier flour per trip (3 = 3 bags). Measured in game: 24 stones and 3 flour per trip at 3 (8 and 1 before).
+[/list]
 
 [b]2.11.0: Siege engines fire from AttackRange; building limit; Script Extender 2.14.0 required[/b]
 [list]

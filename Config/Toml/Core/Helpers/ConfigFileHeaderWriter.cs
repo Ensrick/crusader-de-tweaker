@@ -93,6 +93,8 @@ namespace CrusaderDETweaker.Config.Toml.Core
             sb.AppendLine("#                  per work cycle, as a multiple of the game's amount. 2 = twice as much, 0.5 = half; fractions");
             sb.AppendLine("#                  add up over the trips (1.25 on 3 goods gives 3, 4, 4, 4). Greater than 0, at most 100.");
             sb.AppendLine("#                  -1 or 1 = the game's amount. The game's productivity bonus is added on top.");
+            sb.AppendLine("#                  Quarry Grunt: the load of the quarry's ox (8 stones in the game); the ox leaves only with 8 or");
+            sb.AppendLine("#                  more, so below 1 an ox trip still carries 8. Miller: flour per trip (1 in the game).");
             sb.AppendLine("# AttackRange:   Ranged units and siege engines: the farthest they pick a target and shoot, in map tiles.");
             sb.AppendLine("#                  -1 = the game's range (the # Default: comment). Siege engines (Catapult, Trebuchet, Mangonel,");
             sb.AppendLine("#                  Ballista, Arabian Ballista) take 1 to 127 tiles (more is lowered to 127). Catapults and");

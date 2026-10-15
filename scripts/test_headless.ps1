@@ -56,7 +56,7 @@ $apothecaryHealing = [ordered]@{ 'HealPercent' = '10'; 'HealHitPoints' = '-1'; '
 $bedouinHealMultiplier = '0'   # HeadlessSelfTest.BedouinHealTestMultiplier
 $macemanMaxCount = '1'         # HeadlessSelfTest.FileMacemanCap (the lobby MaxCount stage overrides it with -1, then clears the box)
 $stockpileCost = [ordered]@{ 'GoldCost' = 20; 'WoodCost' = 5 }       # [STRUCT_GOODS_YARD]; the game's Stockpile is free
-$goodYield = [ordered]@{ 'CHIMP_TYPE_WOODCUTTER' = '2.0'; 'CHIMP_TYPE_HUNTER' = '1.25' }   # GoodYieldMultiplier
+$goodYield = [ordered]@{ 'CHIMP_TYPE_WOODCUTTER' = '2.0'; 'CHIMP_TYPE_HUNTER' = '1.25'; 'CHIMP_TYPE_QUARRY_GRUNT' = '3.0'; 'CHIMP_TYPE_MILLER' = '3.0' }   # GoodYieldMultiplier (HeadlessSelfTest.Economy.cs / .Production.cs)
 $startTroops = [ordered]@{ 'Archer' = 3; 'Spearman' = 0; 'Knight' = 2 }   # ["Skirmish Starting Troops".Normal]; the real skirmish stage expects exactly these
 $unitLimit = 4000   # ["Army Size"] UnitLimit (HeadlessSelfTest.LimitConfigured); the game's value is 3000
 $buildingLimit = 32000   # ["Building Limit"] BuildingLimit (HeadlessSelfTest.BuildingLimitConfigured); the game's value is 4000

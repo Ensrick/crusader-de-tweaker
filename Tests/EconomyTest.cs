@@ -7,6 +7,7 @@
 // TESTS COVER:
 // - GoodYield.Scale: whole multipliers, fractional multipliers carried over trips (1.25 on 3 = 3, 4, 4, 4), halves,
 //   the 16-bit clamp, the game's multiplier and a zero base left untouched
+// - GoodYield quarry rules: a yield call for a Quarry Ox uses the Quarry Grunt's multiplier; the ox's load is at least 8
 // - Starting troops: parsing (counts, -1, clamp, unknown keys, wrong types, ApplyToAI), the slot list (no unread
 //   slot, no duplicates) and the OnStartMap Post decision (queue rebuilt, custom skirmish only, start option 1-3)
 //
@@ -38,6 +39,7 @@ namespace CrusaderDETweaker.Tests
             Test_Yield_Half();
             Test_Yield_Clamp();
             Test_Yield_GameAndZeroUntouched();
+            Test_Yield_QuarryOx();
             Test_Troops_Parse();
             Test_Troops_ParseProblems();
             Test_Troops_Slots();
@@ -89,6 +91,17 @@ namespace CrusaderDETweaker.Tests
             int game = GoodYield.Scale(12, GoodYield.GameMilli, ref r1);
             int zero = GoodYield.Scale(0, 2000, ref r2);
             Check("Yield_GameAndZeroUntouched", game == 12 && zero == 0 && r1 == 7 && r2 == 7, $"game {game} zero {zero} rem {r1}/{r2}");
+        }
+
+        private static void Test_Yield_QuarryOx()
+        {
+            bool owner = GoodYield.YieldOwner(eChimps.CHIMP_TYPE_QUARRY_OX) == eChimps.CHIMP_TYPE_QUARRY_GRUNT
+                         && GoodYield.YieldOwner(eChimps.CHIMP_TYPE_WOODCUTTER) == eChimps.CHIMP_TYPE_WOODCUTTER
+                         && GoodYield.YieldOwner(eChimps.CHIMP_TYPE_MILLER) == eChimps.CHIMP_TYPE_MILLER;
+            long oxLow = GoodYield.ClampReturn(eChimps.CHIMP_TYPE_QUARRY_OX, 4), oxHigh = GoodYield.ClampReturn(eChimps.CHIMP_TYPE_QUARRY_OX, 24);
+            long other = GoodYield.ClampReturn(eChimps.CHIMP_TYPE_HUNTER, 4), big = GoodYield.ClampReturn(eChimps.CHIMP_TYPE_QUARRY_OX, 40000);
+            Check("Yield_QuarryOx", owner && oxLow == GoodYield.OxDepartLoad && oxHigh == 24 && other == 4 && big == GoodYield.MaxAmount,
+                $"owner {owner}, ox 4 -> {oxLow}, ox 24 -> {oxHigh}, hunter 4 -> {other}, ox 40000 -> {big}");
         }
 
         // ===================================================

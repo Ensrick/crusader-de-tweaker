@@ -142,6 +142,7 @@
     <Compile Include="Config\Core\StableTracking.cs" />
     <Compile Include="Config\Core\GameCode.cs" />
     <Compile Include="Config\Core\GoodYield.cs" />
+    <Compile Include="Config\Core\MillerFlourPatch.cs" />
     <Compile Include="Config\Core\SkirmishStartingTroops.cs" />
     <Compile Include="Config\Core\TeamColors.cs" />
     <Compile Include="Config\Core\ApothecaryHealing.cs" />
@@ -238,6 +239,7 @@
     <Compile Include="Tests\HeadlessSelfTest.Healing.cs" />
     <Compile Include="Tests\HeadlessSelfTest.LobbyCaps.cs" />
     <Compile Include="Tests\HeadlessSelfTest.Economy.cs" />
+    <Compile Include="Tests\HeadlessSelfTest.Production.cs" />
     <Compile Include="Tests\HeadlessSelfTestLimits.cs" />
     <Compile Include="Tests\HeadlessSelfTest.Pools.cs" />
     <Compile Include="Tests\HeadlessSelfTest.Engines.cs" />
