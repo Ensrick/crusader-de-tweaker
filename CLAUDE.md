@@ -168,6 +168,13 @@ no comparison against captured original defaults; that subsystem was deleted.
   the Trebuchet); the test gives Engineers +0x9F4 = 0x10, +0x9F6 = engine id and lets the engine's own scan take them.
   A human Mangonel auto-targets only Engineers and siege engines (0x18F4D0). Self-test: remove units with
   `DeleteUnitSafe`, not `KillUnit` (a killed unit's record is cleared later, wiping a unit spawned into its id).
+- Engines that aim on their own (2.11.2): EngageRange = how far the engine aims and shoots by itself, clamped to the
+  AttackRange in effect (warning only from the EngageRange setter: the file applies AttackRange first, restores reset
+  AttackRange first). Ballista / Arabian Ballista through EngageDistancePatch, where an engine's EngageRange sets EVERY
+  constant (they are per-owner look-outs, not state gaps: Arabian Ballista AI 680 at 0x171DAF, human 432 = its 54-tile
+  AttackRange at 0x171ED8; scaling 432 by E/680 made 75/75 fire at 45). Mangonel through EngineRangePatch's look-out
+  (0x154908). `UnitRanges.ApplyEngageRange` / `ResetEngageRange` feed both. `# Default:` = min(look-out, game AttackRange):
+  85 / 54 / 70. Measured (selftest-20261014-220027, `-Only engage`): first shot = min(EngageRange, AttackRange) in all 9 phases.
 - InteractRange is not exposed (UI-only; SE squares it in a signed 32-bit int).
 - Known limit (document, do not work around): special projectile modes can bypass AttackRange.
 
@@ -451,7 +458,7 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | Unity sprite pool growth (empty pool no longer stops the game) | `Config/Core/SpritePool.cs` |
 | In-game self-test pools stage: building limit clicks, units / sprites / animations up to 8500 units, projectile pool in a battle | `Tests/HeadlessSelfTest.Pools.cs` |
 | AttackRange for siege engines (their own range check in the game code) | `Config/Toml/Units/Properties/EngineRangePatch.cs` |
-| In-game self-test engines stage: engine first-shot distance (game / 2.10.0 code / fix), Crossbowman EngageRange < AttackRange (`-Only engines`) | `Tests/HeadlessSelfTest.Engines.cs` |
+| In-game self-test engines stage: engine first-shot distance (game / 2.10.0 code / fix), Crossbowman EngageRange < AttackRange (`-Only engines`), idle engine EngageRange phases (`-Only engage`) | `Tests/HeadlessSelfTest.Engines.cs` |
 
 ---
 

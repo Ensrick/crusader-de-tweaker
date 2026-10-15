@@ -1,6 +1,11 @@
-Version 2.11.1
+Version 2.11.2
 
 Updated for SHC DE v2.8.2 and Script Extender 2.14.0 or newer!
+
+[b]2.11.2: EngageRange for the Ballista, Arabian Ballista and Mangonel[/b]
+[list]
+[*][b]EngageRange now sets how far these engines aim and shoot on their own[/b], at most their AttackRange (GitHub #5 follow-up). Fix: an EngageRange on the Arabian Ballista made it shoot from much closer (AttackRange 75 / EngageRange 75 shot at 45 tiles; now 75). New: the Mangonel has EngageRange too (AttackRange 67 / EngageRange 55: first shot at 55). The # Default: shows how far each aims on its own with the game's values: Ballista 85, Arabian Ballista 54, Mangonel 70.
+[/list]
 
 [b]2.11.1: GoodYieldMultiplier for the Quarry Grunt and the Miller[/b]
 [list]

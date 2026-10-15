@@ -85,6 +85,25 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
             EngineRangePatch.ClearAttack(unit);
         }
 
+        /// <summary>
+        /// EngageRange: the idle units' engage constants (EngageDistancePatch) and, for the Mangonel, its own look-out
+        /// (EngineRangePatch). For siege engines it is how far the engine aims on its own, at most its AttackRange.
+        /// </summary>
+        internal static void ApplyEngageRange(eChimps unit, int tiles)
+        {
+            EngageDistancePatch.SetEngageTiles(unit, tiles);
+            EngineRangePatch.SetEngageTiles(unit, tiles);
+        }
+
+        internal static void ResetEngageRange(eChimps unit)
+        {
+            EngageDistancePatch.ClearEngage(unit);
+            EngineRangePatch.ClearEngage(unit);
+        }
+
+        /// <summary>True when EngageRange can be set for the unit type.</summary>
+        internal static bool SupportsEngage(eChimps unit) => EngageDistancePatch.Supports(unit) || EngineRangePatch.SupportsEngage(unit);
+
         /// <summary>Clamp a value to <paramref name="max"/>, warning with the property and unit.</summary>
         internal static int ClampWithWarning(string property, eChimps unit, int value, int max)
         {
@@ -138,28 +157,42 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
     {
         public EngageRangeProperty() : base("EngageRange") { }
 
-        internal override bool CanApplyTo(eChimps unit) => EngageDistancePatch.Supports(unit);
+        internal override bool CanApplyTo(eChimps unit) => UnitRanges.SupportsEngage(unit);
 
         internal override bool ValidateValue(int value) => value > 0;
 
         protected override bool TryGetFromAPI(eChimps unit, out int value)
         {
+            if (EngineRangePatch.SupportsEngage(unit)) return EngineRangePatch.TryGetNoticeTiles(unit, true, out value);
             value = EngageDistancePatch.TryGetCurrentWorld(unit, out int world) ? (int)Math.Round(world / (double)UnitRanges.WorldUnitsPerTile) : 0;
             return value > 0;
         }
 
-        /// <summary>The game's own engage distance, read from its code (e.g. Archer 50 tiles).</summary>
-        protected override bool TryGetOriginalValue(eChimps unit, out int defaultValue) =>
-            EngageDistancePatch.TryGetGameTiles(unit, out defaultValue);
+        /// <summary>
+        /// The game's own engage distance, read from its code (e.g. Archer 50 tiles). For a siege engine: how far it aims
+        /// on its own with the game's values, its look-out but at most its AttackRange (Ballista 85, Arabian Ballista 54:
+        /// a human player's one looks out 432 world units = its AttackRange, RVA 0x171ED8; Mangonel 70: look-out 85).
+        /// </summary>
+        protected override bool TryGetOriginalValue(eChimps unit, out int defaultValue)
+        {
+            bool found = EngineRangePatch.SupportsEngage(unit) ? EngineRangePatch.TryGetNoticeTiles(unit, false, out defaultValue)
+                                                               : EngageDistancePatch.TryGetGameTiles(unit, out defaultValue);
+            if (found && Array.IndexOf(EngineRangePatch.Engines, unit) >= 0)
+            {
+                int attack = UnitRanges.GameAttackTiles(unit);
+                if (attack > 0) defaultValue = Math.Min(defaultValue, attack);
+            }
+            return found;
+        }
 
         protected override void SetToAPI(eChimps unit, int value)
         {
             int tiles = UnitRanges.ClampWithWarning(Name, unit, value, UnitRanges.MaxEngageTiles);
-            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(), () => EngageDistancePatch.SetEngageTiles(unit, tiles));
+            ErrorHandlingHelper.TryExecute($"Set {Name}", unit.ToString(), () => UnitRanges.ApplyEngageRange(unit, tiles));
         }
 
         /// <summary>The game state before this mod wrote the cell is "no EngageRange".</summary>
         protected override Action CaptureBaselineRestore(eChimps unit) =>
-            () => EngageDistancePatch.ClearEngage(unit);
+            () => UnitRanges.ResetEngageRange(unit);
     }
 }

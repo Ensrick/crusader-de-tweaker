@@ -101,6 +101,8 @@ namespace CrusaderDETweaker.Config.Toml.Core
             sb.AppendLine("#                  Trebuchets owned by the computer pick targets in their own code, which AttackRange does not change.");
             sb.AppendLine("# EngageRange:   How far away an idle ranged unit notices an enemy, in map tiles. -1 = the game's value, grown");
             sb.AppendLine("#                  with AttackRange. A unit never walks toward an enemy because of it and never shoots beyond AttackRange.");
+            sb.AppendLine("#                  Ballista, Arabian Ballista, Mangonel: how far the engine aims on its own, at most its AttackRange");
+            sb.AppendLine("#                  (the # Default: is that distance with the game's values: 85, 54 and 70).");
             sb.AppendLine("# MaxCount:      Limit on units of this type alive at once for the local player.");
             sb.AppendLine("#                  -1 = unlimited (default), 0 = disabled (every spawn removed), >0 = max alive. Excess removed on spawn.");
             sb.AppendLine("#");

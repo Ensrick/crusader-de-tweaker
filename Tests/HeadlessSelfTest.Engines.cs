@@ -54,6 +54,16 @@ namespace CrusaderDETweaker.Tests
         private const uint UnitManagerLeaRva = 0x152108, BuildingUidCmpRva = 0x152C1E, HumanSlotCmpRva = 0x1521FD;
         private const int EngX = 326, EngY = 400, EngRungTicks = 250, EngCrewTicks = 400, EngDamageTicks = 700, StoneDamageTicks = 1500, EngReorderTicks = 60, EngFiringTicks = 600;
         private static readonly int[] EngLadder = { 115, 108, 104, 100, 96, 93, 90, 88, 85, 82, 80, 77, 75, 72, 70, 66, 62, 58, 54, 50, 45, 40, 32, 24, 16 };
+        // Engage phases (GitHub #5 follow-up): every expected distance and the tile above it are rungs.
+        private static readonly int[] EngageLadder = { 93, 90, 88, 86, 85, 84, 82, 80, 78, 77, 76, 75, 74, 72, 71, 70, 69, 68, 67, 66, 64, 62, 61, 60, 59, 57, 56, 55, 54, 53, 50, 45, 40 };
+        // Idle first shot of the engines that aim on their own: (engine, AttackRange, EngageRange), 0 = -1 in the file.
+        // The reporter (GitHub #5, 2026-10-13): Arabian Ballista 75 / 75, Mangonel 67 with EngageRange -1 and 67.
+        private static readonly (eChimps Unit, int Attack, int Engage)[] EngageSettings =
+        {
+            (eChimps.CHIMP_TYPE_BALLISTA, 0, 0), (eChimps.CHIMP_TYPE_BALLISTA, 0, 70),
+            (eChimps.CHIMP_TYPE_ARAB_BALLISTA, 0, 0), (eChimps.CHIMP_TYPE_ARAB_BALLISTA, 75, 75), (eChimps.CHIMP_TYPE_ARAB_BALLISTA, 75, 60),
+            (eChimps.CHIMP_TYPE_MANGONEL, 0, 0), (eChimps.CHIMP_TYPE_MANGONEL, 67, 0), (eChimps.CHIMP_TYPE_MANGONEL, 67, 67), (eChimps.CHIMP_TYPE_MANGONEL, 67, 55),
+        };
         internal const int CatapultLowered = 70;
         // Raised AttackRange per engine (the reporter's values where given: Trebuchet 100, Arabian Ballista 77).
         private static readonly (eChimps Unit, int Raised, bool Building)[] EngSettings =
@@ -67,6 +77,9 @@ namespace CrusaderDETweaker.Tests
             internal string Name;
             internal eChimps Unit;
             internal int Owner = 1, Attack, Game;   // Attack 0 = game ranges
+            internal int Engage;                    // EngageRange (0 = -1 in the file); engage phases only
+            internal bool EngagePhase;
+            internal int[] Ladder = EngLadder;
             internal bool NewCode, Building, Crewed, Damaged;
             internal int HitAt = -1, ShotTick, CrewTicks = -1, Orders, Shots;
             internal double ShotDistance;
@@ -165,7 +178,15 @@ namespace CrusaderDETweaker.Tests
             }
             // No AI-owned phase: the AI branch picks its own targets (RVA 0x18FC00), and an AI-owned Catapult (player 2) never fired
             // in the editor map, at its game range or with AttackRange 90 (run selftest-20261011-193734, ammunition 40 -> 40).
+            if (_only == "engage") _eng.Clear();
+            foreach (var s in EngageSettings)
+                _eng.Add(new EngPhase
+                {
+                    Name = $"{EngName(s.Unit)} idle, AttackRange {(s.Attack > 0 ? s.Attack.ToString() : "-1")} / EngageRange {(s.Engage > 0 ? s.Engage.ToString() : "-1")}",
+                    Unit = s.Unit, Game = UnitRanges.GameAttackTiles(s.Unit), Attack = s.Attack, Engage = s.Engage, NewCode = true, EngagePhase = true, Ladder = EngageLadder,
+                });
             _eIdx = -1;
+            if (_only == "engage") { NextEnginePhase(now); return; }   // the engage phases only (test_headless.ps1 -Only engage)
             StartXbowPhases(now);   // the Crossbowman part first: its control shot proves the map row engages at all
         }
 
@@ -175,7 +196,23 @@ namespace CrusaderDETweaker.Tests
 
         private void ResetEngineRanges()
         {
-            foreach (eChimps t in EngineRangePatch.Engines) UnitRanges.ResetAttackRange(t);
+            foreach (eChimps t in EngineRangePatch.Engines) { UnitRanges.ResetAttackRange(t); UnitRanges.ResetEngageRange(t); }
+        }
+
+        /// <summary>EngageRange through the path the Units file uses (EngageRangeProperty): skipped for a type without the setting (noted).</summary>
+        private string ApplyEngineEngage(EngPhase p)
+        {
+            if (p.Engage <= 0) return "EngageRange -1";
+            if (!UnitRanges.SupportsEngage(p.Unit)) return $"EngageRange {p.Engage} NOT APPLIED: this build has no EngageRange for {EngName(p.Unit)} (the Units file skips it)";
+            UnitRanges.ApplyEngageRange(p.Unit, p.Engage);
+            return $"EngageRange {p.Engage} (UnitRanges.ApplyEngageRange)";
+        }
+
+        /// <summary>Where an idle engine should first shoot: its EngageRange, at most the AttackRange in effect.</summary>
+        private static int ExpectedIdleShot(EngPhase p)
+        {
+            int attack = p.Attack > 0 ? p.Attack : p.Game;
+            return p.Engage > 0 ? Math.Min(p.Engage, attack) : attack;
         }
 
         private void CleanEnginePhase()
@@ -201,7 +238,8 @@ namespace CrusaderDETweaker.Tests
             ResetEngineRanges();
             if (++_eIdx >= _eng.Count)
             {
-                ReportEngineRanges();
+                if (_only != "engage") ReportEngineRanges();
+                ReportEngage();
                 _eDone = true;
                 return;
             }
@@ -218,6 +256,7 @@ namespace CrusaderDETweaker.Tests
                     EngageDistancePatch.SetAttackTiles(p.Unit, p.Attack, p.Game);
                 }
             }
+            string engageNote = p.EngagePhase ? "; " + ApplyEngineEngage(p) : "";   // after AttackRange, the Units file's order
             var units = GameUnitManagerAPI.Instance;
             _eEngine = Spawn(p.Unit, EngX, EngY, p.Owner);
             Pin(_eEngine);
@@ -226,7 +265,7 @@ namespace CrusaderDETweaker.Tests
             _eStepTick = global::Director.instance.getSimTickCount();
             EngageDistancePatch.TryGetCurrentWorld(p.Unit, out int engage);
             Note($"Engine phase '{p.Name}': owner {p.Owner} ({(IsHuman(p.Owner) ? "human" : "AI")} branch); Script Extender AttackRange {units.GetUnitAttackRange(p.Unit)}; " +
-                 $"engine code {EngineRangePatch.Describe(p.Unit)}; engage {(engage > 0 ? engage + " world units" : "none")}; engine {_eEngine} at {EngX},{EngY}, Engineers {string.Join(" / ", _eCrew)} next to it; ammunition (+0x9BA) {GU16(_eEngine, 0x9BA)}");
+                 $"engine code {EngineRangePatch.Describe(p.Unit)}; engage {(engage > 0 ? engage + " world units" : "none")}{engageNote}; engine {_eEngine} at {EngX},{EngY}, Engineers {string.Join(" / ", _eCrew)} next to it; ammunition (+0x9BA) {GU16(_eEngine, 0x9BA)}");
         }
 
         /// <summary>Samples one frame of the engine stage; true when the engine and Crossbowman parts are done.</summary>
@@ -265,7 +304,7 @@ namespace CrusaderDETweaker.Tests
                 {
                     p.Crewed = true;
                     p.CrewTicks = tick - _eStepTick;
-                    _eRung = Array.FindIndex(EngLadder, d => d <= Math.Max(p.Game, p.Attack) + 8);
+                    _eRung = Array.FindIndex(p.Ladder, d => d <= Math.Max(p.Game, p.Attack) + 8);
                     _eStep = 1;
                     SpawnEngineTarget(p, tick);
                 }
@@ -286,11 +325,11 @@ namespace CrusaderDETweaker.Tests
                 int shots = NewShots(_eEngine, p.Projectile, p.NewProjectiles);
                 if (shots > 0 || damaged)
                 {
-                    p.HitAt = EngLadder[_eRung];
+                    p.HitAt = p.Ladder[_eRung];
                     p.ShotTick = tick;
                     p.Shots = shots;
                     p.ShotDistance = TargetDistance(p);
-                    p.Detail = $"crewed after {p.CrewTicks} ticks; first {(shots > 0 ? "shot" : "damage")} with the target {EngLadder[_eRung]} tiles away " +
+                    p.Detail = $"crewed after {p.CrewTicks} ticks; first {(shots > 0 ? "shot" : "damage")} with the target {p.Ladder[_eRung]} tiles away " +
                                $"(ammunition {p.AmmoStart} -> {GU16(_eEngine, 0x9BA)}) " +
                                $"(game distance now {p.ShotDistance:0.#}), {tick - _eRungTick} ticks after it was placed, engine at {Pos(_eEngine)}" +
                                (p.Building && IsHuman(p.Owner) ? $", attack orders given {p.Orders}" : "");
@@ -300,9 +339,9 @@ namespace CrusaderDETweaker.Tests
                 else if (tick - _eRungTick >= EngRungTicks && (!Firing(_eEngine) || tick - _eRungTick >= EngRungTicks + EngFiringTicks))
                 {
                     RemoveEngineTarget();
-                    if (++_eRung >= EngLadder.Length)
+                    if (++_eRung >= p.Ladder.Length)
                     {
-                        p.Detail = $"crewed after {p.CrewTicks} ticks; no shot at any distance down to {EngLadder[EngLadder.Length - 1]} tiles (ammunition {p.AmmoStart} -> {GU16(_eEngine, 0x9BA)})";
+                        p.Detail = $"crewed after {p.CrewTicks} ticks; no shot at any distance down to {p.Ladder[p.Ladder.Length - 1]} tiles (ammunition {p.AmmoStart} -> {GU16(_eEngine, 0x9BA)})";
                         NextEnginePhase(now);
                     }
                     else SpawnEngineTarget(p, tick);
@@ -339,7 +378,7 @@ namespace CrusaderDETweaker.Tests
 
         private void SpawnEngineTarget(EngPhase p, int tick)
         {
-            int d = EngLadder[_eRung];
+            int d = p.Ladder[_eRung];
             int enemy = p.Owner == 1 ? 2 : 1;
             if (p.Building)
             {
@@ -478,7 +517,7 @@ namespace CrusaderDETweaker.Tests
             var summary = new StringBuilder("Engine first-shot distances (tiles):");
             foreach (var s in EngSettings)
             {
-                var list = _eng.Where(p => p.Unit == s.Unit).ToList();
+                var list = _eng.Where(p => p.Unit == s.Unit && !p.EngagePhase).ToList();
                 EngPhase game = list[0];
                 summary.Append($" {EngName(s.Unit)} game {Shot(game)}");
                 foreach (var p in list.Skip(1)) summary.Append($", {p.Attack}{(p.NewCode ? "" : " (2.10.0)")} {Shot(p)}");
@@ -503,11 +542,24 @@ namespace CrusaderDETweaker.Tests
 
         private static string Shot(EngPhase p) => !p.Crewed ? "not crewed" : p.HitAt > 0 ? p.HitAt + (p.Damaged ? "" : " (no damage)") : "no shot";
 
+        /// <summary>The engage phases: distance of an idle engine's first shot (measurement notes).</summary>
+        private void ReportEngage()
+        {
+            var list = _eng.Where(p => p.EngagePhase).ToList();
+            foreach (var p in list)
+            {
+                if (!p.Crewed) { Note($"SKIP {p.Name}: not crewed ({p.Detail})"); continue; }
+                int want = ExpectedIdleShot(p);
+                Check($"{p.Name}: an idle engine first shoots at {want} tiles (EngageRange, at most AttackRange)", p.HitAt == want, p.Detail);
+            }
+            Note("Idle engine first-shot distances (tiles): " + string.Join("; ", list.Select(p => $"{p.Name}: {Shot(p)}")));
+        }
+
         private string EnginesProgress()
         {
             if (_eXbow) return $"Crossbowman phase {_xIdx}, rung {_xRung}, shooter {Pos(_xShooter)}, target {Pos(_xTarget)}";
             if (_eng == null || _eIdx < 0 || _eIdx >= _eng.Count) return "engines not started";
-            return $"engine phase '{_eng[_eIdx].Name}', step {_eStep}, rung {(_eRung >= 0 && _eRung < EngLadder.Length ? EngLadder[_eRung] : -1)}, engine {Pos(_eEngine)} state {GU16(_eEngine, 0x918)} crew {GU16(_eEngine, 0xA0C)} target kind {GU16(_eEngine, 0x9F4)}";
+            return $"engine phase '{_eng[_eIdx].Name}', step {_eStep}, rung {(_eRung >= 0 && _eRung < _eng[_eIdx].Ladder.Length ? _eng[_eIdx].Ladder[_eRung] : -1)}, engine {Pos(_eEngine)} state {GU16(_eEngine, 0x918)} crew {GU16(_eEngine, 0xA0C)} target kind {GU16(_eEngine, 0x9F4)}";
         }
 
         // ===================================================

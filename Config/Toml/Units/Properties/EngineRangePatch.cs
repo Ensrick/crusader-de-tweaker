@@ -69,6 +69,7 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
         {
             internal ulong Rva, NoticeRva;
             internal int Native, Applied;
+            internal int Engage, EngageWarned, NoticeLogged = MangonelNotice;   // EngageRange in tiles, 0 = -1 (Mangonel only)
             internal ManagedAssemblyDisplacement<int> Range;
             internal ManagedAssemblyImmediate<int> Notice;   // Mangonel only
         }
@@ -123,16 +124,77 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
                 }
                 if (value == s.Native) s.Range.ClearOverrides(Owner);
                 else s.Range.SetOverride(Owner, value, 0, "AttackRange");
-                if (s.Notice != null)
-                {
-                    int notice = (int)Math.Round(MangonelNotice * (double)value / s.Native);
-                    if (notice <= MangonelNotice) s.Notice.ClearOverrides(Owner);
-                    else s.Notice.SetOverride(Owner, Math.Min(EngageDistancePatch.MaxWorld, notice), 0, "AttackRange");
-                }
-                if (value != s.Applied)
-                    Plugin.Logger.LogInfo($"[AttackRange] {unit}: the engine fires from up to {value} tiles (game {s.Native}); game code {Describe(unit)}.");
+                int before = s.Applied;
                 s.Applied = value;
+                ApplyNotice(s);
+                if (value != before)
+                    Plugin.Logger.LogInfo($"[AttackRange] {unit}: the engine fires from up to {value} tiles (game {s.Native}); game code {Describe(unit)}.");
             }
+        }
+
+        /// <summary>True for the engines whose own look-out EngageRange sets (the Mangonel; the Ballistas go through EngageDistancePatch).</summary>
+        internal static bool SupportsEngage(eChimps unit)
+        {
+            EnsureScanned();
+            return _sites.TryGetValue(unit, out Site s) && s.Notice != null;
+        }
+
+        /// <summary>The look-out in the game's code in tiles (the Mangonel's 85), or false.</summary>
+        internal static bool TryGetNoticeTiles(eChimps unit, bool current, out int tiles)
+        {
+            EnsureScanned();
+            tiles = _sites.TryGetValue(unit, out Site s) && s.Notice != null
+                ? (current ? s.Notice.GetValue() : MangonelNotice) / UnitRanges.WorldUnitsPerTile : 0;
+            return tiles > 0;
+        }
+
+        /// <summary>
+        /// EngageRange of an engine with its own look-out (the Mangonel): how far it aims on its own, at most its
+        /// AttackRange (it cannot fire farther). 0 = -1: the look-out follows AttackRange as before.
+        /// </summary>
+        internal static void SetEngageTiles(eChimps unit, int tiles)
+        {
+            EnsureScanned();
+            if (!_sites.TryGetValue(unit, out Site s) || s.Notice == null) return;
+            lock (Gate)
+            {
+                s.Engage = Math.Max(0, tiles);
+                ApplyNotice(s, warn: true);
+            }
+        }
+
+        internal static void ClearEngage(eChimps unit) => SetEngageTiles(unit, 0);
+
+        /// <summary>
+        /// The Mangonel's look-out: EngageRange (at most AttackRange) when set; otherwise the game's 680 world units, grown
+        /// in proportion when AttackRange is above the game's 70 (an engine aims as far as it fires).
+        /// </summary>
+        private static void ApplyNotice(Site s, bool warn = false)
+        {
+            if (s.Notice == null) return;
+            int notice;
+            string source;
+            if (s.Engage > 0)
+            {
+                int tiles = Math.Min(s.Engage, s.Applied);
+                if (warn && tiles < s.Engage && s.Engage != s.EngageWarned)
+                    Plugin.Logger.LogWarning($"[EngageRange] CHIMP_TYPE_MANGONEL: EngageRange {s.Engage} is above its AttackRange {s.Applied}; it aims on its own from up to {tiles} tiles (it cannot fire farther).");
+                if (warn) s.EngageWarned = s.Engage;
+                notice = tiles * UnitRanges.WorldUnitsPerTile;
+                source = $"EngageRange {s.Engage}";
+            }
+            else
+            {
+                notice = Math.Max(MangonelNotice, (int)Math.Round(MangonelNotice * (double)s.Applied / s.Native));
+                source = s.Applied > s.Native ? $"AttackRange {s.Applied}, EngageRange -1" : "game value";
+            }
+            notice = Math.Min(EngageDistancePatch.MaxWorld, notice);
+            if (notice == MangonelNotice) s.Notice.ClearOverrides(Owner);
+            else s.Notice.SetOverride(Owner, notice, 0, s.Engage > 0 ? "EngageRange" : "AttackRange");
+            if (notice != s.NoticeLogged)
+                Plugin.Logger.LogInfo($"[EngageRange] CHIMP_TYPE_MANGONEL: aims on its own at enemies within {notice / (double)UnitRanges.WorldUnitsPerTile:0.#} tiles " +
+                                      $"(game {MangonelNotice / UnitRanges.WorldUnitsPerTile}; from {source}); game code 0x{s.NoticeRva:X} {MangonelNotice} -> {notice} world units.");
+            s.NoticeLogged = notice;
         }
 
         /// <summary>Puts the game's code back for this engine.</summary>
@@ -143,9 +205,9 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
             lock (Gate)
             {
                 s.Range.ClearOverrides(Owner);
-                s.Notice?.ClearOverrides(Owner);
                 if (s.Applied != s.Native) Plugin.Logger.LogInfo($"[AttackRange] {unit}: engine range back to the game's {s.Native} tiles.");
                 s.Applied = s.Native;
+                ApplyNotice(s);   // the Mangonel's look-out: EngageRange if set, else the game's
             }
         }
 

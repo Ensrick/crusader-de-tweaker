@@ -28,7 +28,11 @@
 // - Each unit type has its own update function (SE log "Hooking unit update function", 13 distinct addresses),
 //   so a patch never leaks into another type. Scan() refuses a function shared by two types.
 // - Never call SE's SetEngageRange for these units again: it is the crash above.
-// - Units with no such compare (Catapult, Trebuchet, Mangonel) get no EngageRange.
+// - Units with no such compare (Catapult, Trebuchet, Mangonel) find none here. The Mangonel's own look-out (a register
+//   compare) is EngineRangePatch's; UnitRanges.ApplyEngageRange sends EngageRange to both.
+// - Siege engines (Ballista, Arabian Ballista): an EngageRange above the AttackRange in effect is lowered to it: an engine
+//   aims on its own at most as far as it fires (GitHub #5 follow-up, 2.11.2). -1 keeps the game constant (85 tiles,
+//   also for the Arabian Ballista whose game AttackRange is 54).
 //
 using System;
 using System.Collections.Generic;
@@ -66,6 +70,7 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
             internal int EngageTiles;                 // 0 = no EngageRange
             internal int AttackTiles, GameAttackTiles; // 0 = no AttackRange override
             internal int Applied;                     // world units now in effect for the base constant
+            internal int EngageWarned;                // siege engines: EngageRange already reported as above AttackRange
         }
 
         /// <summary>
@@ -139,9 +144,25 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
                 change(u);
                 int target = u.Base;
                 string source = "game value";
+                bool engine = Array.IndexOf(EngineRangePatch.Engines, unit) >= 0;
                 if (u.EngageTiles > 0)
                 {
-                    target = u.EngageTiles * UnitRanges.WorldUnitsPerTile;
+                    int tiles = u.EngageTiles;
+                    // A siege engine aims on its own at most as far as it fires (GitHub #5 follow-up).
+                    if (engine)
+                    {
+                        int attack = Math.Min(EngineRangePatch.MaxTiles, u.AttackTiles > 0 ? u.AttackTiles : UnitRanges.GameAttackTiles(unit));
+                        if (attack > 0 && tiles > attack)
+                        {
+                            // Warned only when EngageRange itself is set: the Units file applies AttackRange first, and a
+                            // restore resets AttackRange before EngageRange, so other paths pass through such a state.
+                            if (property == "EngageRange" && u.EngageWarned != tiles)
+                                Plugin.Logger.LogWarning($"[EngageRange] {unit}: EngageRange {tiles} is above its AttackRange {attack}; it aims on its own from up to {attack} tiles (it cannot fire farther).");
+                            u.EngageWarned = tiles;
+                            tiles = attack;
+                        }
+                    }
+                    target = tiles * UnitRanges.WorldUnitsPerTile;
                     source = $"EngageRange {u.EngageTiles}";
                 }
                 else if (u.AttackTiles > 0 && u.GameAttackTiles > 0 && u.AttackTiles != u.GameAttackTiles)
@@ -151,10 +172,15 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
                 }
                 target = Math.Max(1, Math.Min(MaxWorld, target));
 
+                // A siege engine's constants are its look-outs per owner branch (Arabian Ballista: AI 680 at 0x171DAF, human
+                // 432 = its 54-tile AttackRange at 0x171ED8), not gaps between states: an EngageRange sets every one of them.
+                bool flat = engine && u.EngageTiles > 0;
                 foreach (Site s in u.Sites)
                 {
-                    if (target == u.Base) s.Immediate.ClearOverrides(Owner);
-                    else s.Immediate.SetOverride(Owner, Math.Max(1, Math.Min(MaxWorld, (int)Math.Round(s.Native * (double)target / u.Base))), 0, property);
+                    int value = flat ? target : (int)Math.Round(s.Native * (double)target / u.Base);
+                    if (target == u.Base && !flat) s.Immediate.ClearOverrides(Owner);
+                    else if (value == s.Native) s.Immediate.ClearOverrides(Owner);
+                    else s.Immediate.SetOverride(Owner, Math.Max(1, Math.Min(MaxWorld, value)), 0, property);
                 }
                 u.Applied = target;
                 if (target != before)

@@ -14,6 +14,8 @@
     -Only pools runs only the building limit and sprite pool stages (editor map, thousands of units).
     -Only engines runs only the siege engine range stage (first-shot distance of the five engines, crewed by Engineers,
     with the game range and a changed AttackRange) and the Crossbowman EngageRange < AttackRange rungs (GitHub #5).
+    -Only engage runs only its idle phases: the distance at which a Ballista, Arabian Ballista or Mangonel starts shooting
+    on its own with the game's ranges and with AttackRange / EngageRange set (GitHub #5 follow-up).
     -Quick (development) runs only the unit limit / gameplay options stages (editor map, then a real custom skirmish).
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
@@ -40,7 +42,7 @@
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
     [int]$TimeoutSeconds = 5400,
-    [ValidateSet('', 'economy', 'pools', 'engines')][string]$Only = '',
+    [ValidateSet('', 'economy', 'pools', 'engines', 'engage')][string]$Only = '',
     [switch]$Quick
 )
 $ErrorActionPreference = 'Stop'

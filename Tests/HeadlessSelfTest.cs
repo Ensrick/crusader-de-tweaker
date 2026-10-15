@@ -273,7 +273,7 @@ namespace CrusaderDETweaker.Tests
                     {
                         if (!vm.IsMapEditorMode || !global::Director.instance.SimRunning) return;
                         if (_only == "pools") { StartPools(now); return; }   // building limit + sprite pool only (HeadlessSelfTest.Pools.cs)
-                        if (_only == "engines") { StartEngines(now); return; }   // siege engine ranges only (HeadlessSelfTest.Engines.cs)
+                        if (_only == "engines" || _only == "engage") { StartEngines(now); return; }   // siege engine ranges only (HeadlessSelfTest.Engines.cs)
                         _stage = LimitsStage; _deadline = now + 900;   // unit limit + gameplay options first (HeadlessSelfTestLimits.cs)
                         return;
                     }
@@ -344,7 +344,7 @@ namespace CrusaderDETweaker.Tests
                     {
                         if (SimStalled(now)) return;
                         if (!EnginesTick(now)) return;
-                        if (_only == "engines") Finish();
+                        if (_only == "engines" || _only == "engage") Finish();
                         else StartEconomy(now);
                         return;
                     }
