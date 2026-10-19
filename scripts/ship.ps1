@@ -348,6 +348,11 @@ function Stage-Workshop {
 
     # 3. Upload (public) + verify from ground truth, not the tool's own "Upload finished".
     $start = Get-Date
+    # Windows PowerShell 5.1 hands a native program an embedded double quote unescaped, which splits the argument
+    # (2.11.2: a quote in the change note reached the uploader as extra arguments, exit 2). PowerShell 7.3+ escapes
+    # by itself unless PSNativeCommandArgumentPassing is Legacy.
+    $legacyArgs = $PSVersionTable.PSVersion.Major -lt 7 -or "$(Get-Variable PSNativeCommandArgumentPassing -ValueOnly -ErrorAction SilentlyContinue)" -eq 'Legacy'
+    if ($legacyArgs) { $upArgs = @($upArgs | ForEach-Object { $_ -replace '(\\*)"', '$1$1\"' }) }
     $up = Invoke-Exe { & $UploaderExe @upArgs }
     ($up.Out + $up.Err) | Out-Host
     if ($up.Code -ne 0) { throw "uploader exit $($up.Code)" }

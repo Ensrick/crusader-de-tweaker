@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Local Nexus Mods publisher — uploads a file, adds a version, bumps the mod
+    Local Nexus Mods publisher - uploads a file, adds a version, bumps the mod
     version, and posts a changelog through the official Nexus Upload API (v3).
 
 .DESCRIPTION
     A faithful PowerShell port of the official Nexus-Mods/upload-action
     (https://github.com/Nexus-Mods/upload-action, src/index.ts). Uses the
-    sanctioned v3 API with a single `apikey` header — no cookies, no browser
+    sanctioned v3 API with a single `apikey` header - no cookies, no browser
     scraping, no ToS grey area.
 
     What v3 CAN do (and this script does):
@@ -96,7 +96,7 @@ $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 # ---------------------------------------------------------------------------
-# Key resolution — param > env > gitignored settings file. Never printed.
+# Key resolution - param > env > gitignored settings file. Never printed.
 # ---------------------------------------------------------------------------
 function Resolve-ApiKey {
     param([string]$Explicit)
@@ -201,7 +201,7 @@ function Invoke-NexusApi {
 }
 
 # ---------------------------------------------------------------------------
-# Action: validate — legacy v1 endpoint that reports quota headers cheaply.
+# Action: validate - legacy v1 endpoint that reports quota headers cheaply.
 # ---------------------------------------------------------------------------
 function Invoke-Validate {
     $headers = @{ 'apikey' = $script:ApiKey; 'User-Agent' = 'crusader-de-tweaker/Publish-NexusMod.ps1' }
@@ -219,7 +219,7 @@ function Invoke-Validate {
 }
 
 # ---------------------------------------------------------------------------
-# Action: list-files — enumerate the mod's file slots to find a FileId.
+# Action: list-files - enumerate the mod's file slots to find a FileId.
 # ---------------------------------------------------------------------------
 function Invoke-ListFiles {
     if (-not $ModId) { throw "-ModId is required for list-files." }
@@ -238,7 +238,7 @@ function Invoke-ListFiles {
 }
 
 # ---------------------------------------------------------------------------
-# Action: publish — the 7-step upload flow (faithful to upload-action).
+# Action: publish - the 7-step upload flow (faithful to upload-action).
 # ---------------------------------------------------------------------------
 function Invoke-Publish {
     if (-not $ModId)    { throw "-ModId is required for publish (the game-scoped mod id, e.g. 38)." }
@@ -277,7 +277,7 @@ function Invoke-Publish {
     Write-Host "  Version       : $Version   (bump mod version: $UpdateModVersion)"
     Write-Host "  Category      : $Category   (archive existing: $ArchiveExisting)"
     Write-Host "  Changelog     : $([bool]$Changelog)"
-    Write-Host "  NOTE: mod DESCRIPTION is not editable via API — refresh it on the website." -ForegroundColor Yellow
+    Write-Host "  NOTE: mod DESCRIPTION is not editable via API - refresh it on the website." -ForegroundColor Yellow
 
     if (-not $PSCmdlet.ShouldProcess("$GameDomain mod $ModId file-group $targetGroup", "Upload $fileName as v$Version")) {
         Write-Host "`n[dry run] No network writes performed. Remove -WhatIf to publish." -ForegroundColor Yellow
@@ -364,7 +364,7 @@ function Invoke-Publish {
     $versionId = $ver.data.version.id
     Write-Host "  version_id=$versionId" -ForegroundColor Green
 
-    # --- Step 7: changelog (optional) — POST /mods/{modUid}/changelogs (mod UID, not the id) ---
+    # --- Step 7: changelog (optional) - POST /mods/{modUid}/changelogs (mod UID, not the id) ---
     if ($Changelog) {
         Write-Host "[7/7] Posting changelog..." -ForegroundColor White
         Invoke-NexusApi -Method Post -Path "/mods/$($script:ModUid)/changelogs" -Body @{
