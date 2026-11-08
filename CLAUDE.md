@@ -255,6 +255,17 @@ runs on one client only when the local market spawns). `BedouinHealMultiplier = 
   `GameTimeManagerAPI.OnTick`: SE's `CurrentGameTick` is `Director.getSimTickCount`, which keeps counting while the game
   skips ticks under load (no free render buffer).
 
+### Engineer Speed (Nexus comment 179239047, 2026-11-06; not fixed)
+
+- Movement step (units tick, RVA 0x184203) waits more than +0x9A2 (SE `r_CurrentSpeed2`) + bonus +0x916 + +0x74C ticks;
+  unit init (0x19A240) copies the speed table (RVA 0x3230C0) into +0x9A2 and +0x9A4 (`r_CurrentSpeed`).
+- Engineer update (vtable entry 30, RVA 0x14AED0) writes +0x9A4 with constants: state 0x65 (0x14B5C4, value 1 from
+  `mov eax,1` shared with the +0x660 anim value) and 0x7A (0x14B806, `setne al; inc ax`): 1, or 2 while +0x9E0 != 0;
+  2 when +0xA82 (`r_AITribeRole`) == 10 for an AI player (0x14AF0F / 0x14AF4B). The value then reaches +0x9A2.
+- Measured (`test_headless.ps1 -Only speed`, `Tests/HeadlessSelfTest.EngineerSpeed.cs`): on a move order Speed works
+  (states 0-2); forcing r_AIState 0x65 / 0x7A made a Speed 6 Engineer speed 1 for good. That AI siege Engineers walk in
+  0x65 / 0x7A is [unverified] (no AI siege run).
+
 ### `-1` = "use game default" sentinel (Units/Structures TOML, v2.3.0+)
 
 Numeric stat properties (Health, Speed, GoldCost, ShieldHealth, structure health/costs, housing,

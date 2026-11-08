@@ -243,6 +243,7 @@
     <Compile Include="Tests\HeadlessSelfTestLimits.cs" />
     <Compile Include="Tests\HeadlessSelfTest.Pools.cs" />
     <Compile Include="Tests\HeadlessSelfTest.Engines.cs" />
+    <Compile Include="Tests\HeadlessSelfTest.EngineerSpeed.cs" />
     <Compile Include="Data\ProjectileType.cs" />
     <Compile Include="Data\StructureCategories.cs" />
     <Compile Include="Data\StructureTypeHelpers.cs" />
