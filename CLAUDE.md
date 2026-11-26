@@ -110,7 +110,7 @@ Game Defaults → TOML Properties → CSV Damage Matrices → BepInEx Multiplier
 |------|-------|---------|----------|
 | **TOML** | `*_Units.toml`, `*_Structures.toml`, `*_GameplaySettings.toml` | Per-entity stats + gameplay globals | Yes |
 | **CSV** | `DamageMatrices\*.csv` (7 files) | The **only** per-matchup damage/heal tier | Yes |
-| **BepInEx** | `CrusaderDETweaker_GlobalMultipliers.cfg` | Global multipliers scaling on top, at runtime | No |
+| **BepInEx** | `CrusaderDETweaker_GlobalMultipliers.cfg` | Global multipliers scaling on top, at runtime | Yes (read once at launch; nothing re-reads the file, 2.11.9 doc fix) |
 
 ### CSV damage matrices (the live damage tier)
 

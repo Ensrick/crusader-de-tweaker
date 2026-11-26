@@ -39,8 +39,8 @@ Check it worked: [b]BepInEx\LogOutput.log[/b] contains "Loading [Crusader DE Twe
 [/list]
 [b]-1[/b] means "use the game's value". Put -1 back to undo a change, or delete a config file to regenerate it with defaults.
 
-[b]3. Change something without restarting[/b]
-Open [b]CrusaderDETweaker_GlobalMultipliers.cfg[/b] and set, for example, [b]UnitHealthMultiplier = 1.5[/b]. Most multipliers apply while the game is running, no restart needed.
+[b]3. Global multipliers[/b]
+Open [b]CrusaderDETweaker_GlobalMultipliers.cfg[/b] and set, for example, [b]UnitHealthMultiplier = 1.5[/b]. The file is read when the game starts: restart the game after editing it (before 2.11.9 this guide said most multipliers applied while the game was running; the mod never re-read the file).
 
 [b]4. Gameplay settings (siege, stealth, trade prices)[/b]
 [b]CrusaderDETweaker_GameplaySettings.toml[/b] is applied at every session start: new game, trail / campaign map, and loading a saved game. Example, cheaper bows at the market:
@@ -75,7 +75,7 @@ Example: [b]C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader De
 
 Files:
 [list]
-[*]CrusaderDETweaker_GlobalMultipliers.cfg - Real-time global multipliers
+[*]CrusaderDETweaker_GlobalMultipliers.cfg - Global multipliers (read at game start)
 [*]CrusaderDETweaker_GameplaySettings.toml - Gameplay flags, siege, stealth, team colors, trade prices, auto-trade
 [*]CrusaderDETweaker_Units.toml - Per-unit stats (health, speed, cost, weapon/armor requirements, max count)
 [*]CrusaderDETweaker_Structures.toml - Per-structure stats (health, cost, housing, max count)
@@ -106,11 +106,11 @@ Game Defaults → TOML Configs → CSV Matrices → BepInEx Multipliers
 
 
 [size=5][b]1. CrusaderDETweaker_GlobalMultipliers.cfg[/b][/size]
-[b]Global multipliers[/b] - most apply in real-time without a game restart.
+[b]Global multipliers[/b] - read when the game starts; restart the game after editing this file. They scale the game's values while you play (damage as it is dealt, health as units appear).
 
 [code]
 [Debug]
-DebugLogging = false   # Enable step-by-step logging for all event hooks. Real-time. High log volume — use only when diagnosing issues.
+DebugLogging = false   # Enable step-by-step logging for all event hooks. High log volume - use only when diagnosing issues.
 
 [Multipliers]
 # Unit Multipliers
@@ -548,7 +548,7 @@ Single player and skirmish are not affected.
 [size=5][b]Quick Tips[/b][/size]
 [list]
 [*][b]TOML and CSV changes require a game restart[/b]
-[*][b]Most CFG settings apply in real-time[/b] — multipliers require no restart (fire/heal multipliers are the exception)
+[*][b]CFG changes also require a game restart[/b] (the file is read at game start)
 [*][b]Delete a config file to reset it[/b] — it will be regenerated with defaults on next launch
 [*][b]Multipliers stack[/b] — UnitMeleeDamageTakenMultiplier and StructureDamageTakenMultiplier both apply independently
 [*][b]Minimum damage is always 1[/b] — setting multipliers to 0 still results in 1 damage

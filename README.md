@@ -11,7 +11,7 @@ Crusader DE Tweaker provides fine-grained control over game balance through mult
 - **Per-Unit Customization**: Modify health, speed, and costs for individual units
 - **Structure Tweaking**: Adjust building health, costs, and housing capacity
 - **Damage System**: Set damage and healing per attacker/defender matchup in seven CSV matrices (melee, ranged, Eunuch AOE, ballista, unit fire, Bedouin heal, building fire)
-- **Real-Time Multipliers**: Apply global multipliers without restarting the game
+- **Global Multipliers**: Scale unit / structure damage, health, fire, healing and wall costs (read at game start)
 - **Unit & Building Count Caps**: Limit how many of each unit or building type a player can have (e.g., max 20 Knights, 3 Hovels)
 - **Gameplay Globals**: Siege, stealth, gates, pathfinding, peasant spawning, trade prices and auto-trade
 
@@ -37,7 +37,7 @@ Crusader DE Tweaker provides fine-grained control over game balance through mult
 3. **Configure:**
    - Config files live in the game directory, not `%APPDATA%`: `{GameDir}\BepInEx\config\CrusaderDETweaker\`
    - Edit `CrusaderDETweaker_Units.toml` to customize units (generated on first run if missing). Each numeric stat defaults to `-1` = "use the game default"; set a real number to override.
-   - Edit `CrusaderDETweaker_GlobalMultipliers.cfg` for real-time multipliers and unit caps (no restart needed)
+   - Edit `CrusaderDETweaker_GlobalMultipliers.cfg` for global multipliers (read at game start: restart after editing)
    - Edit `CrusaderDETweaker_GameplaySettings.toml` for gameplay globals (siege, stealth, peasant spawning, team colors, trade)
    - Restart the game to apply TOML changes
    - **Note:** Your config files are safe - the mod never resets your values. Missing files are generated on launch; existing ones keep your values and only gain new settings.
@@ -81,9 +81,10 @@ Each generated file carries these instructions in its header comments.
 **When to use:** any damage change. The global multipliers below then scale on top of whatever the
 matrices set. Files are generated on first launch and never overwritten, so your edits are safe.
 
-### 3. BepInEx Config (Real-Time Multipliers)
+### 3. BepInEx Config (Global Multipliers)
 
-Global multipliers applied during gameplay (no restart needed):
+Global multipliers, applied during gameplay. The file is read when the game starts: restart the game after
+editing it (2.11.9: earlier docs said no restart was needed; the mod never re-read the file).
 
 - **`UnitMeleeDamageTakenMultiplier`**: Global multiplier for all melee damage to units
 - **`UnitRangedDamageTakenMultiplier`**: Global multiplier for all ranged damage to units (Arrow, Bolt, Slinger, Javelin)
@@ -100,19 +101,19 @@ Global multipliers applied during gameplay (no restart needed):
 - **`DiseaseDamageMultiplier`**: Scales all three disease damage tiers
 
 **Debugging:**
-- **`DebugLogging`** (`[Debug]` section, default: `false`): Enable step-by-step logging for all event hooks. Applies in real-time. Warning: very high log volume during gameplay — only enable when diagnosing hook issues.
+- **`DebugLogging`** (`[Debug]` section, default: `false`): Enable step-by-step logging for all event hooks. Warning: very high log volume during gameplay — only enable when diagnosing hook issues.
 
-**When to use:** For quick balance adjustments during gameplay. Changes apply immediately without restarting.
+**When to use:** For broad balance adjustments on top of the per-unit files. Restart the game after editing.
 
 ### Load Order
 
 Configurations are applied in this order:
 ```
-Game Defaults → TOML Configs → CSV Damage Matrices → Real-Time Multipliers
+Game Defaults → TOML Configs → CSV Damage Matrices → Global Multipliers
 ```
 
 TOML and CSV are applied at launch (restart required); the CSV matrices apply after the TOML, so a CSV
-value wins for the matchups it covers. The real-time multipliers scale whatever the earlier tiers set.
+value wins for the matchups it covers. The global multipliers scale whatever the earlier tiers set.
 
 See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for detailed documentation.
 

@@ -20,7 +20,7 @@ namespace CrusaderDETweaker
         // Simulation behaviour version (2.11.8, GitLab #15): raise it in every release that changes what the SAME config
         // files do in a match (a fix to how a value is applied, a new default behaviour, a different apply moment).
         // Host config sync rejects a host whose patch version differs unless both have the same value here.
-        public const int SIMULATION_VERSION = 1;
-        public const string PLUGIN_VERSION = "2.11.8";
+        public const int SIMULATION_VERSION = 2; // 1: 2.11.8; 2: 2.11.9 (structure damage untouched at all 1.0)
+        public const string PLUGIN_VERSION = "2.11.9";
     }
 }

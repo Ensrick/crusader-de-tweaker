@@ -13,6 +13,9 @@
 //   [DBG-BldgDmg-RAW]: Fires for EVERY call to OnBuildingTileTakeDamage (Pre AND Post), no filter.
 //                       If this never appears, the SHCDESE hook itself is not triggering.
 //   [DBG-BldgDmg-N]:   Step-by-step inside the Pre-filtered subscription.
+// 2.11.9 (GitLab #16, plan finding FWP-E-10): nothing happens when all six multipliers are 1.0 (AllDefault): no lookups and
+//   no write, so the game's own damage stays as it is (before, a hit of 0 damage was raised to 1 even then). The
+//   Demolisher / Sapper lines are logged only with DebugLogging (before: one Info line per hit).
 using System;
 using BepInEx.Configuration;
 using CrusaderDETweaker.Config.BepInEx;
@@ -59,6 +62,10 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                 .Where(args => args.Phase == EventHookPhase.Pre)
                 .Subscribe(args =>
                 {
+                    if (AllDefault(globalMultiplier.Value, wallMultiplier.Value, towerMultiplier.Value,
+                                   civilStructureMultiplier.Value, demolisherMultiplier.Value, sapperMultiplier.Value))
+                        return;
+
                     bool dbg = BepInExConfigManager.DebugLogging.Value;
                     try
                     {
@@ -107,13 +114,13 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
 
                             if (attackerType == eChimps.CHIMP_TYPE_BEDOUIN_DEMOLISHER)
                             {
-                                Plugin.Logger.LogInfo($"[StructureDmgMult] Demolisher (unit {attackingUnitId}) hit tile {args.TileId}. Damage before hook: {originalDamage}, DemolisherMult: {demolisherMultiplier.Value}x");
+                                if (dbg) Plugin.Logger.LogInfo($"[StructureDmgMult] Demolisher (unit {attackingUnitId}) hit tile {args.TileId}. Damage before hook: {originalDamage}, DemolisherMult: {demolisherMultiplier.Value}x");
                                 damageMultiplier *= demolisherMultiplier.Value;
                                 isSapperOrDemolisher = true;
                             }
                             else if (attackerType == eChimps.CHIMP_TYPE_BEDOUIN_SAPPER)
                             {
-                                Plugin.Logger.LogInfo($"[StructureDmgMult] Sapper (unit {attackingUnitId}) hit tile {args.TileId}. Damage before hook: {originalDamage}, SapperMult: {sapperMultiplier.Value}x");
+                                if (dbg) Plugin.Logger.LogInfo($"[StructureDmgMult] Sapper (unit {attackingUnitId}) hit tile {args.TileId}. Damage before hook: {originalDamage}, SapperMult: {sapperMultiplier.Value}x");
                                 damageMultiplier *= sapperMultiplier.Value;
                                 isSapperOrDemolisher = true;
                             }
@@ -163,5 +170,11 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                 });
             Plugin.Logger.LogInfo("Successfully subscribed to OnBuildingTileTakeDamage event hook");
         }
+
+        /// <summary>True when every structure damage multiplier is 1.0: the hit is left exactly as the game made it.</summary>
+        internal static bool AllDefault(float global, float wall, float tower, float civil, float demolisher, float sapper) =>
+            IsOne(global) && IsOne(wall) && IsOne(tower) && IsOne(civil) && IsOne(demolisher) && IsOne(sapper);
+
+        private static bool IsOne(float m) => Math.Abs(m - 1.0f) < 1e-6f;
     }
 }
