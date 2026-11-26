@@ -1,3 +1,10 @@
+2.11.10 - The Script Extender checks Crusader DE Tweaker in multiplayer lobbies (NetworkMode 1) (2026-11-26):
+
+       - **Change (multiplayer): every player in a lobby now needs Crusader DE Tweaker with exactly the same version** (plan item FWP-U-35, decision DEC-04). `info.json` now says `"NetworkMode": 1`, which tells the Script Extender that the mod changes the game in multiplayer. Without it the Script Extender treated the mod as client-side and let a player join with another version or without the mod, which makes the games go out of sync as soon as any setting differs. Now a player who joins with a different version, without the mod, or a lobby whose host lacks it, gets the Script Extender's "missing mods!" message and cannot join; its log says `Lobby ... rejected due to mod mismatch: gameplay mod [Crusader DE Tweaker] has version ...; host has ...`. Single player is not affected.
+       - Note for mixed groups: players on 2.11.9 or older and players on 2.11.10 can no longer play together; update everyone.
+       - Not tested in a real lobby yet (test card `docs/test-cards/2.11.10_NETWORKMODE.md`).
+       - Developer: `info.json` `NetworkMode` (SE `ModInfo.NetworkMode`, `ModNetworkMode.Networked = 1`; SE `GameNetworkAPI.AreLobbyModsCompatible` rejects a version difference when either side is not client-side). No code change.
+
 2.11.9 - No per-hit log lines; structure damage untouched at 1.0; killing pit through the Script Extender's value; docs: the CFG is read at game start (2026-11-26):
 
        - **Fix: every Bedouin Demolisher or Sapper hit on a building wrote a line to the log** (GitLab #16, plan finding FWP-E-10). These lines now appear only with `DebugLogging = true`.

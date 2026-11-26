@@ -1,6 +1,17 @@
-Version 2.11.2
+Version 2.11.10
 
 Updated for SHC DE v2.8.2 and Script Extender 2.14.0 or newer!
+
+[b]2.11.3 to 2.11.10: multiplayer fixes (not yet tested in a two-PC match)[/b]
+[list]
+[*][b]Everyone in a lobby needs the same Crusader DE Tweaker version[/b] (2.11.10): the Script Extender now refuses a player with another version or without the mod ("missing mods!").
+[*][b]Siege engine MaxCount[/b] (2.11.3): placing a siege tent (or a Mangonel / Ballista on a tower) over the cap is refused; in multiplayer a spawned engine is removed in every player's game, never in one only. Siege engines left the lobby MaxCount boxes until a two-PC test.
+[*][b]Auto Trade[/b] (2.11.4): -1 = keep what you set in the market (the new default; the old false / 0 / 0 default is converted); single player only.
+[*][b]RequiresHorse[/b] (2.11.5, 2.11.7): stable slots are linked the same way in every player's game; the setting goes back to the game's value when you leave a host-synced lobby.
+[*][b]Recruits[/b] (2.11.6): UnitHealthMultiplier and stable links reach recruited units on the game tick, the same in every game.
+[*][b]Host config sync[/b] (2.11.8): the host plays exactly the files it sent; a player on a version that plays the same files differently is refused.
+[*][b]Quieter and closer to the game[/b] (2.11.9): no log line per Demolisher / Sapper hit; with all structure multipliers at 1.0 building damage is the game's own; killing-pit Damage uses the Script Extender's value; the CFG file is read at game start (restart after editing it).
+[/list]
 
 [b]2.11.2: EngageRange for the Ballista, Arabian Ballista and Mangonel[/b]
 [list]
