@@ -63,6 +63,9 @@ namespace CrusaderDETweaker.Config.Sync
         private static int _localFileCount;
         private static string _localError;
 
+        // The files packed at launch (what a host sends); the host applies exactly these while hosting with sync on.
+        private static Dictionary<SyncFileId, byte[]> _localEntries;
+
         // This player's own SyncEnabled preference (the ViewModel field holds the host's while a client).
         private static bool _ownSyncEnabled = true;
 
@@ -135,7 +138,9 @@ namespace CrusaderDETweaker.Config.Sync
             try
             {
                 var entries = ReadOwnEntries(out int rawBytes);
-                LocalPackage = ConfigSyncCodec.Pack(PluginInfo.PLUGIN_VERSION, entries, out _localHash, out int bodyBytes);
+                LocalPackage = ConfigSyncCodec.Pack(ConfigSyncCodec.WireVersion(PluginInfo.PLUGIN_VERSION, PluginInfo.SIMULATION_VERSION),
+                                                    entries, out _localHash, out int bodyBytes);
+                _localEntries = entries;
                 _localFileCount = entries.Count;
                 _localError = null;
                 Plugin.Logger.LogInfo($"{Tag} Packed your configs for hosting: {entries.Count} files, {rawBytes} bytes raw, {LocalPackage.Length} bytes on the wire, hash {ConfigSyncCodec.ShortHash(_localHash)}, v{PluginInfo.PLUGIN_VERSION}.");
@@ -145,6 +150,7 @@ namespace CrusaderDETweaker.Config.Sync
                 // Clients then receive an empty package and report it; the local game is unaffected.
                 LocalPackage = Array.Empty<byte>();
                 _localHash = null;
+                _localEntries = null;
                 _localError = ex.Message;
                 Plugin.Logger.LogError($"{Tag} Could not pack your configs for hosting: {ex.Message}. Players joining your lobby will keep their own configs.");
             }
@@ -291,7 +297,16 @@ namespace CrusaderDETweaker.Config.Sync
         {
             string hash = ConfigSyncCodec.ShortHash(package.BodyHash);
 
-            var verdict = ConfigSyncCodec.CompareVersions(package.HostModVersion, PluginInfo.PLUGIN_VERSION);
+            var verdict = ConfigSyncCodec.CompareVersions(package.HostModVersion, PluginInfo.PLUGIN_VERSION, PluginInfo.SIMULATION_VERSION);
+            if (verdict == ConfigSyncCodec.VersionVerdict.SimulationDiffers)
+            {
+                ConfigSyncCodec.SplitWireVersion(package.HostModVersion, out string hostVersion, out int? hostSimulation);
+                Plugin.Logger.LogError($"{Tag} REJECTED the host's configs: host runs v{hostVersion}, you run v{PluginInfo.PLUGIN_VERSION}, and these versions do not play the same files the same way " +
+                                       $"(simulation version host {(hostSimulation.HasValue ? hostSimulation.Value.ToString() : "unknown, before 2.11.8")}, you {PluginInfo.SIMULATION_VERSION}). Your own configs apply. Use the same Crusader DE Tweaker version.");
+                _problem = $"The host runs Crusader DE Tweaker v{hostVersion}, you v{PluginInfo.PLUGIN_VERSION}: these play differently. Use the same version. Your own configs apply.";
+                Revert("the host's version plays differently");
+                return;
+            }
             if (verdict == ConfigSyncCodec.VersionVerdict.Incompatible)
             {
                 Plugin.Logger.LogError($"{Tag} REJECTED the host's configs: host runs v{package.HostModVersion}, you run v{PluginInfo.PLUGIN_VERSION} (major.minor must match). Your own configs apply.");
@@ -300,7 +315,7 @@ namespace CrusaderDETweaker.Config.Sync
                 return;
             }
             if (verdict == ConfigSyncCodec.VersionVerdict.PatchDiffers)
-                Plugin.Logger.LogWarning($"{Tag} Host runs v{package.HostModVersion}, you run v{PluginInfo.PLUGIN_VERSION}: same major.minor, applying. Update to the same version to be safe.");
+                Plugin.Logger.LogWarning($"{Tag} Host runs v{package.HostModVersion}, you run v{PluginInfo.PLUGIN_VERSION}: same major.minor and simulation version, applying. Update to the same version to be safe.");
 
             // Validate the multiplier list before anything is written (all-or-nothing).
             Dictionary<string, float> hostMultipliers = null;
@@ -417,13 +432,56 @@ namespace CrusaderDETweaker.Config.Sync
         /// </summary>
         internal static void BeforeTemplateReapply(string reason)
         {
-            if (!ConfigPaths.UseHostSyncFiles && !BepInExConfigManager.HostOverrideActive) return;
-            if (CurrentRole() == Role.Client) return;
+            if ((ConfigPaths.UseHostSyncFiles || BepInExConfigManager.HostOverrideActive) && CurrentRole() != Role.Client)
+            {
+                SwitchToOwnConfigs();
+                _applied = false;
+                _appliedHash = null;
+                Plugin.Logger.LogInfo($"{Tag} Reverted to your own configs ({reason}: you are no longer a multiplayer client). Your files are re-applied now. Note: GameplaySettings keys your own file leaves at 'no override' may keep the host's value until you restart the game.");
+            }
+            UpdateHostSnapshot(reason);
+        }
 
-            SwitchToOwnConfigs();
-            _applied = false;
-            _appliedHash = null;
-            Plugin.Logger.LogInfo($"{Tag} Reverted to your own configs ({reason}: you are no longer a multiplayer client). Your files are re-applied now. Note: GameplaySettings keys your own file leaves at 'no override' may keep the host's value until you restart the game.");
+        /// <summary>
+        /// 2.11.8 (GitLab #15, plan finding FWP-E-04): while hosting with config sync on, the host reads the files it
+        /// packed at launch (what its players received), written to ConfigPaths.OwnSnapshotDir, instead of its live
+        /// files. Before, a host that edited a file after starting the game played the new file while its players
+        /// played the launch-time one. Off again once this PC is not hosting with sync on.
+        /// </summary>
+        private static void UpdateHostSnapshot(string reason)
+        {
+            bool hostingSynced = CurrentRole() == Role.Host && (Lobby?.SyncEnabled ?? false) && _localEntries != null && _localHash != null;
+            if (!hostingSynced)
+            {
+                if (!ConfigPaths.UseOwnSnapshot) return;
+                ConfigPaths.UseOwnSnapshot = false;
+                Plugin.Logger.LogInfo($"{Tag} Not hosting with config sync any more ({reason}): your own files apply again.");
+                return;
+            }
+            if (ConfigPaths.UseOwnSnapshot) return;
+
+            try
+            {
+                WriteOwnSnapshot();
+                ConfigPaths.UseOwnSnapshot = true;
+                Plugin.Logger.LogInfo($"{Tag} Hosting with config sync on ({reason}): you play the files you sent (hash {ConfigSyncCodec.ShortHash(_localHash)}, packed at launch), the same as your players. Folder: {ConfigPaths.OwnSnapshotDir}");
+            }
+            catch (Exception ex)
+            {
+                ConfigPaths.UseOwnSnapshot = false;
+                Plugin.Logger.LogError($"{Tag} Could not write the host snapshot ({ex.Message}); you play your live files. If you edited them since the game started, your players have the launch-time version.");
+            }
+        }
+
+        private static void WriteOwnSnapshot()
+        {
+            foreach (var id in ConfigSyncCodec.AllIds)
+            {
+                if (id == SyncFileId.GlobalMultipliers) continue; // in memory; the CFG is read once at launch
+                string path = Path.Combine(ConfigPaths.OwnSnapshotDir, ConfigSyncCodec.RelativePathFor(id));
+                if (_localEntries.TryGetValue(id, out var data)) AtomicFileWriter.WriteIfChanged(path, data);
+                else if (File.Exists(path)) File.Delete(path);
+            }
         }
 
         // ------------------------------------------------------------------
@@ -445,6 +503,11 @@ namespace CrusaderDETweaker.Config.Sync
                 {
                     Plugin.Logger.LogInfo($"{Tag} Lobby role: {DescribeRole(_lastRole)} -> {DescribeRole(role)}.");
                     if (_lastRole == Role.Client) LeaveClientRole(role);
+                    if (_lastRole == Role.Host && ConfigPaths.UseOwnSnapshot)
+                    {
+                        ConfigPaths.UseOwnSnapshot = false;
+                        Plugin.Logger.LogInfo($"{Tag} You are no longer hosting: your own files apply from the next match.");
+                    }
                     if (role == Role.Client) _clientSince = now;
                     _lastRole = role;
                     Lobby?.System_RefreshHostState();
@@ -527,7 +590,7 @@ namespace CrusaderDETweaker.Config.Sync
             if (_localHash == null) return;
             byte[] now = ConfigSyncCodec.ComputeBodyHash(ReadOwnEntries(out _));
             if (!ConfigSyncCodec.BytesEqual(now, _localHash))
-                Plugin.Logger.LogWarning($"{Tag} Your config files changed since the game started (hash {ConfigSyncCodec.ShortHash(_localHash)} -> {ConfigSyncCodec.ShortHash(now)}). Players received the launch-time version; restart the game to send the new one.");
+                Plugin.Logger.LogWarning($"{Tag} Your config files changed since the game started (hash {ConfigSyncCodec.ShortHash(_localHash)} -> {ConfigSyncCodec.ShortHash(now)}). You and your players play the launch-time version (the one they received); restart the game to use and send the new one.");
         }
 
         // ------------------------------------------------------------------
@@ -557,8 +620,10 @@ namespace CrusaderDETweaker.Config.Sync
                     if (_applied)
                     {
                         var p = _hostPackage;
-                        string versions = p != null && p.HostModVersion != PluginInfo.PLUGIN_VERSION
-                            ? $"host v{p.HostModVersion}, you v{PluginInfo.PLUGIN_VERSION}"
+                        string hostVersion = null;
+                        if (p != null) ConfigSyncCodec.SplitWireVersion(p.HostModVersion, out hostVersion, out _);
+                        string versions = hostVersion != null && hostVersion != PluginInfo.PLUGIN_VERSION
+                            ? $"host v{hostVersion}, you v{PluginInfo.PLUGIN_VERSION}"
                             : $"v{PluginInfo.PLUGIN_VERSION}";
                         Lobby.SetStatus("Using the host's configs for this lobby.",
                             $"Hash {ConfigSyncCodec.ShortHash(_appliedHash)}, {p?.Entries.Count ?? 0} files, {versions}");

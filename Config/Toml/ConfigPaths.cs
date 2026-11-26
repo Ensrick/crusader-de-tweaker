@@ -48,8 +48,17 @@ namespace CrusaderDETweaker.Config.Toml
         /// </summary>
         internal static bool UseHostSyncFiles;
 
+        /// <summary>
+        /// The host's own launch-time package (2.11.8, GitLab #15): {OwnConfigDir}\HostSnapshot\. While hosting with
+        /// config sync on, the host reads what it sent to the players instead of its live files.
+        /// </summary>
+        internal static string OwnSnapshotDir => Path.Combine(OwnConfigDir, "HostSnapshot");
+
+        /// <summary>True while hosting with config sync on. Set ONLY by Config.Sync.ConfigSyncManager.</summary>
+        internal static bool UseOwnSnapshot;
+
         /// <summary>The folder the loaders currently read from (MatrixPaths uses it too).</summary>
-        internal static string ActiveConfigDir => UseHostSyncFiles ? HostSyncDir : OwnConfigDir;
+        internal static string ActiveConfigDir => UseHostSyncFiles ? HostSyncDir : UseOwnSnapshot ? OwnSnapshotDir : OwnConfigDir;
 
         internal const string UnitsFileName = "CrusaderDETweaker_Units.toml";
         internal const string StructuresFileName = "CrusaderDETweaker_Structures.toml";

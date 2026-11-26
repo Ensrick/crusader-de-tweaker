@@ -509,13 +509,13 @@ CHIMP_TYPE_ARCHER,2500,2500,2500,2500
 [size=5][b]Multiplayer: host config sync[/b][/size]
 [b]New in 2.7.0, not yet tested in a real multiplayer match.[/b] In a multiplayer lobby, everyone plays with the [b]host's[/b] Crusader DE Tweaker configs. Nobody has to copy config files before a match.
 
-[b]What is sent:[/b] the host's Units, Structures and GameplaySettings files, all 7 damage matrices, and the [b][Multipliers][/b] values of the CFG file ([b][Debug][/b] stays local). The host's files as they were when the host started the game: after editing configs, the host restarts the game before opening the lobby.
+[b]What is sent:[/b] the host's Units, Structures and GameplaySettings files, all 7 damage matrices, and the [b][Multipliers][/b] values of the CFG file ([b][Debug][/b] stays local). The host's files as they were when the host started the game: after editing configs, the host restarts the game before opening the lobby. Since 2.11.8 the host also plays exactly those launch-time files while hosting with sync on (a copy in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\HostSnapshot\[/b]), so an edit made after starting the game can no longer give the host other values than the players.
 
 [b]The switch:[/b] open the lobby's [b]Mod Options[/b] window, tab [b]Crusader DE Tweaker[/b]. [b]Players who join use my configs[/b] is on by default and only the host can change it; players see it greyed out. Turning it off (or on) in the lobby takes effect for everyone immediately.
 
 [b]Your own files are never changed.[/b] A player's copy of the host's files is stored in [b]{GameDir}\BepInEx\config\CrusaderDETweaker\HostSync\[/b] and used only for that lobby's matches. The multiplier values are applied in memory, the CFG file is not saved. When you leave the lobby, the match ends, or the host turns sync off, your own configs apply again, no restart needed. One exception: a GameplaySettings value your own file leaves at "no override" (a [b]false[/b] gameplay option, a [b]0[/b] trade price) may keep the host's value until you restart the game.
 
-[b]Versions:[/b] host and players need the same major.minor version (for example 2.7.0 and 2.7.1 work together; 2.7 and 2.8 do not). A host on an older version, or without the mod, sends nothing: everyone keeps their own configs.
+[b]Versions:[/b] use the same Crusader DE Tweaker version on every PC. Host and players need the same major.minor version (2.7 and 2.8 do not work together), and since 2.11.8 a different patch version (2.11.8 and 2.11.9) works only when both play the same files the same way; otherwise the player's own configs apply and the tab says "these play differently". A host older than 2.11.8 does not say, so its configs are refused by 2.11.8 and later unless the version is exactly the same. A host on an older version, or without the mod, sends nothing: everyone keeps their own configs.
 
 [b]Status line[/b] in the tab:
 [list]

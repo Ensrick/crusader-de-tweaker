@@ -295,15 +295,41 @@ namespace CrusaderDETweaker.Config.Sync
         // Version rule (docs/HOST_SYNC_DESIGN.md section 7)
         // ------------------------------------------------------------------
 
-        internal enum VersionVerdict { Same, PatchDiffers, Incompatible }
+        internal enum VersionVerdict { Same, PatchDiffers, SimulationDiffers, Incompatible }
 
-        /// <summary>Same major.minor = compatible (a patch difference is only warned about).</summary>
-        internal static VersionVerdict CompareVersions(string hostVersion, string localVersion)
+        private const string SimulationTag = "+sim";
+
+        /// <summary>The version the host sends (2.11.8): "2.11.8+sim1" = mod version + simulation behaviour version.</summary>
+        internal static string WireVersion(string modVersion, int simulationVersion) =>
+            modVersion + SimulationTag + simulationVersion.ToString(CultureInfo.InvariantCulture);
+
+        /// <summary>"2.11.8+sim1" -> ("2.11.8", 1); a version without the tag (hosts before 2.11.8) -> (as is, null).</summary>
+        internal static void SplitWireVersion(string wire, out string modVersion, out int? simulationVersion)
         {
-            if (string.Equals(hostVersion, localVersion, StringComparison.Ordinal)) return VersionVerdict.Same;
+            modVersion = wire ?? string.Empty;
+            simulationVersion = null;
+            int at = modVersion.LastIndexOf(SimulationTag, StringComparison.Ordinal);
+            if (at < 0) return;
+            if (int.TryParse(modVersion.Substring(at + SimulationTag.Length), NumberStyles.None, CultureInfo.InvariantCulture, out int sim))
+            {
+                simulationVersion = sim;
+                modVersion = modVersion.Substring(0, at);
+            }
+        }
+
+        /// <summary>
+        /// Different major.minor = incompatible. Same major.minor: the simulation behaviour version must match too
+        /// (2.11.8, plan finding FWP-E-09: patch releases have changed what identical files do, e.g. 2.6.4 clamping and
+        /// 2.9.1 EngageRange); a host without one (before 2.11.8) never matches. Then a patch difference is only warned about.
+        /// </summary>
+        internal static VersionVerdict CompareVersions(string hostWireVersion, string localVersion, int localSimulationVersion)
+        {
+            SplitWireVersion(hostWireVersion, out string hostVersion, out int? hostSimulation);
             if (!TryMajorMinor(hostVersion, out int hMaj, out int hMin) || !TryMajorMinor(localVersion, out int lMaj, out int lMin))
                 return VersionVerdict.Incompatible;
-            return hMaj == lMaj && hMin == lMin ? VersionVerdict.PatchDiffers : VersionVerdict.Incompatible;
+            if (hMaj != lMaj || hMin != lMin) return VersionVerdict.Incompatible;
+            if (hostSimulation != localSimulationVersion) return VersionVerdict.SimulationDiffers;
+            return string.Equals(hostVersion, localVersion, StringComparison.Ordinal) ? VersionVerdict.Same : VersionVerdict.PatchDiffers;
         }
 
         private static bool TryMajorMinor(string version, out int major, out int minor)

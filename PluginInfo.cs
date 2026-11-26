@@ -17,6 +17,10 @@ namespace CrusaderDETweaker
     {
         public const string PLUGIN_GUID = "CrusaderDETweaker";
         public const string PLUGIN_NAME = "Crusader DE Tweaker";
-        public const string PLUGIN_VERSION = "2.11.7";
+        // Simulation behaviour version (2.11.8, GitLab #15): raise it in every release that changes what the SAME config
+        // files do in a match (a fix to how a value is applied, a new default behaviour, a different apply moment).
+        // Host config sync rejects a host whose patch version differs unless both have the same value here.
+        public const int SIMULATION_VERSION = 1;
+        public const string PLUGIN_VERSION = "2.11.8";
     }
 }
