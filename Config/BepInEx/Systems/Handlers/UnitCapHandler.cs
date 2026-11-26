@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using CrusaderDETweaker.Config.BepInEx;
+using CrusaderDETweaker.Config.Sync;
 using R3;
+using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
@@ -38,12 +40,31 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
 
                     try
                     {
-                        int localId = Plugin.PlayerApi?.GetLocalPlayerId() ?? -1;
-                        if (owner != localId)
-                            return;
+                        // 2.11.3 (FWP-E-01, GitLab #2): in a multiplayer match every PC runs this hook for
+                        // every player's new unit, inside the simulation. Removing a unit (DeleteUnitSafe) changes
+                        // only that PC's game, so the old "own player only" rule removed it on the owner's PC
+                        // alone: a desync. Now every PC removes the same units: every human player's, and only
+                        // with a cap that is the same on every PC (SharedCap). Single player: unchanged.
+                        if (GameNetworkAPI.IsMultiplayerGame())
+                        {
+                            if (owner < 1 || owner > MaxPlayer || (Plugin.PlayerApi?.IsAIPlayer(owner) ?? true))
+                                return;
+                            int ownCap = cap;
+                            if (!LobbyMaxCounts.TryGetSharedUnitCap(unitType, ConfigSyncManager.AllPeersUseHostFiles, out cap))
+                            {
+                                WarnNotShared(unitType, ownCap);
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            int localId = Plugin.PlayerApi?.GetLocalPlayerId() ?? -1;
+                            if (owner != localId)
+                                return;
 
-                        if (Plugin.PlayerApi?.IsAIPlayer(owner) ?? false)
-                            return;
+                            if (Plugin.PlayerApi?.IsAIPlayer(owner) ?? false)
+                                return;
+                        }
 
                         // Includes the new unit (still NeedsInit here), so count > cap keeps at most `cap`.
                         int count = CountPlayerUnitsOfType(owner, unitType);
@@ -73,7 +94,27 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
             // belt-and-suspenders for the spawns that DO fire it (e.g. keep-spawned units).
             MakeTroopRecruitHook.Install(caps);
 
+            // The "not the same on every PC" note is logged once per unit type and match.
+            MapLoaderR3EventHooks.OnUnloadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ => { lock (_warnedNotShared) _warnedNotShared.Clear(); });
+
             Plugin.Logger.LogInfo("[UnitCaps] Subscribed — caps read live at spawn + recruit time.");
+        }
+
+        private const int MaxPlayer = 8;
+        private static readonly HashSet<eChimps> _warnedNotShared = new HashSet<eChimps>();
+
+        private static void WarnNotShared(eChimps unitType, int ownCap)
+        {
+            lock (_warnedNotShared)
+            {
+                if (!_warnedNotShared.Add(unitType)) return;
+            }
+            Plugin.Logger.LogInfo(
+                $"[UnitCaps] {unitType}: multiplayer match, so MaxCount {ownCap} from your own Units file does not remove spawned units " +
+                "(only a lobby value or the host's synced files are the same on every PC; removing a unit on one PC only would desync). " +
+                "Your own recruiting and placement limits still apply.");
         }
 
         // internal so MakeTroopRecruitHook can reuse the exact same count semantics at recruit time.

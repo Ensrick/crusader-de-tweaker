@@ -239,7 +239,7 @@ namespace CrusaderDETweaker.Config.Toml
                 (unitId, newType) => Config.Core.StableTracking.TryLinkUnitToStable(newType, unitId);
 
             UnitCapHandler.Subscribe(_unitCaps);
-            BuildingCapHandler.Subscribe(_buildingCaps);
+            BuildingCapHandler.Subscribe(_buildingCaps, _unitCaps);
             // Lobby MaxCount values (GitLab #5) go into the same tables; registered now so they apply even
             // without a Units / Structures file. LoadUnitCaps / LoadBuildingCaps hand over the file caps.
             global::CrusaderDETweaker.Config.Sync.LobbyMaxCounts.Attach(_unitCaps, _buildingCaps);

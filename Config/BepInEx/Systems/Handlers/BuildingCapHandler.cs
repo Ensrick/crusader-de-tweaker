@@ -9,6 +9,13 @@
 //   re-spawn). Placement-blocking avoids all of that: an over-cap placement is simply refused,
 //   exactly like the game's own footprint/terrain rules, and existing buildings are left alone.
 //
+// SIEGE ENGINES (2.11.3, FWP-E-01 / GitLab #2): a siege engine's MaxCount (Units file) also refuses the
+//   placement that would make one more: a siege tent (Catapult, Trebuchet, Siege Tower, Battering Ram,
+//   Portable Shield, Arabian Ballista) or a Mangonel / Ballista on a tower, when the player's engines of that
+//   type plus their tents still standing already reach the cap. Like every placement refusal this happens in
+//   the placing player's own game before anything is sent, so it is safe in multiplayer. Before, only the
+//   spawned engine was removed afterwards (UnitCapHandler), on the owner's PC only.
+//
 using System;
 using System.Collections.Generic;
 using CrusaderDETweaker.Config.BepInEx;
@@ -23,7 +30,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
 {
     internal static class BuildingCapHandler
     {
-        public static void Subscribe(Dictionary<eStructs, int> caps)
+        public static void Subscribe(Dictionary<eStructs, int> caps, Dictionary<eChimps, int> unitCaps = null)
         {
             // NOTE: do NOT early-return on caps.Count == 0. This Subscribe() runs during
             // GlobalConfigSystem.Load(), which fires BEFORE StructureConfigSystem.Load() populates
@@ -81,7 +88,61 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
                     }
                 });
 
+            if (unitCaps != null)
+            {
+                BuildingR3EventHooks.OnPlacementValidation.Observable
+                    .Where(args => args.Phase == EventHookPhase.Pre)
+                    .Subscribe(args => BlockSiegeEngineOverCap(args, unitCaps));
+            }
+
             Plugin.Logger.LogInfo("[BuildingCaps] Subscribed — caps read live at placement time.");
+        }
+
+        /// <summary>The engine a placement makes and the tent it stands in until it is built (STRUCT_NULL: none).</summary>
+        internal static bool TryGetSiegeEngine(eMappers mapper, out eChimps engine, out eStructs tent)
+        {
+            tent = eStructs.STRUCT_NULL;
+            switch (mapper)
+            {
+                case eMappers.MAPPER_CATAPULT: engine = eChimps.CHIMP_TYPE_CATAPULT; tent = eStructs.STRUCT_SIEGE_TENT_CATAPULT; return true;
+                case eMappers.MAPPER_TREBUCHET: engine = eChimps.CHIMP_TYPE_TREBUCHET; tent = eStructs.STRUCT_SIEGE_TENT_TREBUCHET; return true;
+                case eMappers.MAPPER_SIEGE_TOWER: engine = eChimps.CHIMP_TYPE_SIEGE_TOWER; tent = eStructs.STRUCT_SIEGE_TENT_SIEGE_TOWER; return true;
+                case eMappers.MAPPER_BATTERING_RAM: engine = eChimps.CHIMP_TYPE_BATTERING_RAM; tent = eStructs.STRUCT_SIEGE_TENT_BATTERING_RAM; return true;
+                case eMappers.MAPPER_PORTABLE_SHIELD: engine = eChimps.CHIMP_TYPE_PORTABLE_SHIELD; tent = eStructs.STRUCT_SIEGE_TENT_PORTABLE_SHIELD; return true;
+                case eMappers.MAPPER_ARAB_BALLISTA:
+                case eMappers.MAPPER_PEOPLE_ARAB_BALLISTA: engine = eChimps.CHIMP_TYPE_ARAB_BALLISTA; tent = eStructs.STRUCT_SIEGE_TENT_ARAB_BALLISTA; return true;
+                case eMappers.MAPPER_MANGONEL: engine = eChimps.CHIMP_TYPE_MANGONEL; return true;
+                case eMappers.MAPPER_BALLISTA: engine = eChimps.CHIMP_TYPE_BALLISTA; return true;
+                default: engine = default; return false;
+            }
+        }
+
+        /// <summary>Pure: refuse when engines + tents still standing already reach the cap (cap 0 = always).</summary>
+        internal static bool SiegePlacementBlocked(int engines, int tents, int cap) => engines + tents >= cap;
+
+        private static void BlockSiegeEngineOverCap(BuildingPlacementValidationEventArgs args, Dictionary<eChimps, int> unitCaps)
+        {
+            try
+            {
+                if (!TryGetSiegeEngine(args.Mappers, out eChimps engine, out eStructs tent)) return;
+                if (!unitCaps.TryGetValue(engine, out int cap)) return;
+
+                int localId = Plugin.PlayerApi?.GetLocalPlayerId() ?? -1;
+                if (args.PlayerId != localId) return;
+
+                int engines = UnitCapHandler.CountPlayerUnitsOfType(args.PlayerId, engine);
+                int tents = tent == eStructs.STRUCT_NULL ? 0 : CountPlayerBuildingsOfType(args.PlayerId, tent);
+                if (!SiegePlacementBlocked(engines, tents, cap)) return;
+
+                args.CustomValidationRules = true;
+                args.ForceBlockPlacementState = true;
+                if (BepInExConfigManager.DebugLogging?.Value ?? false)
+                    Plugin.Logger.LogInfo($"[UnitCaps] Blocked {args.Mappers} placement: {engine} MaxCount {cap} (have {engines} engine(s), {tents} tent(s)).");
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogWarning($"[UnitCaps] Error checking a siege engine placement: {ex.Message}");
+            }
         }
 
         private static readonly List<int> _reusableBuildingList = new List<int>();

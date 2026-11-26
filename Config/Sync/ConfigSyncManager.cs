@@ -610,6 +610,23 @@ namespace CrusaderDETweaker.Config.Sync
             }
         }
 
+        /// <summary>
+        /// True while every PC of this lobby reads the host's Units / Structures files: this PC is a client that
+        /// applied the host's package, or the host with sync on and a package to send. A client that rejected the
+        /// package plays with its own files (and its own tables) and is out of sync anyway. Read from the
+        /// simulation thread by UnitCapHandler (2.11.3, FWP-E-01).
+        /// </summary>
+        internal static bool AllPeersUseHostFiles
+        {
+            get
+            {
+                Role role = CurrentRole();
+                if (role == Role.Client) return _applied && ConfigPaths.UseHostSyncFiles;
+                if (role == Role.Host) return (Lobby?.SyncEnabled ?? false) && _localHash != null;
+                return false;
+            }
+        }
+
         private static string DescribeRole(Role role) =>
             role == Role.Host ? "hosting" : role == Role.Client ? "multiplayer client" : "not in a lobby";
 

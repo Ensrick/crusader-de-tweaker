@@ -6,7 +6,9 @@
 // - One box: "" = not set, -1 / 0 / N accepted, out of range and text rejected
 // - The synced string: parse (unknown keys and bad values skipped), encode sorted, round trip
 // - Overlay on the file caps: lobby N replaces, lobby -1 removes the cap, not set keeps the file's
-// - The type lists shown in the tab (recruitable units + siege engines; buildings without destroyed towers)
+// - The type lists shown in the tab (recruitable units, no siege engines since 2.11.3; buildings without destroyed towers)
+// - SharedCap (2.11.3): the cap every PC of a multiplayer match uses for spawned units
+// - Siege placement (2.11.3): mapper -> engine / tent, refusal at engines + tents >= cap
 //
 // NOTE: pure logic - no game objects, no file I/O. Runs on every launch via CoreTestRunner. The in-game
 // behaviour (caps enforced on real units and placements) is covered by Tests/HeadlessSelfTest.cs.
@@ -37,6 +39,9 @@ namespace CrusaderDETweaker.Tests
             Test_Overlay();
             Test_TypeLists();
             Test_Label();
+            Test_SiegeEngineValueIgnored();
+            Test_SharedCap();
+            Test_SiegePlacement();
 
             int totalTests = _passedCount + _failedCount;
             Plugin.Logger.LogInfo($"  LobbyMaxCounts: {_passedCount}/{totalTests} tests passed");
@@ -85,7 +90,8 @@ namespace CrusaderDETweaker.Tests
         {
             var units = LobbyMaxCounts.UnitTypes;
             var buildings = LobbyMaxCounts.BuildingTypes;
-            bool ok = units.Contains(eChimps.CHIMP_TYPE_KNIGHT) && units.Contains(eChimps.CHIMP_TYPE_TREBUCHET) && !units.Contains(eChimps.CHIMP_TYPE_PEASANT)
+            bool ok = units.Contains(eChimps.CHIMP_TYPE_KNIGHT) && !units.Contains(eChimps.CHIMP_TYPE_TREBUCHET) && !units.Contains(eChimps.CHIMP_TYPE_CATAPULT)
+                && !units.Contains(eChimps.CHIMP_TYPE_PEASANT) && buildings.Contains(eStructs.STRUCT_SIEGE_TENT_CATAPULT)
                 && buildings.Contains(eStructs.STRUCT_STABLES) && buildings.Contains(eStructs.STRUCT_HEALER)
                 && !buildings.Any(b => b.ToString().EndsWith("_DESTROYED")) && units.Distinct().Count() == units.Length;
             Check("TypeLists", ok, $"{units.Length} unit types, {buildings.Length} building types");
@@ -95,6 +101,40 @@ namespace CrusaderDETweaker.Tests
         {
             string a = LobbyMaxCounts.Label("CHIMP_TYPE_ARAB_BOW"), b = LobbyMaxCounts.Label("STRUCT_SIEGE_TENT_CATAPULT");
             Check("Label", a == "Arab Bow" && b == "Siege Tent Catapult", $"{a} / {b}");
+        }
+
+        private static void Test_SiegeEngineValueIgnored()
+        {
+            var problems = new List<string>();
+            var v = LobbyMaxCounts.Parse("CHIMP_TYPE_CATAPULT=2;CHIMP_TYPE_KNIGHT=4", problems);
+            Check("SiegeEngineValueIgnored", v.Count == 1 && v["CHIMP_TYPE_KNIGHT"] == 4 && problems.Count == 1 && problems[0].Contains("siege engines"),
+                $"values={LobbyMaxCounts.Encode(v)} problems={string.Join(" | ", problems)}");
+        }
+
+        private static void Test_SharedCap()
+        {
+            var lobby = new Dictionary<string, int> { ["CHIMP_TYPE_KNIGHT"] = 3, ["CHIMP_TYPE_ARCHER"] = -1 };
+            var file = new Dictionary<eChimps, int> { [eChimps.CHIMP_TYPE_KNIGHT] = 9, [eChimps.CHIMP_TYPE_ARCHER] = 5, [eChimps.CHIMP_TYPE_CATAPULT] = 2 };
+            bool lobbyWins = LobbyMaxCounts.SharedCap(lobby, file, eChimps.CHIMP_TYPE_KNIGHT, false, out int k) && k == 3;
+            bool lobbyUnlimited = !LobbyMaxCounts.SharedCap(lobby, file, eChimps.CHIMP_TYPE_ARCHER, true, out _);
+            bool ownFileNotShared = !LobbyMaxCounts.SharedCap(lobby, file, eChimps.CHIMP_TYPE_CATAPULT, false, out _);
+            bool hostFileShared = LobbyMaxCounts.SharedCap(lobby, file, eChimps.CHIMP_TYPE_CATAPULT, true, out int c) && c == 2;
+            bool none = !LobbyMaxCounts.SharedCap(lobby, file, eChimps.CHIMP_TYPE_MACEMAN, true, out _);
+            Check("SharedCap", lobbyWins && lobbyUnlimited && ownFileNotShared && hostFileShared && none,
+                $"lobby={lobbyWins} lobby-1={lobbyUnlimited} ownFile={ownFileNotShared} hostFile={hostFileShared} none={none}");
+        }
+
+        private static void Test_SiegePlacement()
+        {
+            bool tent = Config.BepInEx.Systems.Handlers.BuildingCapHandler.TryGetSiegeEngine(eMappers.MAPPER_CATAPULT, out eChimps e1, out eStructs t1)
+                && e1 == eChimps.CHIMP_TYPE_CATAPULT && t1 == eStructs.STRUCT_SIEGE_TENT_CATAPULT;
+            bool tower = Config.BepInEx.Systems.Handlers.BuildingCapHandler.TryGetSiegeEngine(eMappers.MAPPER_MANGONEL, out eChimps e2, out eStructs t2)
+                && e2 == eChimps.CHIMP_TYPE_MANGONEL && t2 == eStructs.STRUCT_NULL;
+            bool other = !Config.BepInEx.Systems.Handlers.BuildingCapHandler.TryGetSiegeEngine(eMappers.MAPPER_TOWER1, out _, out _);
+            bool rule = !Config.BepInEx.Systems.Handlers.BuildingCapHandler.SiegePlacementBlocked(1, 0, 2)
+                && Config.BepInEx.Systems.Handlers.BuildingCapHandler.SiegePlacementBlocked(1, 1, 2)
+                && Config.BepInEx.Systems.Handlers.BuildingCapHandler.SiegePlacementBlocked(0, 0, 0);
+            Check("SiegePlacement", tent && tower && other && rule, $"tent={tent} tower={tower} other={other} rule={rule}");
         }
 
         private static void Check(string name, bool condition, string detail)

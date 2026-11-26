@@ -12,8 +12,14 @@
 //   sends it to every player in the lobby and persists the host's own value (LobbyModSettings\*.msgpack
 //   in the plugin folder). ConfigLoader.LoadUnitCaps / LoadBuildingCaps hand over the file caps after
 //   every (re-)apply; this class keeps them and writes file caps + lobby values into the SAME dictionaries
-//   that UnitCapHandler / MakeTroopRecruitHook / BuildingCapHandler read live. Enforcement is unchanged:
-//   each game enforces its own (local, human) player's caps.
+//   that UnitCapHandler / MakeTroopRecruitHook / BuildingCapHandler read live. Recruiting and placement are
+//   refused in the local player's own game (before anything reaches the other PCs). Removing a spawned unit
+//   changes the game on the PC that does it, so in a multiplayer match UnitCapHandler removes spawned units of
+//   every human player on every PC, and only with a cap that is the same on every PC (TryGetSharedUnitCap).
+//
+// SIEGE ENGINES (2.11.3, plan decision DEC-07): not in the tab until a two-PC multiplayer test of the spawned-unit
+//   rule passes. A siege engine value in an older saved lobby string is ignored with a note; the Units file's
+//   MaxCount still applies (placement of a siege tent / tower engine is refused at the cap, BuildingCapHandler).
 //
 // IMPORTANT FOR AI AGENTS:
 // - Parse / Encode / Overlay are pure (Tests/LobbyMaxCountsTest.cs). Keep game access out of them.
@@ -34,16 +40,19 @@ namespace CrusaderDETweaker.Config.Sync
         private const string Tag = "[LobbyMaxCounts]";
         internal const int MaxValue = 100000;
 
-        private static readonly eChimps[] SiegeEngines =
+        /// <summary>Siege engines (spawned from a tent or placed on a tower, never recruited).</summary>
+        internal static readonly eChimps[] SiegeEngines =
         {
             eChimps.CHIMP_TYPE_CATAPULT, eChimps.CHIMP_TYPE_TREBUCHET, eChimps.CHIMP_TYPE_MANGONEL, eChimps.CHIMP_TYPE_BALLISTA,
             eChimps.CHIMP_TYPE_ARAB_BALLISTA, eChimps.CHIMP_TYPE_SIEGE_TOWER, eChimps.CHIMP_TYPE_BATTERING_RAM, eChimps.CHIMP_TYPE_PORTABLE_SHIELD,
         };
 
-        /// <summary>Units in the tab: every recruitable type, then the siege engines (enum order).</summary>
+        /// <summary>Units in the tab: every recruitable type (enum order). No siege engines (DEC-07, see the header).</summary>
         internal static readonly eChimps[] UnitTypes =
             Enum.GetValues(typeof(eChimps)).Cast<eChimps>().Where(UnitCategories.IsRecruitable)
-                .Concat(SiegeEngines).Distinct().ToArray();
+                .Except(SiegeEngines).Distinct().ToArray();
+
+        private static readonly HashSet<string> SiegeEngineKeys = new HashSet<string>(SiegeEngines.Select(u => u.ToString()), StringComparer.Ordinal);
 
         /// <summary>Buildings in the tab: every type of the Structures file except the destroyed-tower variants.</summary>
         internal static readonly eStructs[] BuildingTypes =
@@ -97,6 +106,7 @@ namespace CrusaderDETweaker.Config.Sync
                 int eq = part.IndexOf('=');
                 string key = eq > 0 ? part.Substring(0, eq).Trim() : part.Trim();
                 string text = eq > 0 ? part.Substring(eq + 1) : string.Empty;
+                if (SiegeEngineKeys.Contains(key)) { problems?.Add($"{key}: siege engines are not in the lobby tab until a multiplayer test passes (use MaxCount in the Units file)"); continue; }
                 if (!KnownKeys.Contains(key)) { problems?.Add($"unknown type '{key}'"); continue; }
                 if (!TryParseValue(text, out int? v) || !v.HasValue) { problems?.Add($"{key}: '{text.Trim()}' is not a number from -1 to {MaxValue}"); continue; }
                 result[key] = v.Value;
@@ -128,6 +138,28 @@ namespace CrusaderDETweaker.Config.Sync
                 else effective[key.Value] = kv.Value;
             }
             return effective;
+        }
+
+        /// <summary>
+        /// The cap of a unit type that is the same on every PC of a multiplayer match: the lobby value (SE sends the
+        /// host's to every player), else the file's MaxCount when every PC reads the host's files. False = no such cap
+        /// (none set, lobby -1, or only this PC's own file has one).
+        /// </summary>
+        internal static bool SharedCap(IDictionary<string, int> lobby, IDictionary<eChimps, int> fileCaps, eChimps unit, bool fileCapsShared, out int cap)
+        {
+            cap = 0;
+            if (lobby != null && lobby.TryGetValue(unit.ToString(), out int lobbyValue))
+            {
+                if (lobbyValue < 0) return false;
+                cap = lobbyValue;
+                return true;
+            }
+            if (fileCapsShared && fileCaps != null && fileCaps.TryGetValue(unit, out int fileValue))
+            {
+                cap = fileValue;
+                return true;
+            }
+            return false;
         }
 
         private static eChimps? UnitKey(string key) =>
@@ -199,6 +231,12 @@ namespace CrusaderDETweaker.Config.Sync
         internal static int? EffectiveCap(eChimps unit)
         {
             lock (_lock) return _unitTable != null && _unitTable.TryGetValue(unit, out int c) ? c : (int?)null;
+        }
+
+        /// <summary>SharedCap on the live lobby values and file caps (UnitCapHandler, multiplayer).</summary>
+        internal static bool TryGetSharedUnitCap(eChimps unit, bool fileCapsShared, out int cap)
+        {
+            lock (_lock) return SharedCap(_lobby, _unitFile, unit, fileCapsShared, out cap);
         }
 
         internal static int? EffectiveCap(eStructs building)
