@@ -690,10 +690,6 @@ namespace CrusaderDETweaker.Config.Toml
             return sectionTable.TryGetValue(key, out var raw) ? raw : null;
         }
 
-        /// <summary>
-        /// Returns the user's existing value from a two-level nested section (e.g. ["Trade Prices".STORED_X])
-        /// if present, otherwise returns the provided game default.
-        /// </summary>
         /// <summary>The raw value of [section.subsection] key in the existing file, or null.</summary>
         private static object RawNested(TomlTable existing, string section, string subsection, string key)
         {
@@ -703,6 +699,10 @@ namespace CrusaderDETweaker.Config.Toml
             return subTable.TryGetValue(key, out var raw) ? raw : null;
         }
 
+        /// <summary>
+        /// Returns the user's existing value from a two-level nested section (e.g. ["Trade Prices".STORED_X])
+        /// if present, otherwise returns the provided game default.
+        /// </summary>
         private static T ExistingOrDefaultNested<T>(TomlTable existing, string section, string subsection, string key, T gameDefault)
         {
             if (existing == null) return gameDefault;
