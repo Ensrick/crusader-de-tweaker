@@ -14,6 +14,12 @@
 //   player's stables (for the recruit-time gate in MakeTroopRecruitHook) and linking a finished
 //   unit to a free slot (from OnUnitCreate and the deferred OnUnitTransition path).
 //
+// MULTIPLAYER (2.11.5, GitLab #12, plan finding FWP-E-03): linking writes the game's stable slots, so it
+//   must happen identically on every PC. It now links the units of EVERY human player (AI players are
+//   left to the game, as before), from the simulation's own events, in table order. Before, each PC
+//   linked only its own player's units, so the stable slots differed between PCs. The recruit gate
+//   (CountFreeSlots) stays local: it only refuses the local player's own request before it is sent.
+//
 // SLOT MODEL (SHCDE-SE GameBuildingManagerAPI):
 //   Each stable has 4 slots. A slot is free when its unit global-id link is <= 0. Linking is
 //   bidirectional (the unit records its stable), so the game clears the slot when the unit dies,
@@ -35,8 +41,11 @@ namespace CrusaderDETweaker.Config.Core
     {
         private const int SlotsPerStable = 4;
 
-        // Reused across calls to avoid per-spawn allocations.
-        private static readonly List<int> _stableIds = new List<int>();
+        // Reused across calls to avoid per-spawn allocations. One list per caller: the recruit gate runs on the
+        // game's main thread, linking on the simulation thread.
+        private static readonly List<int> _gateStableIds = new List<int>();
+        private static readonly List<int> _linkStableIds = new List<int>();
+        private const int MaxPlayer = 8;
 
         /// <summary>
         /// True for the 7 European barracks units whose horse requirement the GAME enforces
@@ -65,8 +74,8 @@ namespace CrusaderDETweaker.Config.Core
         internal static int CountFreeSlots(int playerId)
         {
             int free = 0;
-            CollectStables(playerId);
-            foreach (int stableId in _stableIds)
+            CollectStables(playerId, _gateStableIds);
+            foreach (int stableId in _gateStableIds)
             {
                 for (int slot = 0; slot < SlotsPerStable; slot++)
                 {
@@ -78,10 +87,10 @@ namespace CrusaderDETweaker.Config.Core
         }
 
         /// <summary>
-        /// Link one horse-requiring unit of the local player to the first free slot of any of
-        /// their stables. No-op for unit types without RequiresHorse = true, non-local owners,
+        /// Link one horse-requiring unit of a human player to the first free slot of any of that
+        /// player's stables. No-op for unit types without RequiresHorse = true, AI or neutral owners,
         /// units already occupying a slot (the game links natively hired EU cavalry itself), or
-        /// when no stable slot is free.
+        /// when no stable slot is free. Runs on every PC for every human player (2.11.5).
         /// </summary>
         internal static void TryLinkUnitToStable(eChimps unitType, int unitId)
         {
@@ -90,15 +99,15 @@ namespace CrusaderDETweaker.Config.Core
                 if (!RequiresHorseProperty.HorseRequiringUnits.Contains(unitType))
                     return;
 
-                int localPlayerId = Plugin.PlayerApi?.GetLocalPlayerId() ?? -1;
-                if (localPlayerId < 0 || Plugin.UnitApi?.GetOwner(unitId) != localPlayerId)
+                int owner = Plugin.UnitApi?.GetOwner(unitId) ?? -1;
+                if (owner < 1 || owner > MaxPlayer || (Plugin.PlayerApi?.IsAIPlayer(owner) ?? true))
                     return;
 
-                CollectStables(localPlayerId);
-                if (_stableIds.Count == 0) return;
+                CollectStables(owner, _linkStableIds);
+                if (_linkStableIds.Count == 0) return;
 
                 int freeStable = -1, freeSlot = -1;
-                foreach (int stableId in _stableIds)
+                foreach (int stableId in _linkStableIds)
                 {
                     for (int slot = 0; slot < SlotsPerStable; slot++)
                     {
@@ -131,16 +140,16 @@ namespace CrusaderDETweaker.Config.Core
             }
         }
 
-        private static void CollectStables(int playerId)
+        private static void CollectStables(int playerId, List<int> stableIds)
         {
-            _stableIds.Clear();
+            stableIds.Clear();
             var api = Plugin.BuildingApi;
             if (api == null) return;
 
             // Alive stables owned by the player, filtered inside the query (same pattern as
             // BuildingCapHandler: dead / pending-deletion buildings are excluded and the owner
             // check runs on r_PlayerIdOwner directly, without a GetOwner round trip per id).
-            api.GetAllBuildings(_stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES,
+            api.GetAllBuildings(stableIds, AliveState.IsAlive, eStructs.STRUCT_STABLES,
                 PlayerRelationship.Self, playerId);
         }
     }
