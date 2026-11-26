@@ -210,18 +210,17 @@ namespace CrusaderDETweaker.Config.Toml
                     global::CrusaderDETweaker.Config.Core.BuildingLimit.RestoreGameValue("map unload");
                 });
 
-            // SetAutoTrade requires the marketplace to be active. Subscribe to building spawns so
-            // auto-trade is applied the moment the local player's market is built (or re-spawned
-            // from a save). Skips AI players via PlayerId check.
+            // Auto-trade needs the marketplace: apply it again when the local player's market is built (or re-spawned
+            // from a save). 2.11.4 (GitLab #11): single player only, and only the ["Auto Trade"] section (before, the
+            // whole GameplaySettings file was re-applied here, on one PC of a multiplayer match).
             BuildingR3EventHooks.OnBuildingSpawn.Observable
                 .Where(args => args.Phase == EventHookPhase.Post
                             && args.Building == eStructs.STRUCT_TRADEPOST
                             && args.PlayerId == (Plugin.PlayerApi?.GetLocalPlayerId() ?? -1))
-                .Subscribe(args =>
-                {
-                    Plugin.Logger.LogInfo("[GlobalConfig] Local player marketplace spawned — applying auto-trade settings...");
-                    ApplyAllGlobalConfigs();
-                });
+                .Subscribe(_ => ApplyAutoTradeFromFile("local Marketplace spawned"));
+            MapLoaderR3EventHooks.OnUnloadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ => global::CrusaderDETweaker.Config.Core.AutoTrade.ResetSessionNote());
 
             // When a unit with RequiresHorse = true (per config) appears for the local player,
             // link it to an available stable slot so the stable accurately tracks the unit.
@@ -632,43 +631,23 @@ namespace CrusaderDETweaker.Config.Toml
             }
         }
 
-        private static void LoadAutoTrade(TomlTable tomlModel)
+        private static void LoadAutoTrade(TomlTable tomlModel) =>
+            global::CrusaderDETweaker.Config.Core.AutoTrade.Apply(tomlModel, "session start");
+
+        /// <summary>Local Marketplace spawn: only the ["Auto Trade"] section (AutoTrade.Apply writes nothing in multiplayer).</summary>
+        private static void ApplyAutoTradeFromFile(string reason)
         {
-            if (!tomlModel.TryGetValue("Auto Trade", out var atObj) || !(atObj is TomlTable atTable))
-                return;
-
-            int applied = 0;
-
-            foreach (var kvp in atTable)
+            try
             {
-                if (!(kvp.Value is TomlTable goodTable))
-                    continue;
-
-                if (!Enum.TryParse<eGoods>(kvp.Key, out var good))
-                {
-                    Plugin.Logger.LogWarning($"[Auto Trade] Unknown goods type: '{kvp.Key}'");
-                    continue;
-                }
-
-                bool enabled = false;
-                ushort buyLevel = 0;
-                ushort sellLevel = 0;
-
-                if (goodTable.TryGetValue("Enabled", out var enabledVal) && enabledVal is bool enabledBool)
-                    enabled = enabledBool;
-
-                if (goodTable.TryGetValue("BuyLevel", out var buyVal) && buyVal is long buyLong)
-                    buyLevel = (ushort)ClampInteger("Auto Trade", $"{kvp.Key}.BuyLevel", buyLong, ushort.MinValue, ushort.MaxValue);
-
-                if (goodTable.TryGetValue("SellLevel", out var sellVal) && sellVal is long sellLong)
-                    sellLevel = (ushort)ClampInteger("Auto Trade", $"{kvp.Key}.SellLevel", sellLong, ushort.MinValue, ushort.MaxValue);
-
-                Plugin.PlayerApi?.SetAutoTrade(good, enabled, buyLevel, sellLevel);
-                applied++;
+                if (!ConfigFileHelper.ConfigFileExists(ConfigPaths.Globals)) return;
+                var tomlModel = Tomlyn.Toml.ToModel(ConfigFileHelper.ReadConfigFile(ConfigPaths.Globals));
+                global::CrusaderDETweaker.Config.Core.AutoTrade.Apply(tomlModel, reason);
             }
-
-            if (applied > 0)
-                Plugin.Logger.LogInfo($"[Auto Trade] Applied {applied} auto-trade settings");
+            catch (Exception ex)
+            {
+                // A syntax error is reported by the session-start apply.
+                Plugin.Logger.LogDebug($"[Auto Trade] Skipped ({reason}): {ex.Message}");
+            }
         }
 
         private static void LoadTradePrices(TomlTable tomlModel)

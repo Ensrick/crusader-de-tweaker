@@ -44,6 +44,8 @@ namespace CrusaderDETweaker.Tests
             Test_Troops_ParseProblems();
             Test_Troops_Slots();
             Test_Troops_Decision();
+            Test_AutoTrade_Parse();
+            Test_AutoTrade_Generated();
 
             int totalTests = _passedCount + _failedCount;
             Plugin.Logger.LogInfo($"  Economy: {_passedCount}/{totalTests} tests passed");
@@ -175,6 +177,41 @@ namespace CrusaderDETweaker.Tests
             bool custom = SkirmishStartingTroops.ShouldApply(true, eSkirmishGameMode.SKIRMISH_GAME_CUSTOM, 2, out string reason);
             Check("Troops_Decision", !notRebuilt && !trail && !notSkirmish && !badLevel && custom && reason == null,
                 $"notRebuilt={notRebuilt} trail={trail} notSkirmish={notSkirmish} badLevel={badLevel} custom={custom}");
+        }
+
+        // 2.11.4 (GitLab #11): -1 = no override; only Enabled true / false entries are written.
+        private static void Test_AutoTrade_Parse()
+        {
+            var section = new TomlTable
+            {
+                ["STORED_WOOD_PLANKS"] = new TomlTable { ["Enabled"] = -1L, ["BuyLevel"] = -1L, ["SellLevel"] = -1L },
+                ["STORED_SWORDS"] = new TomlTable { ["Enabled"] = true, ["BuyLevel"] = 10L, ["SellLevel"] = -1L },
+                ["STORED_STONE_BLOCKS"] = new TomlTable { ["Enabled"] = false },
+                ["STORED_IRON_INGOTS"] = new TomlTable { ["Enabled"] = "yes", ["BuyLevel"] = 5L },
+                ["STORED_PITCH_REFINED"] = new TomlTable { ["Enabled"] = true, ["BuyLevel"] = 70000L, ["SellLevel"] = 3L },
+                ["NOT_A_GOOD"] = new TomlTable { ["Enabled"] = true },
+            };
+            var warnings = new List<string>();
+            var e = AutoTrade.Parse(section, warnings.Add);
+            bool ok = e.Count == 3
+                && e.Any(x => x.Good == eGoods.STORED_SWORDS && x.Enabled && x.BuyLevel == 10 && !x.SellLevel.HasValue)
+                && e.Any(x => x.Good == eGoods.STORED_STONE_BLOCKS && !x.Enabled && !x.BuyLevel.HasValue && !x.SellLevel.HasValue)
+                && e.Any(x => x.Good == eGoods.STORED_PITCH_REFINED && !x.BuyLevel.HasValue && x.SellLevel == 3)
+                && !e.Any(x => x.Good == eGoods.STORED_WOOD_PLANKS) && warnings.Count == 3
+                && AutoTrade.Parse(null, null).Count == 0;
+            Check("AutoTrade_Parse", ok, $"{e.Count} entries, warnings: {string.Join(" | ", warnings)}");
+        }
+
+        private static void Test_AutoTrade_Generated()
+        {
+            var fresh = AutoTrade.GeneratedValues(null, null, null);
+            var oldDefault = AutoTrade.GeneratedValues(false, 0L, 0L);
+            var userOff = AutoTrade.GeneratedValues(false, 0L, 5L);
+            var userOn = AutoTrade.GeneratedValues(true, 10L, null);
+            var kept = AutoTrade.GeneratedValues(-1L, -1L, -1L);
+            bool ok = fresh == ("-1", "-1", "-1") && oldDefault == ("-1", "-1", "-1") && userOff == ("false", "0", "5")
+                && userOn == ("true", "10", "-1") && kept == ("-1", "-1", "-1");
+            Check("AutoTrade_Generated", ok, $"fresh={fresh} old={oldDefault} off={userOff} on={userOn} kept={kept}");
         }
 
         private static void Check(string name, bool ok, string detail)

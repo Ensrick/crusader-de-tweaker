@@ -447,9 +447,11 @@ namespace CrusaderDETweaker.Config.Toml
                 sb.AppendLine("# ========================================");
                 sb.AppendLine("# Crusader DE Tweaker - Auto Trade Configuration");
                 sb.AppendLine("# ========================================");
-                sb.AppendLine("# Applied at match start via the market's auto-trade feature.");
-                sb.AppendLine("# BuyLevel:  auto-buy when stock falls BELOW this amount (0 = no buying)");
-                sb.AppendLine("# SellLevel: auto-sell when stock rises ABOVE this amount (0 = no selling)");
+                sb.AppendLine("# Single player only (nothing is written in multiplayer). Applied at every session start and when your");
+                sb.AppendLine("# Marketplace is built. -1 = no override: keep what you set in the market.");
+                sb.AppendLine("# Enabled:   true / false = switch auto-trade for this good on / off; -1 = leave the whole entry alone");
+                sb.AppendLine("# BuyLevel:  auto-buy when stock falls BELOW this amount (0 = no buying); -1 = keep the market's value");
+                sb.AppendLine("# SellLevel: auto-sell when stock rises ABOVE this amount (0 = no selling); -1 = keep the market's value");
                 sb.AppendLine();
 
                 foreach (eGoods good in Enum.GetValues(typeof(eGoods)))
@@ -458,12 +460,14 @@ namespace CrusaderDETweaker.Config.Toml
                     if (!goodName.StartsWith("STORED_")) continue;
                     if (nonTradeableGoods.Contains(goodName)) continue;
 
-                    var atEnabled = ExistingOrDefaultNested(existingToml, "Auto Trade", goodName, "Enabled", false);
-                    var atBuyLevel = ExistingOrDefaultNested(existingToml, "Auto Trade", goodName, "BuyLevel", 0);
-                    var atSellLevel = ExistingOrDefaultNested(existingToml, "Auto Trade", goodName, "SellLevel", 0);
+                    // 2.11.4: -1 = no override; the pre-2.11.4 default (false / 0 / 0) is migrated to it.
+                    var (atEnabled, atBuyLevel, atSellLevel) = global::CrusaderDETweaker.Config.Core.AutoTrade.GeneratedValues(
+                        RawNested(existingToml, "Auto Trade", goodName, "Enabled"),
+                        RawNested(existingToml, "Auto Trade", goodName, "BuyLevel"),
+                        RawNested(existingToml, "Auto Trade", goodName, "SellLevel"));
 
                     sb.AppendLine($"[\"Auto Trade\".{goodName}]");
-                    sb.AppendLine($"Enabled = {FormatBool(atEnabled)}");
+                    sb.AppendLine($"Enabled = {atEnabled}");
                     sb.AppendLine($"BuyLevel = {atBuyLevel}");
                     sb.AppendLine($"SellLevel = {atSellLevel}");
                     sb.AppendLine();
@@ -690,6 +694,15 @@ namespace CrusaderDETweaker.Config.Toml
         /// Returns the user's existing value from a two-level nested section (e.g. ["Trade Prices".STORED_X])
         /// if present, otherwise returns the provided game default.
         /// </summary>
+        /// <summary>The raw value of [section.subsection] key in the existing file, or null.</summary>
+        private static object RawNested(TomlTable existing, string section, string subsection, string key)
+        {
+            if (existing == null) return null;
+            if (!existing.TryGetValue(section, out var sectionObj) || !(sectionObj is TomlTable sectionTable)) return null;
+            if (!sectionTable.TryGetValue(subsection, out var subObj) || !(subObj is TomlTable subTable)) return null;
+            return subTable.TryGetValue(key, out var raw) ? raw : null;
+        }
+
         private static T ExistingOrDefaultNested<T>(TomlTable existing, string section, string subsection, string key, T gameDefault)
         {
             if (existing == null) return gameDefault;

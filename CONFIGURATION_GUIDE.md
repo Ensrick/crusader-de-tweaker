@@ -370,16 +370,18 @@ STORED_METAL_ARMOUR    290    150
 
 [b]Auto Trade[/b]
 
-Automatically buy/sell goods via the market at map start. Requires a Trade Post.
+Sets the market's auto-trade for a good at every session start and when your Marketplace is built. [b]Single player only:[/b] in multiplayer the file is not applied (it would change your own game only and break the match); use the market there. Every value is [b]-1 = no override[/b] by default (2.11.4): what you set in the market stays.
 [list]
-[*][b]BuyLevel[/b] — auto-buy when stock falls BELOW this amount (0 = disabled)
-[*][b]SellLevel[/b] — auto-sell when stock rises ABOVE this amount (0 = disabled)
+[*][b]Enabled[/b] - true / false switches auto-trade for this good on / off; -1 leaves the good alone (BuyLevel and SellLevel are then ignored)
+[*][b]BuyLevel[/b] - auto-buy when stock falls BELOW this amount (0 = no buying); -1 = keep the market's value
+[*][b]SellLevel[/b] - auto-sell when stock rises ABOVE this amount (0 = no selling); -1 = keep the market's value
 [/list]
+Before 2.11.4 every good was written as Enabled = false, BuyLevel = 0, SellLevel = 0, which switched off auto-trade set in the market. At the next launch exactly that old default is changed to -1 in your file; any other value you wrote is kept.
 [code]
 ["Auto Trade".STORED_WOOD_PLANKS]
-Enabled = false
-BuyLevel = 0
-SellLevel = 0
+Enabled = -1
+BuyLevel = -1
+SellLevel = -1
 
 ["Auto Trade".STORED_SWORDS]
 Enabled = true
@@ -549,6 +551,6 @@ Single player and skirmish are not affected.
 [*][b]Multipliers stack[/b] — UnitMeleeDamageTakenMultiplier and StructureDamageTakenMultiplier both apply independently
 [*][b]Minimum damage is always 1[/b] — setting multipliers to 0 still results in 1 damage
 [*][b]Wall costs[/b] use multipliers in the CFG, not values in the TOML
-[*][b]Auto Trade[/b] requires a Trade Post and is re-applied at every session start (including a loaded save)
+[*][b]Auto Trade[/b] requires a Trade Post, is re-applied at every session start (including a loaded save) in single player, and -1 keeps the market's setting
 [*][b]Check BepInEx\LogOutput.log[/b] in the game directory for errors
 [/list]

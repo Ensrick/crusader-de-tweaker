@@ -268,7 +268,9 @@ runs before apply each launch, so it stays current). Mechanics (all centralized 
   migrates any existing `value == default` to `-1` (genuine overrides preserved). Float comparison
   uses an epsilon (`AreValuesEqual`).
 - Different conventions elsewhere, do not unify: `MaxCount` uses `-1 = unlimited`; Trade Prices use
-  `0 = no override`; Globals (siege/stealth/etc.) still bake the default value (not yet converted).
+  `0 = no override`; Auto Trade uses `-1` per key, single player only, written by `Config/Core/AutoTrade.cs`
+  (never SE `SetAutoTrade`: player 1 only, 16-bit store into the byte flags; 2.11.4); Globals (siege/stealth/etc.)
+  still bake the default value (not yet converted).
 See memory `reference_shcde_se_modding_gotchas` for the broader SHCDE-SE init/event constraints.
 
 ### Config Paths
