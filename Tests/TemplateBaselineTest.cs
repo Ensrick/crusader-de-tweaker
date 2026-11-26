@@ -35,6 +35,7 @@ namespace CrusaderDETweaker.Tests
             Test_Baseline_FirstWriteWinsAndRestoreOrder();
             Test_Reapply_NTimesEqualsOnce();
             Test_ResetStyleRestore_HostSyncRoundTrip();
+            Test_RequiresHorse_RestoreClearsSet();
 
             int totalTests = _passedCount + _failedCount;
             Plugin.Logger.LogInfo($"  TemplateBaseline: {_passedCount}/{totalTests} tests passed");
@@ -138,6 +139,38 @@ namespace CrusaderDETweaker.Tests
             foreach (var kvp in a)
                 if (!b.TryGetValue(kvp.Key, out double v) || v != kvp.Value) return false;
             return true;
+        }
+
+        // 2.11.7 (GitLab #14): a unit that does not need a horse is restorable; restore takes it out of
+        // HorseRequiringUnits again (host sets true, client reverts, the set is empty for that unit).
+        // Non-Barracks unit: neither capture nor apply touches the game API.
+        private static void Test_RequiresHorse_RestoreClearsSet()
+        {
+            var unit = SHCDESE.Interop.eChimps.CHIMP_TYPE_ARAB_HORSEMAN;
+            var set = Config.Toml.Units.Properties.RequiresHorseProperty.HorseRequiringUnits;
+            bool before = set.Contains(unit);
+            set.Remove(unit);
+            try
+            {
+                var handler = new Config.Toml.Units.Properties.RequiresHorseProperty();
+                var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+                var capture = (Action)handler.GetType().GetMethod("CaptureBaselineRestore", flags).Invoke(handler, new object[] { unit });
+                handler.GetType().GetMethod("SetToAPI", flags).Invoke(handler, new object[] { unit, true });
+                bool tracked = set.Contains(unit);
+                capture?.Invoke();
+                bool cleared = !set.Contains(unit);
+
+                set.Add(unit);
+                Config.Toml.Units.Properties.RequiresHorseProperty.RestoreAction(unit, null, true)();
+                bool keptWhenTrackedBefore = set.Contains(unit);
+
+                Check("RequiresHorse_RestoreClearsSet", capture != null && tracked && cleared && keptWhenTrackedBefore,
+                    $"captured={capture != null} trackedAfterSet={tracked} clearedAfterRestore={cleared} keptWhenTrackedBefore={keptWhenTrackedBefore}");
+            }
+            finally
+            {
+                if (before) set.Add(unit); else set.Remove(unit);
+            }
         }
 
         private static void Check(string testName, bool condition, string failureDetail)

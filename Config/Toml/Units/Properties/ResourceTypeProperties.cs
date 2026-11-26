@@ -288,6 +288,46 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
                 HorseRequiringUnits.Remove(unit);
         }
 
+        /// <summary>
+        /// TemplateBaseline capture (2.11.7, GitLab #14, plan finding FWP-E-07). The base class captured nothing when
+        /// TryGetFromAPI returned false, and it returns false for every unit that does not need a horse, so a unit
+        /// once set to RequiresHorse = true (own file, or a host's synced file) kept needing a horse until the game
+        /// restarted, also after "host sync ended". Now the game value is captured as it is: for a Barracks unit the
+        /// cost slot itself (written back on restore), for every unit whether it was in HorseRequiringUnits.
+        /// </summary>
+        protected override Action CaptureBaselineRestore(eChimps unit)
+        {
+            bool wasTracked = HorseRequiringUnits.Contains(unit);
+            if (!Config.Core.StableTracking.GameEnforcesHorseCost(unit))
+                return RestoreAction(unit, null, wasTracked);
+
+            try
+            {
+                return RestoreAction(unit, Plugin.UnitApi.GetUnitGoodCosts(unit).cost4, wasTracked);
+            }
+            catch (Exception ex)
+            {
+                Plugin.Logger.LogDebug($"[RequiresHorse] {unit}: game value not readable, not restorable: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Puts the game value back: the Barracks cost slot (when one was captured) and the unit's membership of
+        /// HorseRequiringUnits as it was before the mod first wrote it.
+        /// </summary>
+        internal static Action RestoreAction(eChimps unit, eGoods32? originalCost4, bool wasTracked) => () =>
+        {
+            if (originalCost4.HasValue)
+            {
+                var costs = Plugin.UnitApi.GetUnitGoodCosts(unit);
+                costs.cost4 = originalCost4.Value;
+                Plugin.UnitApi.SetUnitGoodCosts(unit, costs);
+            }
+            if (wasTracked) HorseRequiringUnits.Add(unit);
+            else HorseRequiringUnits.Remove(unit);
+        };
+
         internal override bool ValidateValue(bool value)
         {
             // Boolean is always valid
