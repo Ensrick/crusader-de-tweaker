@@ -139,6 +139,8 @@ DiseaseDamageMultiplier = 1.0              # Scales all three disease damage tie
 
 [b]Multipliers stack.[/b] Example: WallDamageTakenMultiplier = 0.5 and StructureDamageTakenMultiplier = 2.0 → walls take 1.0× damage (0.5 × 2.0).
 
+[b]UnitHealthMultiplier[/b] scales a unit's maximum health when it appears: spawned units at once, recruited soldiers (Barracks, Mercenary Post) and assigned workers on the next game tick (2.11.6; before, on the next screen frame, which in multiplayer could be a different game tick in each player's game). The unit starts at full (scaled) health.
+
 [size=5][b]2. CrusaderDETweaker_GameplaySettings.toml[/b][/size]
 [b]Gameplay-wide settings[/b] — covers siege engines, stealth, gates, flags, team colors, skirmish starting troops, trade, and auto-trade.
 

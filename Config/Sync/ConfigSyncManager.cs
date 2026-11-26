@@ -12,7 +12,7 @@
 //   OnMaxCountsSet                       lobby MaxCount values (GitLab #5): applied at once through
 //                                        LobbyMaxCounts on every peer, whatever the host sync switch says.
 //   Reconcile()                          host sync on + valid package -> ApplyHost(); off -> Revert().
-//   Tick() (Plugin.Update, 1 s)          role changes; revert once no longer a multiplayer client.
+//   Tick() (FrameDriver, 1 s)            role changes; revert once no longer a multiplayer client.
 //   BeforeTemplateReapply()              called by ConfigLoader.ReapplyTemplateConfigs (every SE unload
 //                                        reset and session start): drop the host's files if no longer a client.
 //   OnStartMap / OnLoadSave (Pre)        match-start log lines; host-side "files changed" warning.
@@ -430,7 +430,7 @@ namespace CrusaderDETweaker.Config.Sync
         // Lobby / session tracking
         // ------------------------------------------------------------------
 
-        /// <summary>Called every frame from Plugin.Update; does its work once per second.</summary>
+        /// <summary>Called every frame from Config.Core.FrameDriver (2.11.6); does its work once per second.</summary>
         internal static void Tick()
         {
             if (!_initialized) return;

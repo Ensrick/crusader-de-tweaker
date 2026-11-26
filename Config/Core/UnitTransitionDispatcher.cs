@@ -1,6 +1,6 @@
 // Config/Core/UnitTransitionDispatcher.cs
 //
-// PURPOSE: One-frame deferral bridge for SHCDE-SE's OnUnitTransition event.
+// PURPOSE: One-tick deferral bridge for SHCDE-SE's OnUnitTransition event.
 //
 // WHY THIS EXISTS:
 //   Recruiting (Barracks / Mercenary Post), worker assignment, and disband do NOT go through
@@ -11,10 +11,16 @@
 //   overwrites the unit struct with the new type's template stats right after the hook returns,
 //   so any per-unit stat write made inside the hook is lost.
 //
-//   This dispatcher queues each transition and re-raises it from the plugin's Unity update loop
-//   (Plugin.Update -> Drain) only after at least one full Update interval has passed, when the
-//   transformation is complete and per-unit reads/writes (GetMaxHealth, stable linking) see the
-//   final unit.
+//   This dispatcher queues each transition and re-raises it on a later game tick (SE
+//   GameTimeManagerAPI.OnTick, raised inside the native game loop), when the transformation is
+//   complete and per-unit reads/writes (GetMaxHealth, stable linking) see the final unit.
+//
+// 2.11.6 (GitLab #13, plan findings FWP-E-05 / FWP-C-06): drained from the game tick, no longer from
+//   Plugin.Update (screen frames). Both consumers write the game (health, stable slots), so in a
+//   multiplayer match they must run on the same game tick on every PC; a frame-driven drain landed on
+//   whatever tick each PC happened to be at. An entry queued during the ticks after OnTick number N
+//   is raised at OnTick N + 1, in queue order. The queue is dropped at every map unload (its unit ids
+//   belong to the old map). Plugin.Update may also never run (FWP-C-06); the tick does not depend on it.
 //
 // CONSUMERS:
 //   - HealthMultiplierHandler: applies UnitHealthMultiplier to recruited/transitioned units.
@@ -23,6 +29,7 @@
 using System;
 using System.Collections.Generic;
 using R3;
+using SHCDESE.API;
 using SHCDESE.EventAPI;
 using SHCDESE.EventAPI.Units;
 using SHCDESE.Interop;
@@ -31,7 +38,7 @@ namespace CrusaderDETweaker.Config.Core
 {
     /// <summary>
     /// Defers OnUnitTransition events so subscribers see the fully transformed unit.
-    /// Subscribe via <see cref="TransitionSettled"/>; raised from Plugin.Update() after the
+    /// Subscribe via <see cref="TransitionSettled"/>; raised from the game tick (SE OnTick) after the
     /// native transformation has completed.
     /// </summary>
     internal static class UnitTransitionDispatcher
@@ -40,23 +47,20 @@ namespace CrusaderDETweaker.Config.Core
         {
             public int UnitId;
             public eChimps NewUnitType;
-            public int Frame;
+            public int Tick;
         }
 
         private static readonly object _lock = new object();
         private static readonly List<PendingTransition> _queue = new List<PendingTransition>();
         private static readonly List<PendingTransition> _ready = new List<PendingTransition>();
 
-        // Our own frame counter (incremented per Drain). The native hook may run off the Unity
-        // main thread, where UnityEngine.Time is not accessible, so we count Drain calls instead.
-        // An entry queued during frame N is processed at the second Drain after it (N+2), which
-        // guarantees a full Update-to-Update interval passed and the transformation finished even
-        // if the sim runs concurrently with Update.
-        private static int _frame;
+        // Number of game ticks seen (SE OnTick calls) since the last map unload. An entry is stamped with it when
+        // queued and raised at the first OnTick that counts higher, i.e. on the next game tick.
+        private static int _tick;
         private static bool _initialized;
 
         /// <summary>
-        /// Raised from the Unity update loop after a unit finished transforming into a new type:
+        /// Raised from the game tick after a unit finished transforming into a new type:
         /// recruit at Barracks/Mercenary Post, worker assignment, or disband back to peasant.
         /// Args: (unitId, new unit type).
         /// </summary>
@@ -83,33 +87,44 @@ namespace CrusaderDETweaker.Config.Core
                         {
                             UnitId = args.UnitId,
                             NewUnitType = args.NextUnitType,
-                            Frame = _frame
+                            Tick = _tick
                         });
                     }
                 });
 
-            Plugin.Logger.LogInfo("[Transitions] OnUnitTransition deferral dispatcher initialized.");
+            GameTimeManagerAPI.Instance.OnTick += _ => Drain();
+
+            MapLoaderR3EventHooks.OnUnloadMap.Observable
+                .Where(args => args.Phase == EventHookPhase.Post)
+                .Subscribe(_ =>
+                {
+                    lock (_lock)
+                    {
+                        _queue.Clear();
+                        _tick = 0;
+                    }
+                });
+
+            Plugin.Logger.LogInfo("[Transitions] OnUnitTransition deferral dispatcher initialized (raised on the game tick).");
         }
 
         /// <summary>
-        /// Called by Plugin.Update() every frame. Raises TransitionSettled for every transition
-        /// queued at least one full Drain interval ago.
+        /// Called on every game tick (SE OnTick). Raises TransitionSettled, in queue order, for every
+        /// transition queued before this tick.
         /// </summary>
         internal static void Drain()
         {
-            if (_queue.Count == 0) return; // unsynchronized fast path; a late add waits one frame
-
             lock (_lock)
             {
-                int current = _frame++;
-                for (int i = _queue.Count - 1; i >= 0; i--)
+                int current = ++_tick;
+                if (_queue.Count == 0) return;
+                int kept = 0;
+                for (int i = 0; i < _queue.Count; i++)
                 {
-                    if (_queue[i].Frame < current)
-                    {
-                        _ready.Add(_queue[i]);
-                        _queue.RemoveAt(i);
-                    }
+                    if (_queue[i].Tick < current) _ready.Add(_queue[i]);
+                    else _queue[kept++] = _queue[i];
                 }
+                _queue.RemoveRange(kept, _queue.Count - kept);
             }
 
             if (_ready.Count == 0) return;

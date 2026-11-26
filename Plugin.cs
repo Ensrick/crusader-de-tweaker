@@ -113,14 +113,16 @@ namespace CrusaderDETweaker
 
         private bool _isInitialized;
 
-        // Unity frame pump for the transition dispatcher: recruited/transitioned units can only
-        // be modified after the native transformation completes, so per-unit work queued by
-        // OnUnitTransition is drained here, on a later frame.
+        // 2.11.6 (GitLab #13): nothing runs here any more. The transition dispatcher drains on the game tick
+        // (SE OnTick) and the host config sync check runs from Config.Core.FrameDriver, because this component's
+        // Update may never run in SHCDE (FWP-C-06). The one log line answers that question in LogOutput.log.
+        private bool _updateLogged;
+
         private void Update()
         {
-            // Fully qualified: inside this class, bare "Config" binds to BaseUnityPlugin.Config.
-            CrusaderDETweaker.Config.Core.UnitTransitionDispatcher.Drain();
-            CrusaderDETweaker.Config.Sync.ConfigSyncManager.Tick();
+            if (_updateLogged) return;
+            _updateLogged = true;
+            Logger.LogInfo("[Frame] Plugin.Update is running (probe only; the frame driver does the work).");
         }
 
         private void Awake()
@@ -132,6 +134,16 @@ namespace CrusaderDETweaker
             // Multiplayer host config sync: SE requires lobby-settings registration during Awake.
             // The package itself is built later (ConfigSyncManager.Initialize), once the files exist.
             CrusaderDETweaker.Config.Sync.ConfigSyncManager.Register(this);
+
+            // Once-a-frame work (host config sync checks) on its own GameObject; see Config/Core/FrameDriver.cs.
+            try
+            {
+                CrusaderDETweaker.Config.Core.FrameDriver.Create();
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Frame driver could not be created (host config sync role checks will not run): {ex.Message}");
+            }
 
             SHCDESE.API.LowLevel.CrusaderLibrary.Instance.LibraryLoaded += _ => CrusaderLibrary_LibraryLoaded();
         }

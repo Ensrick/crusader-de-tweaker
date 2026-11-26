@@ -142,6 +142,7 @@
     <Compile Include="Config\Core\StableTracking.cs" />
     <Compile Include="Config\Core\GameCode.cs" />
     <Compile Include="Config\Core\AutoTrade.cs" />
+    <Compile Include="Config\Core\FrameDriver.cs" />
     <Compile Include="Config\Core\GoodYield.cs" />
     <Compile Include="Config\Core\MillerFlourPatch.cs" />
     <Compile Include="Config\Core\SkirmishStartingTroops.cs" />

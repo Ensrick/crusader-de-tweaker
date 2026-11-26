@@ -4,7 +4,8 @@
 //   - OnUnitCreate (Post): units spawned via c_game_unit_spawn_ex (campfire peasants, siege
 //     equipment, map-placed units). Recruited soldiers do NOT come through here.
 //   - UnitTransitionDispatcher.TransitionSettled: recruited soldiers / assigned workers /
-//     disbanded peasants, one frame after the native transformation finished.
+//     disbanded peasants, on the game tick after the native transformation finished (2.11.6: the game
+//     tick, the same on every PC of a multiplayer match; before, a screen frame).
 //
 // DEBUG: Set BepInExConfigManager.DebugLogging = true to enable step-by-step logging.
 //   [DBG-Health-RAW]: Fires for EVERY OnUnitCreate call (Pre AND Post). Recruits never appear
