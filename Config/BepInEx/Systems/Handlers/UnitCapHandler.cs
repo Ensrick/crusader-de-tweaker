@@ -40,7 +40,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
 
                     try
                     {
-                        // 2.11.3 (FWP-E-01, GitLab #2): in a multiplayer match every PC runs this hook for
+                        // 2.11.4 (FWP-E-01, GitLab #2): in a multiplayer match every PC runs this hook for
                         // every player's new unit, inside the simulation. Removing a unit (DeleteUnitSafe) changes
                         // only that PC's game, so the old "own player only" rule removed it on the owner's PC
                         // alone: a desync. Now every PC removes the same units: every human player's, and only

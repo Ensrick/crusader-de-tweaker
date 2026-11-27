@@ -272,13 +272,13 @@ and identifies the content: host and client log the same 12-hex-digit prefix.
 |---|---|---|
 | Wire format version differs | reject | "Host runs an incompatible Crusader DE Tweaker (vX)" |
 | Mod major.minor differs (2.7 vs 2.8) | reject | same message, both versions logged |
-| Only the patch differs, same simulation version (2.11.8+: host sends `x.y.z+simN`, `PluginInfo.SIMULATION_VERSION`) | apply, warn | "Using the host's configs (host v2.11.9, you v2.11.8)" |
-| Only the patch differs, simulation version differs or host before 2.11.8 (no `+sim`) | reject (2.11.8, FWP-E-09) | "... these play differently. Use the same version." |
+| Only the patch differs, same simulation version (2.11.9+: host sends `x.y.z+simN`, `PluginInfo.SIMULATION_VERSION`) | apply, warn | "Using the host's configs (host v2.11.10, you v2.11.9)" |
+| Only the patch differs, simulation version differs or host before 2.11.9 (no `+sim`) | reject (2.11.9, FWP-E-09) | "... these play differently. Use the same version." |
 | Host runs < 2.7.0 or no CDT | nothing arrives | after 15 s: "Nothing received from the host ..." |
 
 Why major.minor: the loaders tolerate unknown keys and headers, so a patch difference cannot corrupt the
 apply, while a minor release may change what a key means. Patch releases have also changed what the same
-files do (2.6.4 clamping, 2.9.1 EngageRange), so since 2.11.8 a patch difference is accepted only with the same
+files do (2.6.4 clamping, 2.9.1 EngageRange), so since 2.11.9 a patch difference is accepted only with the same
 simulation version; raise `SIMULATION_VERSION` in every release that changes it. Rejecting means both players use their own
 files, which is today's behaviour, and the status line says why.
 
@@ -347,7 +347,7 @@ manager's own Pre hooks log whether the match starts with the host's configs.
 | Version rule rejects | `REJECTED host config: host v.. / you v..` (error) | "Host runs an incompatible Crusader DE Tweaker (v..). Your own configs apply." | own configs |
 | Writing HostSync files or applying throws | `Applying the host's config FAILED` + exception (error), then revert | "Applying the host's configs failed. Your own configs apply. See LogOutput.log." | own configs |
 | Host's package too big at launch (host) | `Package too large` (error, host) | host: "Your configs are too large to sync ..." | clients get an empty package -> rejected |
-| Host edited config files after launch (host) | `Your config files changed since launch` (warning, host, at match start) | - | 2.11.8: host and clients both play the launch-time files (host reads `HostSnapshot\` while hosting with sync on, FWP-E-04); restart to use and resend the new ones |
+| Host edited config files after launch (host) | `Your config files changed since launch` (warning, host, at match start) | - | 2.11.9: host and clients both play the launch-time files (host reads `HostSnapshot\` while hosting with sync on, FWP-E-04); restart to use and resend the new ones |
 | Match starts before the package was applied | `Match starting WITHOUT the host's configs: <state>` (warning) | - | own configs for that match |
 | Lobby owner changes (host migration) | if we become owner: revert, `no longer a multiplayer client` | host status | we keep playing on our own configs; other members keep what they had |
 | Game or connection lost mid-session | revert on the next check once the lobby/game is gone, or at the next unload reset / session start | - | own configs |

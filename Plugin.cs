@@ -113,7 +113,7 @@ namespace CrusaderDETweaker
 
         private bool _isInitialized;
 
-        // 2.11.6 (GitLab #13): nothing runs here any more. The transition dispatcher drains on the game tick
+        // 2.11.7 (GitLab #13): nothing runs here any more. The transition dispatcher drains on the game tick
         // (SE OnTick) and the host config sync check runs from Config.Core.FrameDriver, because this component's
         // Update may never run in SHCDE (FWP-C-06). The one log line answers that question in LogOutput.log.
         private bool _updateLogged;

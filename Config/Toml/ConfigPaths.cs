@@ -49,7 +49,7 @@ namespace CrusaderDETweaker.Config.Toml
         internal static bool UseHostSyncFiles;
 
         /// <summary>
-        /// The host's own launch-time package (2.11.8, GitLab #15): {OwnConfigDir}\HostSnapshot\. While hosting with
+        /// The host's own launch-time package (2.11.9, GitLab #15): {OwnConfigDir}\HostSnapshot\. While hosting with
         /// config sync on, the host reads what it sent to the players instead of its live files.
         /// </summary>
         internal static string OwnSnapshotDir => Path.Combine(OwnConfigDir, "HostSnapshot");

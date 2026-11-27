@@ -6,9 +6,9 @@
 // - One box: "" = not set, -1 / 0 / N accepted, out of range and text rejected
 // - The synced string: parse (unknown keys and bad values skipped), encode sorted, round trip
 // - Overlay on the file caps: lobby N replaces, lobby -1 removes the cap, not set keeps the file's
-// - The type lists shown in the tab (recruitable units, no siege engines since 2.11.3; buildings without destroyed towers)
-// - SharedCap (2.11.3): the cap every PC of a multiplayer match uses for spawned units
-// - Siege placement (2.11.3): mapper -> engine / tent, refusal at engines + tents >= cap
+// - The type lists shown in the tab (recruitable units, no siege engines since 2.11.4; buildings without destroyed towers)
+// - SharedCap (2.11.4): the cap every PC of a multiplayer match uses for spawned units
+// - Siege placement (2.11.4): mapper -> engine / tent, refusal at engines + tents >= cap
 //
 // NOTE: pure logic - no game objects, no file I/O. Runs on every launch via CoreTestRunner. The in-game
 // behaviour (caps enforced on real units and placements) is covered by Tests/HeadlessSelfTest.cs.

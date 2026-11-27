@@ -110,7 +110,7 @@ Game Defaults → TOML Properties → CSV Damage Matrices → BepInEx Multiplier
 |------|-------|---------|----------|
 | **TOML** | `*_Units.toml`, `*_Structures.toml`, `*_GameplaySettings.toml` | Per-entity stats + gameplay globals | Yes |
 | **CSV** | `DamageMatrices\*.csv` (7 files) | The **only** per-matchup damage/heal tier | Yes |
-| **BepInEx** | `CrusaderDETweaker_GlobalMultipliers.cfg` | Global multipliers scaling on top, at runtime | Yes (read once at launch; nothing re-reads the file, 2.11.9 doc fix) |
+| **BepInEx** | `CrusaderDETweaker_GlobalMultipliers.cfg` | Global multipliers scaling on top, at runtime | Yes (read once at launch; nothing re-reads the file, 2.11.10 doc fix) |
 
 ### CSV damage matrices (the live damage tier)
 
@@ -269,7 +269,7 @@ runs before apply each launch, so it stays current). Mechanics (all centralized 
   uses an epsilon (`AreValuesEqual`).
 - Different conventions elsewhere, do not unify: `MaxCount` uses `-1 = unlimited`; Trade Prices use
   `0 = no override`; Auto Trade uses `-1` per key, single player only, written by `Config/Core/AutoTrade.cs`
-  (never SE `SetAutoTrade`: player 1 only, 16-bit store into the byte flags; 2.11.4); Globals (siege/stealth/etc.)
+  (never SE `SetAutoTrade`: player 1 only, 16-bit store into the byte flags; 2.11.5); Globals (siege/stealth/etc.)
   still bake the default value (not yet converted).
 See memory `reference_shcde_se_modding_gotchas` for the broader SHCDE-SE init/event constraints.
 

@@ -13,7 +13,7 @@
 //   [DBG-BldgDmg-RAW]: Fires for EVERY call to OnBuildingTileTakeDamage (Pre AND Post), no filter.
 //                       If this never appears, the SHCDESE hook itself is not triggering.
 //   [DBG-BldgDmg-N]:   Step-by-step inside the Pre-filtered subscription.
-// 2.11.9 (GitLab #16, plan finding FWP-E-10): nothing happens when all six multipliers are 1.0 (AllDefault): no lookups and
+// 2.11.10 (GitLab #16, plan finding FWP-E-10): nothing happens when all six multipliers are 1.0 (AllDefault): no lookups and
 //   no write, so the game's own damage stays as it is (before, a hit of 0 damage was raised to 1 even then). The
 //   Demolisher / Sapper lines are logged only with DebugLogging (before: one Info line per hit).
 using System;

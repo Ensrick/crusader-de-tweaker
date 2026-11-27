@@ -141,7 +141,7 @@ namespace CrusaderDETweaker.Tests
             return true;
         }
 
-        // 2.11.7 (GitLab #14): a unit that does not need a horse is restorable; restore takes it out of
+        // 2.11.8 (GitLab #14): a unit that does not need a horse is restorable; restore takes it out of
         // HorseRequiringUnits again (host sets true, client reverts, the set is empty for that unit).
         // Non-Barracks unit: neither capture nor apply touches the game API.
         private static void Test_RequiresHorse_RestoreClearsSet()

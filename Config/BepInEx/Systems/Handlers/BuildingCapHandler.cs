@@ -9,7 +9,7 @@
 //   re-spawn). Placement-blocking avoids all of that: an over-cap placement is simply refused,
 //   exactly like the game's own footprint/terrain rules, and existing buildings are left alone.
 //
-// SIEGE ENGINES (2.11.3, FWP-E-01 / GitLab #2): a siege engine's MaxCount (Units file) also refuses the
+// SIEGE ENGINES (2.11.4, FWP-E-01 / GitLab #2): a siege engine's MaxCount (Units file) also refuses the
 //   placement that would make one more: a siege tent (Catapult, Trebuchet, Siege Tower, Battering Ram,
 //   Portable Shield, Arabian Ballista) or a Mangonel / Ballista on a tower, when the player's engines of that
 //   type plus their tents still standing already reach the cap. Like every placement refusal this happens in

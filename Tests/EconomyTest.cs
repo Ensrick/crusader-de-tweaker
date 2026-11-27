@@ -179,7 +179,7 @@ namespace CrusaderDETweaker.Tests
                 $"notRebuilt={notRebuilt} trail={trail} notSkirmish={notSkirmish} badLevel={badLevel} custom={custom}");
         }
 
-        // 2.11.4 (GitLab #11): -1 = no override; only Enabled true / false entries are written.
+        // 2.11.5 (GitLab #11): -1 = no override; only Enabled true / false entries are written.
         private static void Test_AutoTrade_Parse()
         {
             var section = new TomlTable

@@ -1,11 +1,11 @@
 // Config/Core/AutoTrade.cs
 //
-// PURPOSE: GameplaySettings ["Auto Trade".<good>] (2.11.4, GitLab #11, plan finding FWP-E-02).
+// PURPOSE: GameplaySettings ["Auto Trade".<good>] (2.11.5, GitLab #11, plan finding FWP-E-02).
 //
 // RULES:
 //   - Each key is "no override" by default: Enabled = -1 leaves the good's in-game auto-trade alone (the whole entry
 //     is skipped); BuyLevel / SellLevel = -1 keep the in-game level. Only an entry with Enabled = true / false is
-//     written. Before 2.11.4 every generated entry said Enabled = false, BuyLevel = 0, SellLevel = 0 and was written
+//     written. Before 2.11.5 every generated entry said Enabled = false, BuyLevel = 0, SellLevel = 0 and was written
 //     at every session start, save load and Marketplace spawn, so auto-trade set in the market was switched off.
 //     The generator migrates exactly that old default (false / 0 / 0) to -1 / -1 / -1; any other value is kept.
 //   - Single player only. In a multiplayer match nothing is written: a write here changes only this PC's game (the
@@ -102,7 +102,7 @@ namespace CrusaderDETweaker.Config.Core
 
         /// <summary>
         /// The three generated values for a good, from the existing file (null = none): -1 for a new entry and for the
-        /// pre-2.11.4 default false / 0 / 0; anything else is kept as written.
+        /// pre-2.11.5 default false / 0 / 0; anything else is kept as written.
         /// </summary>
         internal static (string enabled, string buy, string sell) GeneratedValues(object enabledRaw, object buyRaw, object sellRaw)
         {

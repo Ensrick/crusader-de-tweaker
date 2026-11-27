@@ -3,7 +3,7 @@
 // PURPOSE: Runs the plugin's once-a-frame work (host config sync role check, ConfigSyncManager.Tick) from its own
 //          GameObject, created in Plugin.Awake and kept across scene loads (DontDestroyOnLoad).
 //
-// WHY (2.11.6, GitLab #13, plan finding FWP-C-06): this used to run from Plugin.Update. APIShared's notes and
+// WHY (2.11.7, GitLab #13, plan finding FWP-C-06): this used to run from Plugin.Update. APIShared's notes and
 //   the Crusader DE Handicap's code report that SHCDE destroys plugin components at startup, so Plugin.Update may
 //   never run; no Tweaker log showed either way. This object does not depend on it. Both log one line the first
 //   time their Update runs ("[Frame] ..."), which answers the question in the next LogOutput.log.

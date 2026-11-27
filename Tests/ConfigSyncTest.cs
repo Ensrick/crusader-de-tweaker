@@ -310,16 +310,16 @@ namespace CrusaderDETweaker.Tests
             Check("TrailingBytesRejected", Rejected(BuildWire(withTail), "after the last file", out string e), e);
         }
 
-        // 2.11.8 (GitLab #15): the host sends "x.y.z+simN"; same major.minor also needs the same N.
+        // 2.11.9 (GitLab #15): the host sends "x.y.z+simN"; same major.minor also needs the same N.
         private static void Test_VersionRule()
         {
-            ConfigSyncCodec.SplitWireVersion(ConfigSyncCodec.WireVersion("2.11.8", 3), out string mod, out int? sim);
+            ConfigSyncCodec.SplitWireVersion(ConfigSyncCodec.WireVersion("2.11.9", 3), out string mod, out int? sim);
             ConfigSyncCodec.SplitWireVersion("2.11.2", out string oldMod, out int? oldSim);
-            string wireVersion = ConfigSyncCodec.WireVersion("2.11.8", 1);
+            string wireVersion = ConfigSyncCodec.WireVersion("2.11.9", 1);
             bool travels = ConfigSyncCodec.TryUnpack(ConfigSyncCodec.Pack(wireVersion, SampleEntries(), out _, out _), out var unpacked, out _)
-                && unpacked.HostModVersion == "2.11.8+sim1";
+                && unpacked.HostModVersion == "2.11.9+sim1";
             Check("VersionRule",
-                mod == "2.11.8" && sim == 3 && oldMod == "2.11.2" && !oldSim.HasValue && travels
+                mod == "2.11.9" && sim == 3 && oldMod == "2.11.2" && !oldSim.HasValue && travels
                 && ConfigSyncCodec.CompareVersions("2.7.0+sim1", "2.7.0", 1) == ConfigSyncCodec.VersionVerdict.Same
                 && ConfigSyncCodec.CompareVersions("2.7.1+sim1", "2.7.0", 1) == ConfigSyncCodec.VersionVerdict.PatchDiffers
                 && ConfigSyncCodec.CompareVersions("2.7.1+sim2", "2.7.0", 1) == ConfigSyncCodec.VersionVerdict.SimulationDiffers

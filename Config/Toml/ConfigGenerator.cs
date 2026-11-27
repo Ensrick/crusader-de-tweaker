@@ -460,7 +460,7 @@ namespace CrusaderDETweaker.Config.Toml
                     if (!goodName.StartsWith("STORED_")) continue;
                     if (nonTradeableGoods.Contains(goodName)) continue;
 
-                    // 2.11.4: -1 = no override; the pre-2.11.4 default (false / 0 / 0) is migrated to it.
+                    // 2.11.5: -1 = no override; the pre-2.11.5 default (false / 0 / 0) is migrated to it.
                     var (atEnabled, atBuyLevel, atSellLevel) = global::CrusaderDETweaker.Config.Core.AutoTrade.GeneratedValues(
                         RawNested(existingToml, "Auto Trade", goodName, "Enabled"),
                         RawNested(existingToml, "Auto Trade", goodName, "BuyLevel"),

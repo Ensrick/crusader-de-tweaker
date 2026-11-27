@@ -1,7 +1,7 @@
 // Config/Toml/Structures/Properties/KillingPitDamageProperty.cs
 // Exposes killing pit damage in CrusaderDETweaker_Structures.toml under [STRUCT_KILLING_PIT].
 //
-// 2.11.9 (GitLab #16, plan finding FWP-E-12): writes the Script Extender's public value
+// 2.11.10 (GitLab #16, plan finding FWP-E-12): writes the Script Extender's public value
 // GameBuildingManagerAPI.KillingPitDamage (SE 2.14.x: a managed value, default 18000, read by SE's killing-pit hook
 // for every unit that falls in, BulkUnitDetours c_game_unit_is_over_killingpit_update_hook). Before, the mod
 // overwrote the damage of every OnUnitEnterKillingPit event, which also replaced what any other mod set there.

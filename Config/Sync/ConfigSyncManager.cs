@@ -302,7 +302,7 @@ namespace CrusaderDETweaker.Config.Sync
             {
                 ConfigSyncCodec.SplitWireVersion(package.HostModVersion, out string hostVersion, out int? hostSimulation);
                 Plugin.Logger.LogError($"{Tag} REJECTED the host's configs: host runs v{hostVersion}, you run v{PluginInfo.PLUGIN_VERSION}, and these versions do not play the same files the same way " +
-                                       $"(simulation version host {(hostSimulation.HasValue ? hostSimulation.Value.ToString() : "unknown, before 2.11.8")}, you {PluginInfo.SIMULATION_VERSION}). Your own configs apply. Use the same Crusader DE Tweaker version.");
+                                       $"(simulation version host {(hostSimulation.HasValue ? hostSimulation.Value.ToString() : "unknown, before 2.11.9")}, you {PluginInfo.SIMULATION_VERSION}). Your own configs apply. Use the same Crusader DE Tweaker version.");
                 _problem = $"The host runs Crusader DE Tweaker v{hostVersion}, you v{PluginInfo.PLUGIN_VERSION}: these play differently. Use the same version. Your own configs apply.";
                 Revert("the host's version plays differently");
                 return;
@@ -443,7 +443,7 @@ namespace CrusaderDETweaker.Config.Sync
         }
 
         /// <summary>
-        /// 2.11.8 (GitLab #15, plan finding FWP-E-04): while hosting with config sync on, the host reads the files it
+        /// 2.11.9 (GitLab #15, plan finding FWP-E-04): while hosting with config sync on, the host reads the files it
         /// packed at launch (what its players received), written to ConfigPaths.OwnSnapshotDir, instead of its live
         /// files. Before, a host that edited a file after starting the game played the new file while its players
         /// played the launch-time one. Off again once this PC is not hosting with sync on.
@@ -488,7 +488,7 @@ namespace CrusaderDETweaker.Config.Sync
         // Lobby / session tracking
         // ------------------------------------------------------------------
 
-        /// <summary>Called every frame from Config.Core.FrameDriver (2.11.6); does its work once per second.</summary>
+        /// <summary>Called every frame from Config.Core.FrameDriver (2.11.7); does its work once per second.</summary>
         internal static void Tick()
         {
             if (!_initialized) return;
@@ -679,7 +679,7 @@ namespace CrusaderDETweaker.Config.Sync
         /// True while every PC of this lobby reads the host's Units / Structures files: this PC is a client that
         /// applied the host's package, or the host with sync on and a package to send. A client that rejected the
         /// package plays with its own files (and its own tables) and is out of sync anyway. Read from the
-        /// simulation thread by UnitCapHandler (2.11.3, FWP-E-01).
+        /// simulation thread by UnitCapHandler (2.11.4, FWP-E-01).
         /// </summary>
         internal static bool AllPeersUseHostFiles
         {

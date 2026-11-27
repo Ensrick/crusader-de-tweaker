@@ -14,7 +14,7 @@
 //   player's stables (for the recruit-time gate in MakeTroopRecruitHook) and linking a finished
 //   unit to a free slot (from OnUnitCreate and the deferred OnUnitTransition path).
 //
-// MULTIPLAYER (2.11.5, GitLab #12, plan finding FWP-E-03): linking writes the game's stable slots, so it
+// MULTIPLAYER (2.11.6, GitLab #12, plan finding FWP-E-03): linking writes the game's stable slots, so it
 //   must happen identically on every PC. It now links the units of EVERY human player (AI players are
 //   left to the game, as before), from the simulation's own events, in table order. Before, each PC
 //   linked only its own player's units, so the stable slots differed between PCs. The recruit gate
@@ -90,7 +90,7 @@ namespace CrusaderDETweaker.Config.Core
         /// Link one horse-requiring unit of a human player to the first free slot of any of that
         /// player's stables. No-op for unit types without RequiresHorse = true, AI or neutral owners,
         /// units already occupying a slot (the game links natively hired EU cavalry itself), or
-        /// when no stable slot is free. Runs on every PC for every human player (2.11.5).
+        /// when no stable slot is free. Runs on every PC for every human player (2.11.6).
         /// </summary>
         internal static void TryLinkUnitToStable(eChimps unitType, int unitId)
         {

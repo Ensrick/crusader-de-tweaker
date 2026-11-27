@@ -17,7 +17,7 @@
 //   changes the game on the PC that does it, so in a multiplayer match UnitCapHandler removes spawned units of
 //   every human player on every PC, and only with a cap that is the same on every PC (TryGetSharedUnitCap).
 //
-// SIEGE ENGINES (2.11.3, plan decision DEC-07): not in the tab until a two-PC multiplayer test of the spawned-unit
+// SIEGE ENGINES (2.11.4, plan decision DEC-07): not in the tab until a two-PC multiplayer test of the spawned-unit
 //   rule passes. A siege engine value in an older saved lobby string is ignored with a note; the Units file's
 //   MaxCount still applies (placement of a siege tent / tower engine is refused at the cap, BuildingCapHandler).
 //

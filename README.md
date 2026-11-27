@@ -84,7 +84,7 @@ matrices set. Files are generated on first launch and never overwritten, so your
 ### 3. BepInEx Config (Global Multipliers)
 
 Global multipliers, applied during gameplay. The file is read when the game starts: restart the game after
-editing it (2.11.9: earlier docs said no restart was needed; the mod never re-read the file).
+editing it (2.11.10: earlier docs said no restart was needed; the mod never re-read the file).
 
 - **`UnitMeleeDamageTakenMultiplier`**: Global multiplier for all melee damage to units
 - **`UnitRangedDamageTakenMultiplier`**: Global multiplier for all ranged damage to units (Arrow, Bolt, Slinger, Javelin)

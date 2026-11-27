@@ -15,7 +15,7 @@
 //   GameTimeManagerAPI.OnTick, raised inside the native game loop), when the transformation is
 //   complete and per-unit reads/writes (GetMaxHealth, stable linking) see the final unit.
 //
-// 2.11.6 (GitLab #13, plan findings FWP-E-05 / FWP-C-06): drained from the game tick, no longer from
+// 2.11.7 (GitLab #13, plan findings FWP-E-05 / FWP-C-06): drained from the game tick, no longer from
 //   Plugin.Update (screen frames). Both consumers write the game (health, stable slots), so in a
 //   multiplayer match they must run on the same game tick on every PC; a frame-driven drain landed on
 //   whatever tick each PC happened to be at. An entry queued during the ticks after OnTick number N

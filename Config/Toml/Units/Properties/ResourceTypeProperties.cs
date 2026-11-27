@@ -289,7 +289,7 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
         }
 
         /// <summary>
-        /// TemplateBaseline capture (2.11.7, GitLab #14, plan finding FWP-E-07). The base class captured nothing when
+        /// TemplateBaseline capture (2.11.8, GitLab #14, plan finding FWP-E-07). The base class captured nothing when
         /// TryGetFromAPI returned false, and it returns false for every unit that does not need a horse, so a unit
         /// once set to RequiresHorse = true (own file, or a host's synced file) kept needing a horse until the game
         /// restarted, also after "host sync ended". Now the game value is captured as it is: for a Barracks unit the

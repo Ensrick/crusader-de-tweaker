@@ -299,11 +299,11 @@ namespace CrusaderDETweaker.Config.Sync
 
         private const string SimulationTag = "+sim";
 
-        /// <summary>The version the host sends (2.11.8): "2.11.8+sim1" = mod version + simulation behaviour version.</summary>
+        /// <summary>The version the host sends (2.11.9): "2.11.9+sim1" = mod version + simulation behaviour version.</summary>
         internal static string WireVersion(string modVersion, int simulationVersion) =>
             modVersion + SimulationTag + simulationVersion.ToString(CultureInfo.InvariantCulture);
 
-        /// <summary>"2.11.8+sim1" -> ("2.11.8", 1); a version without the tag (hosts before 2.11.8) -> (as is, null).</summary>
+        /// <summary>"2.11.9+sim1" -> ("2.11.9", 1); a version without the tag (hosts before 2.11.9) -> (as is, null).</summary>
         internal static void SplitWireVersion(string wire, out string modVersion, out int? simulationVersion)
         {
             modVersion = wire ?? string.Empty;
@@ -319,8 +319,8 @@ namespace CrusaderDETweaker.Config.Sync
 
         /// <summary>
         /// Different major.minor = incompatible. Same major.minor: the simulation behaviour version must match too
-        /// (2.11.8, plan finding FWP-E-09: patch releases have changed what identical files do, e.g. 2.6.4 clamping and
-        /// 2.9.1 EngageRange); a host without one (before 2.11.8) never matches. Then a patch difference is only warned about.
+        /// (2.11.9, plan finding FWP-E-09: patch releases have changed what identical files do, e.g. 2.6.4 clamping and
+        /// 2.9.1 EngageRange); a host without one (before 2.11.9) never matches. Then a patch difference is only warned about.
         /// </summary>
         internal static VersionVerdict CompareVersions(string hostWireVersion, string localVersion, int localSimulationVersion)
         {

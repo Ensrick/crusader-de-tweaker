@@ -211,7 +211,7 @@ namespace CrusaderDETweaker.Config.Toml
                 });
 
             // Auto-trade needs the marketplace: apply it again when the local player's market is built (or re-spawned
-            // from a save). 2.11.4 (GitLab #11): single player only, and only the ["Auto Trade"] section (before, the
+            // from a save). 2.11.5 (GitLab #11): single player only, and only the ["Auto Trade"] section (before, the
             // whole GameplaySettings file was re-applied here, on one PC of a multiplayer match).
             BuildingR3EventHooks.OnBuildingSpawn.Observable
                 .Where(args => args.Phase == EventHookPhase.Post
