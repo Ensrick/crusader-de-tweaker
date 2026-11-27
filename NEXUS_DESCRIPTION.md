@@ -1,6 +1,11 @@
-Version 2.11.2
+Version 2.11.3
 
 Updated for SHC DE v2.8.2 and Script Extender 2.14.0 or newer!
+
+[b]2.11.3: Engineer Speed is no longer replaced while Engineers work[/b]
+[list]
+[*][b]Fix: the Engineer's own code no longer replaces its Speed[/b] (Nexus report and GitHub #6: the computer's siege Engineers still ran ahead at the game's speed). Before, Speed only set the speed an Engineer was created with; the Engineer's own code then used the game's 1 (2 while carrying, and 2 for one AI role of the computer's Engineers). Now those use your Speed (Speed + 1 while carrying or in that AI role). Speed 1 or -1 leaves the game's code as it is.
+[/list]
 
 [b]2.11.2: EngageRange for the Ballista, Arabian Ballista and Mangonel[/b]
 [list]

@@ -255,16 +255,24 @@ runs on one client only when the local market spawns). `BedouinHealMultiplier = 
   `GameTimeManagerAPI.OnTick`: SE's `CurrentGameTick` is `Director.getSimTickCount`, which keeps counting while the game
   skips ticks under load (no free render buffer).
 
-### Engineer Speed (Nexus comment 179239047, 2026-11-06; not fixed)
+### Engineer Speed (2.11.3; Nexus comment 179239047, GitHub #6, GitLab #28)
 
 - Movement step (units tick, RVA 0x184203) waits more than +0x9A2 (SE `r_CurrentSpeed2`) + bonus +0x916 + +0x74C ticks;
-  unit init (0x19A240) copies the speed table (RVA 0x3230C0) into +0x9A2 and +0x9A4 (`r_CurrentSpeed`).
-- Engineer update (vtable entry 30, RVA 0x14AED0) writes +0x9A4 with constants: state 0x65 (0x14B5C4, value 1 from
-  `mov eax,1` shared with the +0x660 anim value) and 0x7A (0x14B806, `setne al; inc ax`): 1, or 2 while +0x9E0 != 0;
-  2 when +0xA82 (`r_AITribeRole`) == 10 for an AI player (0x14AF0F / 0x14AF4B). The value then reaches +0x9A2.
-- Measured (`test_headless.ps1 -Only speed`, `Tests/HeadlessSelfTest.EngineerSpeed.cs`): on a move order Speed works
-  (states 0-2); forcing r_AIState 0x65 / 0x7A made a Speed 6 Engineer speed 1 for good. That AI siege Engineers walk in
-  0x65 / 0x7A is [unverified] (no AI siege run).
+  unit init (0x19A240) copies the speed table (RVA 0x3230C0) into +0x9A2 and +0x9A4 (`r_CurrentSpeed`); the speed
+  function 0x19B2C0 sets +0x9A2 from +0x9A4 plus slope / terrain each step.
+- Engineer update (vtable entry 30, RVA 0x14AED0, the only writer of an Engineer's +0x9A4 after init) writes constants:
+  state 0x65 (0x14B5C4 `mov [unit+9A4h], r12w`: r12 = 1 from 0x14B5AB, or the function-wide 2 via the carrying branch
+  0x14B6F0 -> 0x14B5B7) and 0x7A (0x14B806, `setne al; inc ax`): 1, or 2 while +0x9E0 != 0; 2 when +0xA82
+  (`r_AITribeRole`) == 10 for an AI player (0x14AF4B, every update, before the state switch).
+- `EngineerSpeedPatch` (from `SpeedProperty.SetToAPI`, Engineer only; restore = game bytes) rewrites all three in place,
+  same length, so they store game value - 1 + Speed: A 0x14AF3F (21 bytes, compare and store through rax at unit
+  +0xA13 +/- 0x6F), B 0x14B5AB (34 bytes; the animation value moves r15d -> ecx, `add r12d, Speed-1`) + carrying branch
+  0x14B6F0 (11 bytes, jumps to the add), C 0x14B7F8 (`inc ax` -> `add eax, Speed`). r12 / r15 / rax are dead after the
+  stores; no jump in .text lands inside a rewritten range. Speed 1 = game bytes. Sites found by pattern on disk, must be
+  in the function `GameUnitFunctionsVTable[30]` points to (an SE AIStateTracker clone of the Engineer update = no patch).
+- Measured before the fix (`test_headless.ps1 -Only speed`, `Tests/HeadlessSelfTest.EngineerSpeed.cs`): on a move order
+  Speed works (states 0-2); forcing r_AIState 0x65 / 0x7A made a Speed 6 Engineer speed 1 for good. The stage now checks
+  the forced Engineers keep Speed. That AI siege Engineers walk in 0x65 / 0x7A or role 10 is [unverified] (no AI siege run).
 
 ### `-1` = "use game default" sentinel (Units/Structures TOML, v2.3.0+)
 
@@ -469,6 +477,7 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | Unity sprite pool growth (empty pool no longer stops the game) | `Config/Core/SpritePool.cs` |
 | In-game self-test pools stage: building limit clicks, units / sprites / animations up to 8500 units, projectile pool in a battle | `Tests/HeadlessSelfTest.Pools.cs` |
 | AttackRange for siege engines (their own range check in the game code) | `Config/Toml/Units/Properties/EngineRangePatch.cs` |
+| Engineer Speed while working (the Engineer code's speed constants, 2.11.3) | `Config/Toml/Units/Properties/EngineerSpeedPatch.cs` |
 | In-game self-test engines stage: engine first-shot distance (game / 2.10.0 code / fix), Crossbowman EngageRange < AttackRange (`-Only engines`), idle engine EngageRange phases (`-Only engage`) | `Tests/HeadlessSelfTest.Engines.cs` |
 
 ---

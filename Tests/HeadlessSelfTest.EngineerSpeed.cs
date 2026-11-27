@@ -16,6 +16,8 @@
 //   (Speed 8: 684 ticks, Speed 1: 152, Archer Speed 8: 684). Forced states (selftest-20261108-002443): both Engineers
 //   (created at 6: the table restore goes through SE's SetDefaultSpeed, which clamps 8 to 6) had r_CurrentSpeed 1 within
 //   3 samples, then r_CurrentSpeed2 1 for the rest of the 100 ticks (state 0x7A passed through 0x65 first).
+//   2.11.3 (EngineerSpeedPatch): the forced phase is a check: the Engineer code must be patched for EngineerSpeed, and
+//   the forced Engineers must show r_CurrentSpeed EngineerSpeed (or + 1 while carrying) and never the game's 1 / 2.
 //
 // WHY (CrusaderDE.dll, game 2.8.2, Ghidra 2026-11-08): c_game_unit_init (RVA 0x19A240) copies the table (RVA 0x3230C0,
 //   Engineer 1) into +0x9A2 and +0x9A4. The Engineer's update (vtable entry 30, RVA 0x14AED0) then writes +0x9A4 with
@@ -30,6 +32,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using CrusaderDETweaker.Config.Toml.Units.Properties;
 using SHCDESE.API;
 using SHCDESE.Interop;
 
@@ -48,6 +51,7 @@ namespace CrusaderDETweaker.Tests
             internal string Name;
             internal int Id, TargetX, TargetY, Ticks = -1, CreatedSpeed;
             internal readonly SortedDictionary<string, int> Seen = new SortedDictionary<string, int>();
+            internal readonly SortedDictionary<int, int> Speeds = new SortedDictionary<int, int>();   // r_CurrentSpeed -> samples
         }
 
         private readonly List<Walker> _walkers = new List<Walker>();
@@ -122,6 +126,8 @@ namespace CrusaderDETweaker.Tests
             string key = $"speed {u->r_CurrentSpeed}/{u->r_CurrentSpeed2} state 0x{*(ushort*)(b + AIStateOffset):X} carry {*(short*)(b + CarryOffset)}";
             w.Seen.TryGetValue(key, out int n);
             w.Seen[key] = n + 1;
+            w.Speeds.TryGetValue(u->r_CurrentSpeed, out int m);
+            w.Speeds[u->r_CurrentSpeed] = m + 1;
         }
 
         private void ReportEngineerSpeed()
@@ -134,8 +140,16 @@ namespace CrusaderDETweaker.Tests
                 $"{WalkTiles} tiles: Archer at Speed {ArcherSpeed} {archer.Ticks} ticks, Engineer at Speed {FastEngineerSpeed} {fast.Ticks} ticks");
             Check($"Engineer Speed {EngineerSpeed} walks slower than Speed {FastEngineerSpeed}", slow.Ticks > 0 && fast.Ticks > 0 && slow.Ticks > fast.Ticks * 2.5,
                 $"{WalkTiles} tiles: Speed {EngineerSpeed} took {slow.Ticks} ticks, Speed {FastEngineerSpeed} took {fast.Ticks} ticks (ratio {(fast.Ticks > 0 ? (double)slow.Ticks / fast.Ticks : 0):0.00})");
+            Check($"Engineer code uses Speed {EngineerSpeed} (EngineerSpeedPatch)", EngineerSpeedPatch.Applied == EngineerSpeed,
+                $"applied {EngineerSpeedPatch.Applied}; {EngineerSpeedPatch.Describe()}");
             foreach (var w in _forced)
+            {
                 Note($"{w.Name}: r_CurrentSpeed/r_CurrentSpeed2, r_AIState, carry over {ForcedTicks} ticks (samples): {string.Join(", ", w.Seen.Select(kv => $"{kv.Key} x{kv.Value}"))}");
+                int game = w.Speeds.Where(kv => kv.Key == 1 || kv.Key == 2).Sum(kv => kv.Value);
+                int ours = w.Speeds.Where(kv => kv.Key == EngineerSpeed || kv.Key == EngineerSpeed + 1).Sum(kv => kv.Value);
+                Check($"{w.Name} keeps Speed {EngineerSpeed}", game == 0 && ours > 0,
+                    $"r_CurrentSpeed samples: {string.Join(", ", w.Speeds.Select(kv => $"{kv.Key} x{kv.Value}"))} (game constants 1 / 2: {game}, Speed / Speed + 1: {ours})");
+            }
             foreach (var w in _walkers.Concat(_forced)) if (w.Id > 0) GameUnitManagerAPI.Instance.DeleteUnitSafe(w.Id);
         }
     }

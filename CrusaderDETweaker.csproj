@@ -218,6 +218,7 @@
     <Compile Include="Config\Toml\Units\Properties\UnitRangeProperties.cs" />
     <Compile Include="Config\Toml\Units\Properties\EngageDistancePatch.cs" />
     <Compile Include="Config\Toml\Units\Properties\EngineRangePatch.cs" />
+    <Compile Include="Config\Toml\Units\Properties\EngineerSpeedPatch.cs" />
     <Compile Include="Config\Toml\Units\Properties\KnightRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\ArabHorsemanRunSpeedBonusProperty.cs" />
     <Compile Include="Config\Toml\Units\Properties\BedouinCamelLancerRunSpeedBonusProperty.cs" />
