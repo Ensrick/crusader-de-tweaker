@@ -29,6 +29,11 @@
 //   Assembly-CSharp. SHCDESE.Interop.Enums is a *namespace*, so we reference the game types with
 //   the global:: prefix to avoid the clash and only `using SHCDESE.Interop` for eChimps.
 //
+// 2.11.12 (GitLab #17, plan FWP-U-20 / P6-01): when APIShared (Serpens66) with its GameActionEvents is loaded, the gate
+//   runs as a registration there (APISharedGameActionAdapter) instead of this file's own MonoMod hook, so the two mods
+//   share one hook on EngineInterface.GameAction. Both paths use TryDecide / AllowedAmount and decide identically.
+//   CFG [Compatibility] GameActionHook = Own forces the own hook (kept for two releases).
+//
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -46,6 +51,10 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
         private static Hook _hook;
         private static GameActionDelegate _trampoline;
         private static Dictionary<eChimps, int> _caps;
+        private static bool _activated;
+
+        /// <summary>Which GameAction interception carries the recruit gate (log / self-test).</summary>
+        internal static string ActivePath { get; private set; } = "none";
 
         // Time-expiring reservations. A recruited soldier does not appear in the live unit count
         // until the peasant has walked to the barracks and transformed (seconds later), so without
@@ -63,22 +72,68 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
         private static readonly List<DateTime> _pendingHorses = new List<DateTime>();
 
         // Guards _pending/_pendingHorses so read-count -> check -> reserve is atomic. Every access is
-        // inside Detour, i.e. on whatever thread calls EngineInterface.GameAction. The recruit buttons
-        // call it from Unity's main thread; no second caller is known, but UnitTransitionDispatcher shows
-        // SE events can arrive off-thread, and an uncontended lock costs nothing on a click path.
-        // The trampoline is always called OUTSIDE the lock.
+        // on whatever thread calls EngineInterface.GameAction. The recruit buttons call it from Unity's
+        // main thread; no second caller is known, but UnitTransitionDispatcher shows SE events can arrive
+        // off-thread, and an uncontended lock costs nothing on a click path. The game's GameAction (the
+        // trampoline, or APIShared's original) is always called OUTSIDE the lock.
         private static readonly object _pendingLock = new object();
 
         /// <summary>
-        /// Install the MakeTroop detour once. Safe to call at plugin init: this only patches a
-        /// static method's entry, it does not read or write game state (the detour BODY runs only
-        /// when the game later calls GameAction, in-session). <paramref name="caps"/> is the same
-        /// dictionary UnitCapHandler holds, read live at recruit time.
+        /// The recruit gate's decision for one MakeTroop request (2.11.12: shared by the mod's own hook and the
+        /// APIShared GameActionEvents adapter, so both paths decide identically).
+        /// </summary>
+        internal struct RecruitDecision
+        {
+            public eChimps Unit;
+            public bool Capped;
+            public bool HorseGated;
+            /// <summary>The request as the gate reads it: the first payload, 1 when it is 0 or less.</summary>
+            public int Requested;
+            /// <summary>What may be recruited: 0 or less = refuse, Requested = unchanged, else trim to this.</summary>
+            public int Allowed;
+            public string Detail;
+        }
+
+        /// <summary>
+        /// Remembers the caps table, which UnitCapHandler holds and the gate reads live at recruit time. The
+        /// interception itself is chosen and installed by <see cref="Activate"/> once the CFG is bound.
         /// </summary>
         internal static void Install(Dictionary<eChimps, int> caps)
         {
-            if (_hook != null) return; // GameAction is static; one detour persists for the process
             _caps = caps;
+        }
+
+        /// <summary>
+        /// 2.11.12 (GitLab #17, plan FWP-U-20): choose the GameAction interception once, after the CFG is bound.
+        /// "Auto" (default): APIShared's shared GameActionEvents when an APIShared with that API is loaded
+        /// (detected by its members, not its version), else the mod's own hook. "Own": always the mod's own hook
+        /// (the behaviour of 2.11.11 and earlier; kept for two releases). Never both.
+        /// </summary>
+        internal static void Activate(string mode)
+        {
+            if (_activated) return;
+            _activated = true;
+
+            if (!string.Equals(mode, "Own", StringComparison.OrdinalIgnoreCase))
+            {
+                if (APISharedGameActionAdapter.TryRegister(out string reason))
+                {
+                    ActivePath = "APIShared";
+                    Plugin.Logger.LogInfo($"[UnitCaps] Recruit gate registered with APIShared's shared GameAction events ({reason}); the mod's own GameAction hook is not installed.");
+                    return;
+                }
+                Plugin.Logger.LogInfo($"[UnitCaps] APIShared GameAction events not used ({reason}); installing the mod's own GameAction hook.");
+            }
+            else
+            {
+                Plugin.Logger.LogInfo("[UnitCaps] [Compatibility] GameActionHook = Own: installing the mod's own GameAction hook.");
+            }
+            InstallOwnHook();
+        }
+
+        private static void InstallOwnHook()
+        {
+            if (_hook != null) return; // GameAction is static; one detour persists for the process
 
             try
             {
@@ -97,6 +152,7 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
 
                 _hook = new Hook(gameAction, (GameActionDelegate)Detour);
                 _trampoline = _hook.GenerateTrampoline<GameActionDelegate>();
+                ActivePath = "own hook";
                 Plugin.Logger.LogInfo("[UnitCaps] MakeTroop recruit-cap hook installed.");
             }
             catch (Exception ex)
@@ -107,6 +163,101 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
             }
         }
 
+        /// <summary>
+        /// Pure: how many of <paramref name="amount"/> may be recruited (the pre-2.11.12 arithmetic, unchanged).
+        /// amount >= 1000 is the Ctrl "as many as possible" request: grant up to the tightest gate.
+        /// </summary>
+        internal static int AllowedAmount(int amount, bool capped, int cap, int live, int pending, bool horseGated, int freeHorses)
+        {
+            bool recruitMax = amount >= 1000;
+            int allowed = recruitMax ? int.MaxValue : amount;
+            if (capped) allowed = Math.Min(allowed, cap - (live + pending));
+            if (horseGated) allowed = Math.Min(allowed, freeHorses);
+            if (allowed == int.MaxValue) allowed = amount; // unreachable in practice: a gate always bounds it
+            return allowed;
+        }
+
+        /// <summary>
+        /// The gate for one MakeTroop request. False = not gated (pass the request on unchanged). With
+        /// <paramref name="reserve"/> the approved amount is reserved under the same lock (own hook); the
+        /// APIShared path reserves later, in Accepted, with the final inputs (<see cref="ReserveAccepted"/>).
+        /// </summary>
+        internal static bool TryDecide(int structureID, int state, bool reserve, out RecruitDecision decision)
+        {
+            decision = default;
+            int amount = structureID > 0 ? structureID : 1;
+            eChimps unitType = (eChimps)state;
+
+            // Gate 1: only types the user actually capped (>= 0); everything else is unlimited.
+            // Gate 2: RequiresHorse = true on a unit whose horse cost the game does not enforce.
+            int cap = 0;
+            bool capped = _caps != null && _caps.TryGetValue(unitType, out cap);
+            bool horseGated = StableTracking.ModEnforcesHorseCost(unitType);
+            if (!capped && !horseGated)
+                return false;
+
+            int localId = Plugin.PlayerApi?.GetLocalPlayerId() ?? -1;
+            if (localId <= 0)
+                return false;
+
+            string detail = "";
+            lock (_pendingLock)
+            {
+                int live = 0, pending = 0, freeHorses = 0;
+                if (capped)
+                {
+                    PrunePending(unitType);
+                    live = UnitCapHandler.CountPlayerUnitsOfType(localId, unitType);
+                    pending = PendingCount(unitType);
+                    detail += $" live={live} pending={pending} cap={cap}";
+                }
+
+                if (horseGated)
+                {
+                    PruneHorsePending();
+                    freeHorses = StableTracking.CountFreeSlots(localId) - _pendingHorses.Count;
+                    detail += $" freeHorses={freeHorses}";
+                }
+
+                int allowed = AllowedAmount(amount, capped, cap, live, pending, horseGated, freeHorses);
+                if (reserve && allowed > 0)
+                {
+                    if (capped) Reserve(unitType, allowed);
+                    if (horseGated) ReserveHorses(allowed);
+                }
+
+                decision = new RecruitDecision
+                {
+                    Unit = unitType, Capped = capped, HorseGated = horseGated,
+                    Requested = amount, Allowed = allowed, Detail = detail
+                };
+            }
+            return true;
+        }
+
+        /// <summary>APIShared path: reserve what an accepted (unvetoed) request will recruit.</summary>
+        internal static void ReserveAccepted(RecruitDecision decision, int amount)
+        {
+            if (amount <= 0) return;
+            lock (_pendingLock)
+            {
+                if (decision.Capped) Reserve(decision.Unit, amount);
+                if (decision.HorseGated) ReserveHorses(amount);
+            }
+        }
+
+        /// <summary>The same debug lines for both paths.</summary>
+        internal static void LogDecision(RecruitDecision d)
+        {
+            if (!(BepInExConfigManager.DebugLogging?.Value ?? false)) return;
+            if (d.Allowed <= 0)
+                Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop blocked {d.Unit}: requested {d.Requested};{d.Detail}.");
+            else if (d.Allowed != d.Requested)
+                Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop trimmed {d.Unit}: requested {d.Requested} -> {d.Allowed};{d.Detail}.");
+            else
+                Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop allowed {d.Unit}: {d.Allowed};{d.Detail}.");
+        }
+
         private static int Detour(global::Enums.GameActionCommand command, int structureID, int state, int value2)
         {
             GameActionDelegate tramp = _trampoline;
@@ -115,74 +266,19 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
             if (command != global::Enums.GameActionCommand.MakeTroop)
                 return tramp(command, structureID, state, value2);
 
-            int amount = structureID > 0 ? structureID : 1;
-
             try
             {
-                bool dbg = BepInExConfigManager.DebugLogging?.Value ?? false;
-                eChimps unitType = (eChimps)state;
-
-                // Gate 1: only types the user actually capped (>= 0); everything else is unlimited.
-                // Gate 2: RequiresHorse = true on a unit whose horse cost the game does not enforce.
-                int cap = 0;
-                bool capped = _caps != null && _caps.TryGetValue(unitType, out cap);
-                bool horseGated = StableTracking.ModEnforcesHorseCost(unitType);
-                if (!capped && !horseGated)
+                if (!TryDecide(structureID, state, reserve: true, out RecruitDecision d))
                     return tramp(command, structureID, state, value2);
 
-                int localId = Plugin.PlayerApi?.GetLocalPlayerId() ?? -1;
-                if (localId <= 0)
-                    return tramp(command, structureID, state, value2);
+                LogDecision(d);
 
-                // amount >= 1000 is the Ctrl "as many as possible" request: grant up to the tightest gate.
-                bool recruitMax = amount >= 1000;
-                int allowed = recruitMax ? int.MaxValue : amount;
-                string detail = "";
-
-                lock (_pendingLock)
-                {
-                    if (capped)
-                    {
-                        PrunePending(unitType);
-                        int live = UnitCapHandler.CountPlayerUnitsOfType(localId, unitType);
-                        int pending = PendingCount(unitType);
-                        allowed = Math.Min(allowed, cap - (live + pending));
-                        detail += $" live={live} pending={pending} cap={cap}";
-                    }
-
-                    if (horseGated)
-                    {
-                        PruneHorsePending();
-                        int freeHorses = StableTracking.CountFreeSlots(localId) - _pendingHorses.Count;
-                        allowed = Math.Min(allowed, freeHorses);
-                        detail += $" freeHorses={freeHorses}";
-                    }
-
-                    if (allowed == int.MaxValue) allowed = amount; // unreachable in practice: a gate always bounds it
-                    if (allowed > 0)
-                    {
-                        if (capped) Reserve(unitType, allowed);
-                        if (horseGated) ReserveHorses(allowed);
-                    }
-                }
-
-                if (allowed <= 0)
-                {
-                    // Cap reached (cap == 0 means disabled, always blocked) or no free stable horse.
-                    if (dbg)
-                        Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop blocked {unitType}: requested {amount};{detail}.");
+                // Cap reached (cap == 0 means disabled, always blocked) or no free stable horse.
+                if (d.Allowed <= 0)
                     return 0;
-                }
 
-                if (allowed != amount)
-                {
-                    if (dbg)
-                        Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop trimmed {unitType}: requested {amount} -> {allowed};{detail}.");
-                    return tramp(command, allowed, state, value2);
-                }
-
-                if (dbg)
-                    Plugin.Logger.LogInfo($"[UnitCaps] MakeTroop allowed {unitType}: {allowed};{detail}.");
+                if (d.Allowed != d.Requested)
+                    return tramp(command, d.Allowed, state, value2);
             }
             catch (Exception ex)
             {

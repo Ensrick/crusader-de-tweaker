@@ -112,6 +112,9 @@ Game Defaults → TOML Configs → CSV Matrices → BepInEx Multipliers
 [Debug]
 DebugLogging = false   # Enable step-by-step logging for all event hooks. High log volume - use only when diagnosing issues.
 
+[Compatibility]
+GameActionHook = Auto   # Auto = APIShared's shared GameAction events when installed, else the mod's own hook; Own = always the own hook (2.11.12)
+
 [Multipliers]
 # Unit Multipliers
 UnitHealthMultiplier = 1.0                 # All unit max health
@@ -138,6 +141,8 @@ DiseaseDamageMultiplier = 1.0              # Scales all three disease damage tie
 [/code]
 
 [b]Multipliers stack.[/b] Example: WallDamageTakenMultiplier = 0.5 and StructureDamageTakenMultiplier = 2.0 → walls take 1.0× damage (0.5 × 2.0).
+
+[b][Compatibility] GameActionHook[/b] (new in 2.11.12) - how the recruit limits (MaxCount, RequiresHorse) catch a recruit request. [b]Auto[/b] (default): when Serpens66's APIShared is installed with its shared GameAction events, the mod registers there instead of putting its own hook on the game's recruit command, so it works together with mods such as UnitLimit and UnitCosts on one hook; without APIShared (or with one that lacks those events) the mod uses its own hook as before. [b]Own[/b]: always the mod's own hook (the behaviour before 2.11.12). Both decide the same way: the same requests are refused or trimmed. The log says which one is used ([b][UnitCaps] Recruit gate registered with APIShared's shared GameAction events[/b] or [b]MakeTroop recruit-cap hook installed[/b]). This setting is not sent to other players.
 
 [b]UnitHealthMultiplier[/b] scales a unit's maximum health when it appears: spawned units at once, recruited soldiers (Barracks, Mercenary Post) and assigned workers on the next game tick (2.11.7; before, on the next screen frame, which in multiplayer could be a different game tick in each player's game). The unit starts at full (scaled) health.
 

@@ -23,6 +23,6 @@ namespace CrusaderDETweaker
         // 1: 2.11.9; 2: 2.11.10 (structure damage untouched at all 1.0). 2.11.3 (Engineer Speed while working) sends no
         // value and is in every version that sends one, so it needs no step of its own.
         public const int SIMULATION_VERSION = 2;
-        public const string PLUGIN_VERSION = "2.11.11";
+        public const string PLUGIN_VERSION = "2.11.12";
     }
 }

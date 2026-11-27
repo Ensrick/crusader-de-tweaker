@@ -480,6 +480,8 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | In-game self-test pools stage: building limit clicks, units / sprites / animations up to 8500 units, projectile pool in a battle | `Tests/HeadlessSelfTest.Pools.cs` |
 | AttackRange for siege engines (their own range check in the game code) | `Config/Toml/Units/Properties/EngineRangePatch.cs` |
 | Engineer Speed while working (the Engineer code's speed constants, 2.11.3) | `Config/Toml/Units/Properties/EngineerSpeedPatch.cs` |
+| Recruit gate (MaxCount + RequiresHorse at recruit time): decision core + own GameAction hook | `Config/BepInEx/Systems/Handlers/MakeTroopRecruitHook.cs` |
+| Recruit gate on APIShared GameActionEvents (soft dependency, reflection only, capability check; CFG `[Compatibility] GameActionHook` Auto / Own, 2.11.12) | `Config/BepInEx/Systems/Handlers/APISharedGameActionAdapter.cs` |
 | In-game self-test engines stage: engine first-shot distance (game / 2.10.0 code / fix), Crossbowman EngageRange < AttackRange (`-Only engines`), idle engine EngageRange phases (`-Only engage`) | `Tests/HeadlessSelfTest.Engines.cs` |
 
 ---
@@ -533,7 +535,7 @@ Enable debug: `BepInEx\config\BepInEx.cfg` → `LogLevels = ..., Debug`
 handlers only, make no game-API calls, and log PASS/FAIL to `BepInEx\LogOutput.log`. A regression in
 core logic shows up in the log immediately. Do not gate or remove it.
 
-Ten suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**, **TemplateBaseline** (the one template write path: apply N times == once), **ConfigSync** (host config sync package), **TeamColors** (team colour parsing + palette restore-then-apply), **ApothecaryHealing** (section parsing, heal amount, footprint distance, healed types), **LobbyMaxCounts** (lobby MaxCount box input, synced string, overlay), **Economy** (GoodYieldMultiplier scaling, starting troops parsing and apply decision). Look for:
+Eleven suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, **CsvHelper**, **TemplateBaseline** (the one template write path: apply N times == once), **ConfigSync** (host config sync package), **TeamColors** (team colour parsing + palette restore-then-apply), **ApothecaryHealing** (section parsing, heal amount, footprint distance, healed types), **LobbyMaxCounts** (lobby MaxCount box input, synced string, overlay), **Economy** (GoodYieldMultiplier scaling, starting troops parsing and apply decision), **GameActionGate** (recruit gate: own hook and APIShared adapter decide the same, capability check on test doubles). Look for:
 ```
 === CORE LOGIC UNIT TEST SUITE ===
   [PASS] PropertyHandler: N test(s)
@@ -546,11 +548,12 @@ Ten suites run: **PropertyHandler**, **PropertyRegistry**, **EntityProcessor**, 
   [PASS] ApothecaryHealing: N test(s)
   [PASS] LobbyMaxCounts: N test(s)
   [PASS] Economy: N test(s)
-=== ALL 10 TEST SUITES PASSED ===
+  [PASS] GameActionGate: N test(s)
+=== ALL 11 TEST SUITES PASSED ===
 ```
 
 Test files: `Tests/CoreTestRunner.cs`, `Tests/PropertyHandlerTest.cs`, `Tests/PropertyRegistryTest.cs`,
-`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`, `Tests/TemplateBaselineTest.cs`, `Tests/ConfigSyncTest.cs`, `Tests/TeamColorsTest.cs`, `Tests/ApothecaryHealingTest.cs`, `Tests/LobbyMaxCountsTest.cs`, `Tests/EconomyTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
+`Tests/EntityProcessorTest.cs`, `Tests/CsvHelperTest.cs`, `Tests/TemplateBaselineTest.cs`, `Tests/ConfigSyncTest.cs`, `Tests/TeamColorsTest.cs`, `Tests/ApothecaryHealingTest.cs`, `Tests/LobbyMaxCountsTest.cs`, `Tests/EconomyTest.cs`, `Tests/GameActionGateTest.cs`. (The former `UnitTagRegistry` suite was deleted with the tag system.)
 
 ---
 

@@ -235,6 +235,7 @@
     <Compile Include="Tests\ConfigSyncTest.cs" />
     <Compile Include="Tests\TemplateBaselineTest.cs" />
     <Compile Include="Tests\EconomyTest.cs" />
+    <Compile Include="Tests\GameActionGateTest.cs" />
     <Compile Include="Tests\TeamColorsTest.cs" />
     <Compile Include="Tests\ApothecaryHealingTest.cs" />
     <Compile Include="Tests\LobbyMaxCountsTest.cs" />
@@ -264,6 +265,7 @@
     <Compile Include="Config\BepInEx\Systems\Handlers\RangedDamageMultiplierHandler.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\StructureDamageMultiplierHandler.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\UnitCapHandler.cs" />
+    <Compile Include="Config\BepInEx\Systems\Handlers\APISharedGameActionAdapter.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\MakeTroopRecruitHook.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\BuildingCapHandler.cs" />
     <Compile Include="Config\BepInEx\Systems\Handlers\StructureTypeDetector.cs" />

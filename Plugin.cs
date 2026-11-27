@@ -47,6 +47,9 @@ namespace CrusaderDETweaker
     // release DLLs (Mono.Cecil) found no other difference. BepInEx refuses to load us against an older SE and logs
     // "Could not load [Crusader DE Tweaker ...] because it has missing dependencies: 000shcdese (v2.14.0 or newer)".
     [BepInDependency(SHCDESE.BepInEx.Bootstrap.Plugin.PLUGIN_GUID, "2.14.0")]
+    // Soft dependency (2.11.12, GitLab #17): when Serpens66's APIShared is installed it loads first, so the recruit gate
+    // can register with its shared GameAction events (APISharedGameActionAdapter). Without it the mod works as before.
+    [BepInDependency("APIShared_Serp", BepInDependency.DependencyFlags.SoftDependency)]
     /// <summary>
     /// CRITICAL: Plugin GUID must match the folder name in BepInEx/plugins/
     /// 

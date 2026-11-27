@@ -47,6 +47,13 @@ namespace CrusaderDETweaker.Config.BepInEx
         /// </summary>
         internal static ConfigEntry<bool> DebugLogging { get; private set; }
 
+        /// <summary>
+        /// [Compatibility] GameActionHook (2.11.12, GitLab #17): which interception carries the recruit gate. Auto = APIShared's
+        /// shared GameAction events when an APIShared with that API is loaded, else the mod's own hook; Own = always the own hook.
+        /// Local (not host-synced): it changes how the gate is attached, not what it decides. Read once at launch.
+        /// </summary>
+        internal static ConfigEntry<string> GameActionHook { get; private set; }
+
         private static readonly IBepInExConfigSystem[] ConfigSystems = new IBepInExConfigSystem[]
         {
             new UnitMultipliersConfig(),
@@ -106,8 +113,18 @@ namespace CrusaderDETweaker.Config.BepInEx
                 false,
                 "Enable step-by-step debug logging for all event hooks.\n" +
                 "WARNING: Very high log volume during gameplay. Use only when diagnosing hook issues.\n" +
-                "Tip: Changes apply in real-time (no restart needed)."
+                "This file is read when the game starts: restart the game after editing it."
             );
+
+            GameActionHook = config.Bind(
+                "Compatibility",
+                "GameActionHook",
+                "Auto",
+                new ConfigDescription(
+                    "How the recruit limits (MaxCount, RequiresHorse) catch a recruit request.\n" +
+                    "Auto = through APIShared's shared GameAction events when APIShared (Serpens66) is installed with them, else the mod's own hook.\n" +
+                    "Own = always the mod's own hook (the behaviour before 2.11.12). Both decide the same way. Read at game start.",
+                    new AcceptableValueList<string>("Auto", "Own")));
 
             // PHASE 1: Initialize all systems (bind ConfigEntry properties)
             ConfigSystemInitializer.InitializeAll(ConfigSystems, config);
@@ -121,6 +138,9 @@ namespace CrusaderDETweaker.Config.BepInEx
             _wallCostConfig = ConfigSystems.OfType<WallCostConfig>().FirstOrDefault();
             _fireAndHealMultipliersConfig = ConfigSystems.OfType<FireAndHealMultipliersConfig>().FirstOrDefault();
             _configFile = config;
+
+            // The recruit gate's GameAction interception (own hook or APIShared), once the switch above is bound.
+            Systems.Handlers.MakeTroopRecruitHook.Activate(GameActionHook.Value);
         }
 
         // ------------------------------------------------------------------
