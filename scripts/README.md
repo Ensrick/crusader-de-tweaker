@@ -157,6 +157,7 @@ user's desktop, or a game MainWindowHandle, stops the run at once (runner check)
 the runner ends the game if it has not quit. Stops only the process tree it started.
 It also checks the economy settings (Stockpile cost, worker `GoodYieldMultiplier`, skirmish starting troops);
 `-Only economy` runs the menu / colour / speed-table checks and the economy stages only (a few minutes).
+`-Only recruit` runs the recruit gate stage only (2.11.12, GitLab #17) and launches the game twice, with CFG `[Compatibility] GameActionHook = Auto` and then `= Own`: each run checks which path carries the gate (APIShared's GameActionEvents registration and no own hook, or the own hook), a Knight recruit over MaxCount 5 (refused) and a Ctrl recruit (trimmed to the room left, reservation matching); the runner requires both runs' `OUTCOME` lines to be identical (`result-auto.txt`, `result-own.txt`, `LogOutput-auto.log`, `LogOutput-own.log`).
 `-Only engines` runs the siege engine range stage only (GitHub #5: first-shot distance of the five engines with the game's range, the 2.10.0 code and the fix, plus the Crossbowman EngageRange < AttackRange rungs; about 25 minutes).
 
 ### `check_game_running.ps1`

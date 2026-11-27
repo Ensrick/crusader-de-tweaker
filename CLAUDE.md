@@ -482,6 +482,7 @@ acceptance test: [docs/HOST_SYNC_TEST_PLAN.md](docs/HOST_SYNC_TEST_PLAN.md). Not
 | Engineer Speed while working (the Engineer code's speed constants, 2.11.3) | `Config/Toml/Units/Properties/EngineerSpeedPatch.cs` |
 | Recruit gate (MaxCount + RequiresHorse at recruit time): decision core + own GameAction hook | `Config/BepInEx/Systems/Handlers/MakeTroopRecruitHook.cs` |
 | Recruit gate on APIShared GameActionEvents (soft dependency, reflection only, capability check; CFG `[Compatibility] GameActionHook` Auto / Own, 2.11.12) | `Config/BepInEx/Systems/Handlers/APISharedGameActionAdapter.cs` |
+| In-game self-test recruit stage (`-Only recruit`, two launches: Auto then Own; path, over-cap refusal, Ctrl trim + reservation, identical outcomes) | `Tests/HeadlessSelfTest.Recruit.cs` |
 | In-game self-test engines stage: engine first-shot distance (game / 2.10.0 code / fix), Crossbowman EngageRange < AttackRange (`-Only engines`), idle engine EngageRange phases (`-Only engage`) | `Tests/HeadlessSelfTest.Engines.cs` |
 
 ---

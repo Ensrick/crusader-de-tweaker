@@ -18,6 +18,11 @@
     on its own with the game's ranges and with AttackRange / EngageRange set (GitHub #5 follow-up).
     -Only speed runs only the Engineer speed stage: Engineers created at Speed 8 and 1 and an Archer at Speed 8 walk
     10 tiles, their speed fields sampled every frame (Nexus report 2026-11-06; writes Engineer Speed 8 only in this mode).
+    -Only recruit runs only the recruit gate stage (2.11.12, GitLab #17), TWICE: CFG [Compatibility] GameActionHook =
+    Auto (APIShared's GameActionEvents when APIShared is installed), then = Own (the mod's own GameAction hook). Each run
+    checks its path, a Knight recruit over MaxCount 5 (refused) and a Ctrl recruit (trimmed to the room left, reservation
+    matching); the runner then requires both runs' OUTCOME lines to be identical. Results: result-auto.txt, result-own.txt,
+    LogOutput-auto.log, LogOutput-own.log.
     -Quick (development) runs only the unit limit / gameplay options stages (editor map, then a real custom skirmish).
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
@@ -44,7 +49,7 @@
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
     [int]$TimeoutSeconds = 5400,
-    [ValidateSet('', 'economy', 'pools', 'engines', 'engage', 'speed')][string]$Only = '',
+    [ValidateSet('', 'economy', 'pools', 'engines', 'engage', 'speed', 'recruit')][string]$Only = '',
     [switch]$Quick
 )
 $ErrorActionPreference = 'Stop'
@@ -56,6 +61,9 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 $unitSpeeds = [ordered]@{ 'CHIMP_TYPE_CATAPULT' = 8; 'CHIMP_TYPE_SIEGE_TOWER' = 1; 'CHIMP_TYPE_ARCHER' = 8 }
 # HeadlessSelfTest.EngineerSpeed; only with -Only speed (the engines stage crews its engines with Engineers).
 if ($Only -eq 'speed') { $unitSpeeds['CHIMP_TYPE_ENGINEER'] = 8 }
+# HeadlessSelfTest.Recruit (RecruitKnightCap); only with -Only recruit, which runs the game once per GameActionHook value.
+$recruitKnightCap = '5'
+$passes = if ($Only -eq 'recruit') { @('Auto', 'Own') } else { @('') }
 $teamColors = [ordered]@{ 'Red' = '[0, 255, 0]'; 'Blue' = '"#FF00FF"' }
 $xbowRanges = [ordered]@{ 'AttackRange' = 80; 'EngageRange' = 80 }   # Archer, tiles; the game's AttackRange is 54, engage distance 50
 $apothecaryHealing = [ordered]@{ 'HealPercent' = '10'; 'HealHitPoints' = '-1'; 'RadiusTiles' = '8'; 'IntervalTicks' = '50'; 'OutOfCombatTicks' = '200'; 'NeedsWorker' = 'false' }
@@ -133,6 +141,7 @@ if (Test-Path -LiteralPath $configDir) { Copy-Item -LiteralPath $configDir -Dest
 if (Test-Path -LiteralPath $bepLog) { Copy-Item -LiteralPath $bepLog -Destination (Join-Path $run 'LogOutput.before.log') }
 
 $owned = $null; $windowHits = 0; $privateWindows = @{}; $finalAt = $null; $endedAt = $null; $same = $false
+$passResults = @()
 $startedAt = Get-Date
 $oldApp = $env:SteamAppId; $oldGame = $env:SteamGameId
 try {
@@ -148,6 +157,7 @@ try {
     foreach ($k in $xbowRanges.Keys) { $units = Set-TomlKey $units '[CHIMP_TYPE_ARCHER]' $k ([string]$xbowRanges[$k]) }
     $units = Set-TomlKey $units '[CHIMP_TYPE_XBOWMAN]' 'EngageRange' '80'   # applied through the game constants; crashed with the Script Extender's hook (HeadlessSelfTest.GuardEngageRange)
     $units = Set-TomlKey $units '[CHIMP_TYPE_MACEMAN]' 'MaxCount' $macemanMaxCount
+    if ($Only -eq 'recruit') { $units = Set-TomlKey $units '[CHIMP_TYPE_KNIGHT]' 'MaxCount' $recruitKnightCap }
     foreach ($k in $goodYield.Keys) { $units = Set-TomlKey $units "[$k]" 'GoodYieldMultiplier' $goodYield[$k] }
     [IO.File]::WriteAllText($unitsPath, $units, $utf8)
     $globals = [IO.File]::ReadAllText($globalsPath)
@@ -176,7 +186,18 @@ try {
     # game or of a child it starts can reach the user's screen, and the whole tree ends with this script. Start-Process
     # -WindowStyle Hidden was not enough: a run started from a detached shell showed the window for about 25 s (2026-10-11).
     if (-not ('HiddenDesktopProcess' -as [type])) { Add-Type -Path (Join-Path $PSScriptRoot 'HiddenDesktopProcess.cs') }
-    $arguments = '-batchmode -nosound -silent-crashes -cdt-selftest "' + $result + '" -logFile "' + (Join-Path $run 'unity.log') + '"'
+    foreach ($pass in $passes) {
+    $suffix = if ($pass) { '-' + $pass.ToLowerInvariant() } else { '' }
+    $result = Join-Path $run "result$suffix.txt"
+    $passResults += @{ Pass = $pass; Path = $result }
+    $finalAt = $null
+    if ($pass) {
+        # [Compatibility] GameActionHook for this run (HeadlessSelfTest.Recruit reads it back from the bound CFG).
+        $cfg = Add-TomlSection ([IO.File]::ReadAllText($multipliersPath)) '[Compatibility]'
+        [IO.File]::WriteAllText($multipliersPath, (Set-TomlKey $cfg '[Compatibility]' 'GameActionHook' $pass), $utf8)
+        Write-Host "Run $($passResults.Count) of $($passes.Count): [Compatibility] GameActionHook = $pass"
+    }
+    $arguments = '-batchmode -nosound -silent-crashes -cdt-selftest "' + $result + '" -logFile "' + (Join-Path $run "unity$suffix.log") + '"'
     if ($Only) { $arguments += " -cdt-selftest-only $Only" }
     if ($Quick) { $arguments += ' -cdt-selftest-quick' }
     $env:SteamAppId = '3024040'; $env:SteamGameId = '3024040'
@@ -220,6 +241,12 @@ try {
     Write-Host "Game exited with code $($owned.ExitCode) after $([int]($endedAt - $launchAt).TotalSeconds) s"
     if (-not (Test-Path -LiteralPath $result)) { throw "The game exited (code $($owned.ExitCode)) without a result; see $run" }
     Get-Content -LiteralPath $result
+    if ($pass) {
+        $owned.Dispose(); $owned = $null
+        Start-Sleep -Milliseconds 500
+        if (Test-Path -LiteralPath $bepLog) { Copy-Item -LiteralPath $bepLog -Destination (Join-Path $run "LogOutput$suffix.log") }
+    }
+    }
 }
 finally {
     $env:SteamAppId = $oldApp; $env:SteamGameId = $oldGame
@@ -257,8 +284,21 @@ finally {
         "$(if ($windowHits -eq 0) { 'PASS' } else { 'FAIL' }) [runner] No game window on the user's desktop: window checks every 250 ms over the job's processes (EnumWindows) and the game's MainWindowHandle: $windowHits hits; windows the game created on its private desktop: $(if ($privateWindows.Count) { ($privateWindows.Keys | Sort-Object) -join '; ' } else { 'none' })",
         "$(if ($same) { 'PASS' } else { 'FAIL' }) [runner] CrusaderDETweaker configs back byte for byte: $($before.Count) files, SHA256 compared ($restored restored, $moved created files moved to the run folder)",
         "NOTE [runner] run $($startedAt.ToString('yyyy-MM-dd HH:mm:ss')) to $($endedAt.ToString('yyyy-MM-dd HH:mm:ss')); $seLine")
-    $driver = if (Test-Path -LiteralPath $result) { @(Get-Content -LiteralPath $result) } else { @('FAIL', 'FAIL the plugin wrote no result file') }
-    $overallOk = ($driver[0] -eq 'PASS') -and -not ($runnerLines | Where-Object { $_.StartsWith('FAIL') })
+    # One result per run (-Only recruit: one per GameActionHook value).
+    $driver = @(); $pluginOk = $passResults.Count -gt 0; $outcomes = @{}
+    foreach ($pr in $passResults) {
+        $lines = if (Test-Path -LiteralPath $pr.Path) { @(Get-Content -LiteralPath $pr.Path) } else { @('FAIL', 'FAIL the plugin wrote no result file') }
+        if ($lines[0] -ne 'PASS') { $pluginOk = $false }
+        $outcomes[$pr.Pass] = (@($lines | Where-Object { $_ -like 'OUTCOME *' }) -join ' | ')
+        if ($pr.Pass) { $driver += "--- run with [Compatibility] GameActionHook = $($pr.Pass) ---" }
+        $driver += $lines
+    }
+    if ($passResults.Count -eq 0) { $driver = @('FAIL', 'FAIL no run was started') }
+    if ($Only -eq 'recruit') {
+        $sameOutcome = ($passResults.Count -eq $passes.Count) -and $outcomes['Auto'] -and ($outcomes['Auto'] -eq $outcomes['Own'])
+        $runnerLines += "$(if ($sameOutcome) { 'PASS' } else { 'FAIL' }) [runner] GameActionHook Auto and Own give identical recruit outcomes: Auto '$($outcomes['Auto'])'; Own '$($outcomes['Own'])'"
+    }
+    $overallOk = $pluginOk -and -not ($runnerLines | Where-Object { $_.StartsWith('FAIL') })
     Set-Content -LiteralPath (Join-Path $run 'overall.txt') -Encoding utf8 -Value (@("OVERALL $(if ($overallOk) { 'PASS' } else { 'FAIL' })") + $runnerLines + @('', '--- plugin (result.txt) ---') + $driver)
     $runnerLines | ForEach-Object { Write-Host $_ }
 }
