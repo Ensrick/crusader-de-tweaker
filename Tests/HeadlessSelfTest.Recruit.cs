@@ -206,13 +206,30 @@ namespace CrusaderDETweaker.Tests
         private static bool OwnHookInstalled() =>
             typeof(MakeTroopRecruitHook).GetField("_hook", BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null) != null;
 
+        /// <summary>
+        /// The loaded APIShared assembly: the gate's lookup (BepInEx chainloader entry APIShared_Serp), with the plugin
+        /// instance compared as a plain object. By the time this stage runs SHCDE has removed the plugin components
+        /// (the 2.11.12 run selftest-20261127-132133 logged the frame driver but never "[Frame] Plugin.Update is
+        /// running"), and Unity's == reports a destroyed component as null although the object and its type remain;
+        /// the first version of this check failed on exactly that. Fallback: the loaded assembly named APIShared that
+        /// defines GameActionEvents.
+        /// </summary>
         private static Assembly APISharedAssembly(out string version)
         {
             version = "?";
-            if (global::BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(APISharedGameActionAdapter.APISharedGuid, out var info) && info?.Instance != null)
+            if (global::BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(APISharedGameActionAdapter.APISharedGuid, out var info) && info != null)
             {
                 version = info.Metadata?.Version?.ToString() ?? "?";
-                return info.Instance.GetType().Assembly;
+                object instance = info.Instance;   // reference check, not UnityEngine.Object's ==
+                if (instance != null) return instance.GetType().Assembly;
+            }
+            foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (asm.GetName().Name == "APIShared" && asm.GetType("APIShared.Commands.GameActionEvents", false) != null)
+                {
+                    if (version == "?") version = asm.GetName().Version?.ToString() ?? "?";
+                    return asm;
+                }
             }
             return null;
         }
