@@ -10,6 +10,7 @@
 // - Pre effects: refuse -> veto, trim -> StructureId, allowed -> untouched; nothing for other commands or a
 //   request another participant already vetoed
 // - Accepted: the reserved amount is the approved one unless another participant changed the request
+// - FindAPIShared's fallback picks exactly the assembly named APIShared that defines GameActionEvents (2.11.13)
 //
 // NOTE: pure logic with test doubles - no game API, no APIShared assembly, no reservation is made (the gate's
 // reservations are live state the real recruit buttons use). Runs on every launch via CoreTestRunner.
@@ -66,6 +67,7 @@ namespace CrusaderDETweaker.Tests
             Test_Pre_Effects();
             Test_Pre_PassThrough();
             Test_Accepted_ReserveAmount();
+            Test_FindAPIShared_Candidate();
 
             int totalTests = _passedCount + _failedCount;
             Plugin.Logger.LogInfo($"  GameActionGate: {_passedCount}/{totalTests} tests passed");
@@ -173,6 +175,17 @@ namespace CrusaderDETweaker.Tests
             catch { noState = false; }
             Check("Accepted_ReserveAmount", asLeft && trimmedLater && zeroIsOne && zeroAsLeft && noState,
                 $"asLeft={asLeft} trimmedLater={trimmedLater} zeroIsOne={zeroIsOne} zeroAsLeft={zeroAsLeft} noState={noState}");
+        }
+
+        // 2.11.13: the gate's fallback lookup takes exactly the assembly named APIShared that defines GameActionEvents.
+        private static void Test_FindAPIShared_Candidate()
+        {
+            bool match = APISharedGameActionAdapter.IsAPISharedCandidate("APIShared", typeof(object));
+            bool content = !APISharedGameActionAdapter.IsAPISharedCandidate("APIShared.Content", typeof(object));
+            bool noEvents = !APISharedGameActionAdapter.IsAPISharedCandidate("APIShared", null);
+            bool otherName = !APISharedGameActionAdapter.IsAPISharedCandidate("CrusaderDETweaker", typeof(object));
+            Check("FindAPIShared_Candidate", match && content && noEvents && otherName,
+                $"APIShared+events={match} APIShared.Content refused={content} without events refused={noEvents} other name refused={otherName}");
         }
 
         private static void Check(string name, bool condition, string detail)

@@ -116,6 +116,21 @@ The rules that constrain other code:
 
 ---
 
+## Plugin components are removed after startup (measured 2026-11-27)
+
+SHCDE removes the BepInEx plugin components (the `BaseUnityPlugin` MonoBehaviours) after startup. Measured in the
+windowless self-test run `selftest-20261127-132133` (2.11.12, batch mode, both launches): the log has
+`[Frame] Frame driver Update is running` but never `[Frame] Plugin.Update is running`, so `Plugin.Update` never ran
+(plan question FWP-C-06 / P1-02b, answered; a windowed launch is not measured). Consequences:
+- Never put per-frame work in `Plugin.Update`. Per-frame work runs from `Config/Core/FrameDriver.cs` (its own
+  DontDestroyOnLoad GameObject, 2.11.6); game-state work runs on SE `GameTimeManagerAPI.OnTick`.
+- A plugin instance from `Chainloader.PluginInfos[...].Instance` can be a destroyed component later on. Unity's `==`
+  then says null although the managed object and its type are still there: compare it as `object` (or look the
+  assembly up by name), as `APISharedGameActionAdapter.FindAPIShared` does since 2.11.13. Before, the self-test found
+  "APIShared not loaded" after startup although the gate had registered with it in Awake.
+
+---
+
 ## Common Mistakes
 
 | Mistake | Consequence |
@@ -130,6 +145,7 @@ The rules that constrain other code:
 | Use SE's `SetEngageRange` for EngageRange | Idle units still wake at 50 tiles and the Crossbowman / Heavy Camel crash (SE #195); use `EngageDistancePatch` (v2.9.1) |
 | Add a template writer without `TemplateBaseline.BeforeWrite` | Multiplayer host config sync can no longer revert or mirror that value exactly |
 | Write a config through `Paths.ConfigPath` instead of `ConfigPaths` | Bypasses the host-sync redirect; a client would read its own file during a synced match |
+| Put per-frame work in `Plugin.Update`, or test a chainloader plugin instance with `!= null` after startup | `Plugin.Update` never runs in SHCDE and the instance reads as null once removed (see above); use `FrameDriver` and an `object` comparison |
 
 ---
 
@@ -141,7 +157,7 @@ Before submitting changes:
 - [ ] Game loads plugin (check BepInEx console)
 - [ ] Initializer order check passes: `.\scripts\test_initialization_order.ps1`
 - [ ] Smoke launch passes: `.\scripts\launch_game.ps1`
-- [ ] On-load test suites pass — `LogOutput.log` shows `ALL 9 TEST SUITES PASSED`
+- [ ] On-load test suites pass: `LogOutput.log` shows `ALL 11 TEST SUITES PASSED`
 - [ ] TOML changes apply correctly
 - [ ] CSV values apply for cells >= 0 and are skipped at `-1`
 

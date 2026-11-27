@@ -119,17 +119,64 @@ namespace CrusaderDETweaker.Config.BepInEx.Systems.Handlers
             }
         }
 
-        /// <summary>The loaded APIShared plugin's assembly (BepInEx chainloader), or null.</summary>
-        private static Assembly FindAPIShared(out string version)
+        /// <summary>
+        /// The loaded APIShared assembly, or null. First the BepInEx chainloader entry APIShared_Serp, with its plugin
+        /// instance compared as a plain object: SHCDE removes the plugin components after startup, and Unity's == then
+        /// reports the destroyed component as null although the object, its type and its assembly remain (2.11.13; the
+        /// 2.11.12 self-test run selftest-20261127-132133 found it so after startup; the gate itself looks it up in Awake,
+        /// before that). Then any loaded assembly named APIShared that defines GameActionEvents.
+        /// </summary>
+        internal static Assembly FindAPIShared(out string version)
         {
-            version = "?";
-            if (global::BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(APISharedGuid, out var info) && info?.Instance != null)
+            Assembly fromChainloader = FromChainloader(out version);
+            if (fromChainloader != null) return fromChainloader;
+            foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
             {
-                version = info.Metadata?.Version?.ToString() ?? "?";
-                return info.Instance.GetType().Assembly;
+                Type events;
+                string name;
+                try
+                {
+                    name = asm.GetName().Name;
+                    events = name == APISharedAssemblyName ? asm.GetType(EventsTypeName, false) : null;
+                }
+                catch
+                {
+                    continue; // an assembly that cannot be inspected is not APIShared's
+                }
+                if (IsAPISharedCandidate(name, events))
+                {
+                    if (version == "?") version = asm.GetName().Version?.ToString() ?? "?";
+                    return asm;
+                }
             }
             return null;
         }
+
+        /// <summary>The chainloader entry's assembly (null when there is none or the chainloader cannot be read).</summary>
+        private static Assembly FromChainloader(out string version)
+        {
+            version = "?";
+            try
+            {
+                if (!global::BepInEx.Bootstrap.Chainloader.PluginInfos.TryGetValue(APISharedGuid, out var info) || info == null) return null;
+                version = info.Metadata?.Version?.ToString() ?? "?";
+                object instance = info.Instance;   // reference check, not UnityEngine.Object's ==
+                return instance?.GetType().Assembly;
+            }
+            catch
+            {
+                return null; // no usable chainloader (offline checks); the assembly fallback still applies
+            }
+        }
+
+        internal const string APISharedAssemblyName = "APIShared";
+
+        /// <summary>
+        /// Pure: an assembly counts as APIShared when its name is exactly "APIShared" (not APIShared.Content, which ships
+        /// beside it) and it defines GameActionEvents.
+        /// </summary>
+        internal static bool IsAPISharedCandidate(string assemblyName, Type eventsType) =>
+            string.Equals(assemblyName, APISharedAssemblyName, StringComparison.Ordinal) && eventsType != null;
 
         /// <summary>
         /// Capability check without registering: every type, the TryRegister overload and every member the gate uses.

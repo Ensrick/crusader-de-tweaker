@@ -1,10 +1,10 @@
-Version 2.11.12
+Version 2.11.13
 
 Updated for SHC DE v2.8.2 and Script Extender 2.14.0 or newer!
 
-[b]2.11.4 to 2.11.12: multiplayer fixes and APIShared (not yet tested in a two-PC match)[/b]
+[b]2.11.4 to 2.11.13: multiplayer fixes and APIShared (not yet tested in a two-PC match)[/b]
 [list]
-[*][b]Works with APIShared's shared recruit hook[/b] (2.11.12): with Serpens66's APIShared installed, the recruit limits (MaxCount, RequiresHorse) register on its shared GameAction events instead of a second hook on the same game command; without it, nothing changes. CFG [Compatibility] GameActionHook = Own keeps the old hook.
+[*][b]Works with APIShared's shared recruit hook[/b] (2.11.12): with Serpens66's APIShared installed, the recruit limits (MaxCount, RequiresHorse) register on its shared GameAction events instead of a second hook on the same game command; without it, nothing changes. CFG [Compatibility] GameActionHook = Own keeps the old hook. 2.11.13 makes the APIShared lookup reliable.
 [*][b]Everyone in a lobby needs the same Crusader DE Tweaker version[/b] (2.11.11): the Script Extender now refuses a player with another version or without the mod ("missing mods!").
 [*][b]Siege engine MaxCount[/b] (2.11.4): placing a siege tent (or a Mangonel / Ballista on a tower) over the cap is refused; in multiplayer a spawned engine is removed in every player's game, never in one only. Siege engines left the lobby MaxCount boxes until a two-PC test.
 [*][b]Auto Trade[/b] (2.11.5): -1 = keep what you set in the market (the new default; the old false / 0 / 0 default is converted); single player only.
