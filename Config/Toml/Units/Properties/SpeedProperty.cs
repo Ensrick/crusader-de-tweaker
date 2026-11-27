@@ -9,8 +9,11 @@
 //     ticks have passed: smaller = faster, 0 = fastest. The value is signed 16-bit with no table lookup,
 //     so values above 6 are safe; 6 is only the Script Extender's clamp in SetDefaultSpeed.
 //   - Siege engines (catapult, siege tower, ram, portable shield) use the table value; their update code
-//     only adjusts the speed bonus. Workers, animals, the lord, engineers and miners switch to hard-coded
-//     per-task speeds, so for them Speed only sets the starting value.
+//     only adjusts the speed bonus. Workers, animals, the lord and miners switch to hard-coded per-task
+//     speeds, so for them Speed only sets the starting value.
+//   - Engineers (2.11.3, Nexus report 2026-11-06): their update writes the constants 1 / 2 over the speed in
+//     r_AIState 0x65 / 0x7A and for the computer's AI role 10 (r_AITribeRole); EngineerSpeedPatch makes those Speed /
+//     Speed + 1 while the Engineer's Speed is not 1. Its TemplateBaseline restore puts the game's code back.
 // Values 0-6 go through SE's SetDefaultSpeed; 7..MaxSpeed through SE's own table object (its internal
 // _speedDefaultsArray), so SE's map-unload reset (ClearOverrides) still covers them.
 //
@@ -57,6 +60,31 @@ namespace CrusaderDETweaker.Config.Toml.Units.Properties
         }
 
         protected override void SetToAPI(eChimps unit, int value)
+        {
+            WriteTable(unit, value);
+            if (unit == eChimps.CHIMP_TYPE_ENGINEER)
+            {
+                try { EngineerSpeedPatch.Apply(value); }
+                catch (Exception ex) { Plugin.Logger.LogError($"[Set {Name}] {unit}: the Engineer's code could not be changed: {ex.GetType().Name} - {ex.Message}"); }
+            }
+        }
+
+        /// <summary>
+        /// Engineer: the restore also puts the game's Engineer code back (EngineerSpeedPatch), whatever the table held.
+        /// </summary>
+        protected override Action CaptureBaselineRestore(eChimps unit)
+        {
+            if (unit != eChimps.CHIMP_TYPE_ENGINEER) return base.CaptureBaselineRestore(unit);
+            if (!TryGetFromAPI(unit, out int original)) return null;
+            return () =>
+            {
+                WriteTable(unit, original);
+                EngineerSpeedPatch.Restore();
+            };
+        }
+
+        /// <summary>The speed table entry (units created afterwards start with it).</summary>
+        private void WriteTable(eChimps unit, int value)
         {
             // Use specialized handler for IndexOutOfRangeException
             try

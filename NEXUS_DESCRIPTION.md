@@ -13,6 +13,11 @@ Updated for SHC DE v2.8.2 and Script Extender 2.14.0 or newer!
 [*][b]Quieter and closer to the game[/b] (2.11.10): no log line per Demolisher / Sapper hit; with all structure multipliers at 1.0 building damage is the game's own; killing-pit Damage uses the Script Extender's value; the CFG file is read at game start (restart after editing it).
 [/list]
 
+[b]2.11.3: Engineer Speed is no longer replaced while Engineers work[/b]
+[list]
+[*][b]Fix: the Engineer's own code no longer replaces its Speed[/b] (Nexus report and GitHub #6: the computer's siege Engineers still ran ahead at the game's speed). Before, Speed only set the speed an Engineer was created with; the Engineer's own code then used the game's 1 (2 while carrying, and 2 for one AI role of the computer's Engineers). Now those use your Speed (Speed + 1 while carrying or in that AI role). Speed 1 or -1 leaves the game's code as it is.
+[/list]
+
 [b]2.11.2: EngageRange for the Ballista, Arabian Ballista and Mangonel[/b]
 [list]
 [*][b]EngageRange now sets how far these engines aim and shoot on their own[/b], at most their AttackRange (GitHub #5 follow-up). Fix: an EngageRange on the Arabian Ballista made it shoot from much closer (AttackRange 75 / EngageRange 75 shot at 45 tiles; now 75). New: the Mangonel has EngageRange too (AttackRange 67 / EngageRange 55: first shot at 55). The # Default: shows how far each aims on its own with the game's values: Ballista 85, Arabian Ballista 54, Mangonel 70.

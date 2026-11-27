@@ -16,6 +16,8 @@
     with the game range and a changed AttackRange) and the Crossbowman EngageRange < AttackRange rungs (GitHub #5).
     -Only engage runs only its idle phases: the distance at which a Ballista, Arabian Ballista or Mangonel starts shooting
     on its own with the game's ranges and with AttackRange / EngageRange set (GitHub #5 follow-up).
+    -Only speed runs only the Engineer speed stage: Engineers created at Speed 8 and 1 and an Archer at Speed 8 walk
+    10 tiles, their speed fields sampled every frame (Nexus report 2026-11-06; writes Engineer Speed 8 only in this mode).
     -Quick (development) runs only the unit limit / gameplay options stages (editor map, then a real custom skirmish).
 
     Config handling: the whole BepInEx\config\CrusaderDETweaker folder is copied into the run folder
@@ -42,7 +44,7 @@
 param(
     [string]$GamePath = "C:\Program Files (x86)\Steam\steamapps\common\Stronghold Crusader Definitive Edition",
     [int]$TimeoutSeconds = 5400,
-    [ValidateSet('', 'economy', 'pools', 'engines', 'engage')][string]$Only = '',
+    [ValidateSet('', 'economy', 'pools', 'engines', 'engage', 'speed')][string]$Only = '',
     [switch]$Quick
 )
 $ErrorActionPreference = 'Stop'
@@ -52,6 +54,8 @@ $utf8 = New-Object System.Text.UTF8Encoding($false)
 
 # Keep in sync with Tests/HeadlessSelfTest.cs.
 $unitSpeeds = [ordered]@{ 'CHIMP_TYPE_CATAPULT' = 8; 'CHIMP_TYPE_SIEGE_TOWER' = 1; 'CHIMP_TYPE_ARCHER' = 8 }
+# HeadlessSelfTest.EngineerSpeed; only with -Only speed (the engines stage crews its engines with Engineers).
+if ($Only -eq 'speed') { $unitSpeeds['CHIMP_TYPE_ENGINEER'] = 8 }
 $teamColors = [ordered]@{ 'Red' = '[0, 255, 0]'; 'Blue' = '"#FF00FF"' }
 $xbowRanges = [ordered]@{ 'AttackRange' = 80; 'EngageRange' = 80 }   # Archer, tiles; the game's AttackRange is 54, engage distance 50
 $apothecaryHealing = [ordered]@{ 'HealPercent' = '10'; 'HealHitPoints' = '-1'; 'RadiusTiles' = '8'; 'IntervalTicks' = '50'; 'OutOfCombatTicks' = '200'; 'NeedsWorker' = 'false' }

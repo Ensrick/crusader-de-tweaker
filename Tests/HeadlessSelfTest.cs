@@ -39,6 +39,8 @@
 //   5b. Siege engines (Tests/HeadlessSelfTest.Engines.cs, GitHub #5): first-shot distance of the five engines with the
 //      game range, a raised AttackRange (2.10.0 code and EngineRangePatch) and a lowered Catapult one; then a Crossbowman
 //      with EngageRange below AttackRange. "-cdt-selftest-only engines" (test_headless.ps1 -Only engines) runs only this.
+//   5c. Engineer walk speed (Tests/HeadlessSelfTest.EngineerSpeed.cs, Nexus report 2026-11-06): runs only with
+//      "-cdt-selftest-only speed" (test_headless.ps1 -Only speed).
 //   6. Economy (Tests/HeadlessSelfTest.Economy.cs): Stockpile build cost, worker GoodYieldMultiplier, skirmish
 //      starting troops, then a REAL custom skirmish (and a control) started through the game's skirmish restart path,
 //      last in the run. "-cdt-selftest-only economy" (test_headless.ps1 -Only economy) runs steps 1, 2 and 6 only.
@@ -259,6 +261,14 @@ namespace CrusaderDETweaker.Tests
 
                 lock (_engineLock)
                 {
+                    if (_stage == EngineerSpeedStage)
+                    {
+                        KeepSimRunning();
+                        _next = now;   // sample the walkers' speed fields every frame
+                        if (SimStalled(now)) return;
+                        if (EngineerSpeedTick()) { ReportEngineerSpeed(); Finish(); }
+                        return;
+                    }
                     if (_stage >= PoolsStage)
                     {
                         KeepSimRunning();
@@ -274,6 +284,7 @@ namespace CrusaderDETweaker.Tests
                         if (!vm.IsMapEditorMode || !global::Director.instance.SimRunning) return;
                         if (_only == "pools") { StartPools(now); return; }   // building limit + sprite pool only (HeadlessSelfTest.Pools.cs)
                         if (_only == "engines" || _only == "engage") { StartEngines(now); return; }   // siege engine ranges only (HeadlessSelfTest.Engines.cs)
+                        if (_only == "speed") { StartEngineerSpeed(now); return; }   // Engineer walk speed only (HeadlessSelfTest.EngineerSpeed.cs)
                         _stage = LimitsStage; _deadline = now + 900;   // unit limit + gameplay options first (HeadlessSelfTestLimits.cs)
                         return;
                     }
